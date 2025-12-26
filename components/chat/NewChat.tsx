@@ -10,6 +10,14 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
 import { Checkbox } from "@/components/ui/checkbox"; // <-- Make sure to install this
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 import { useContactsList } from "@/hooks/useContacts";
 import { Avatar } from "@/components/ui/avatar";
 import { v4 as uuidv4 } from "uuid";
@@ -36,6 +44,8 @@ export function NewChat({ userId }: { userId: string }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedContacts, setSelectedContacts] = useState<string[]>([]);
   const [isCreating, setIsCreating] = useState(false);
+  const [showGroupNameModal, setShowGroupNameModal] = useState(false);
+  const [groupName, setGroupName] = useState("");
   const router = useRouter();
   const { conversations } = useConversationsStore();
   const { contacts, fetchContactsList } = useContactsList(userId, {
@@ -105,7 +115,11 @@ export function NewChat({ userId }: { userId: string }) {
       });
 
       if (response.status && response.data) {
-        toast.success("Conversation created");
+        if (response.message === "Conversation already exists") {
+          toast.info("Redirecting to existing conversation");
+        } else {
+          toast.success("Conversation created");
+        }
         router.push(`/conversation/${response.data.id}`);
       } else {
         toast.error("Failed to create conversation");
@@ -126,9 +140,17 @@ export function NewChat({ userId }: { userId: string }) {
     );
   };
 
-  const handleCreateGroup = async () => {
+  const handleOpenGroupNameModal = () => {
     if (selectedContacts.length === 0) {
       toast.error("Please select at least one contact");
+      return;
+    }
+    setShowGroupNameModal(true);
+  };
+
+  const handleCreateGroup = async () => {
+    if (!groupName.trim()) {
+      toast.error("Please enter a group name");
       return;
     }
 
@@ -137,7 +159,7 @@ export function NewChat({ userId }: { userId: string }) {
       const tenantId = Cookies.get("tenant_id") || dummyUser.tenant_id;
 
       const response = await createConversation({
-        name: "New Group", // Default name, can be changed later
+        name: groupName,
         user_id: userId,
         tenant_id: tenantId,
         is_group: true,
@@ -145,7 +167,14 @@ export function NewChat({ userId }: { userId: string }) {
       });
 
       if (response.status && response.data) {
-        toast.success("Group created");
+        if (response.message === "Conversation already exists") {
+          toast.info("Redirecting to existing group");
+        } else {
+          toast.success("Group created");
+        }
+        setShowGroupNameModal(false);
+        setGroupName("");
+        setSelectedContacts([]);
         router.push(`/conversation/${response.data.id}`);
       } else {
         toast.error("Failed to create group");
@@ -223,16 +252,63 @@ export function NewChat({ userId }: { userId: string }) {
           <div className="p-2 mt-2">
             <Button
               className="w-full bg-green-600 hover:bg-green-700"
-              onClick={handleCreateGroup}
+              onClick={handleOpenGroupNameModal}
               disabled={isCreating}
             >
-              {isCreating
-                ? "Creating..."
-                : `Create Group (${selectedContacts.length})`}
+              {`Next (${selectedContacts.length})`}
               <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </div>
         )}
+
+        {/* Group Name Modal */}
+        <Dialog open={showGroupNameModal} onOpenChange={setShowGroupNameModal}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Create Group</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="group-name">Group Name</Label>
+                <Input
+                  id="group-name"
+                  placeholder="Enter group name..."
+                  value={groupName}
+                  onChange={(e) => setGroupName(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" && !isCreating) {
+                      handleCreateGroup();
+                    }
+                  }}
+                  autoFocus
+                />
+              </div>
+              <div className="text-sm text-gray-500">
+                {selectedContacts.length} participant
+                {selectedContacts.length > 1 ? "s" : ""} selected
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowGroupNameModal(false);
+                  setGroupName("");
+                }}
+                disabled={isCreating}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleCreateGroup}
+                disabled={isCreating || !groupName.trim()}
+                className="bg-green-600 hover:bg-green-700"
+              >
+                {isCreating ? "Creating..." : "Create Group"}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     );
   }
