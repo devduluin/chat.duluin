@@ -1,91 +1,41 @@
 "use client";
 
-import { useEffect } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Card } from "@/components/ui/card";
-import { LayoutDashboard, Mail, Eye, EyeOff, ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { LayoutDashboard, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
-import { useAppCookies } from "@/hooks/useAppCookies";
 import { useRouter } from "next/navigation";
-import { useAccountStore } from "@/store/useAccountStore";
-import {
-  validateEmailAccount,
-  validationToken,
-  loginService,
-} from "@/services/loginService";
 import { showError, showSuccess } from "@utils/alertHelper";
-import { Avatar } from "@/components/ui/avatar";
-import { useLoginStore } from "@/store/useLoginStore";
 
-export function LoginForm() {
+export function RegisterForm() {
+  const [step, setStep] = useState<"email" | "details">("email");
+  const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  // const [email, setEmail] = useState("");
-  const { email, setEmail } = useLoginStore();
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
-  const [step, setStep] = useState<"email" | "password">("email");
 
-  const { appToken, setAppToken } = useAppCookies();
-  const { data, setData, clearData } = useAccountStore();
-  const [isValidating, setIsValidating] = useState(true);
   const Router = useRouter();
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    const valid = re.test(email);
-    return valid;
-  };
-
-  const submitEmail = async (emailToSubmit: string) => {
-    if (emailToSubmit && validateEmail(emailToSubmit)) {
-      setIsLoadingEmail(true);
-      try {
-        const result = await validateEmailAccount(emailToSubmit);
-        if (result?.success) {
-          setName(result.data?.name);
-          setStep("password");
-        } else {
-          showError("Your email is not registered!");
-          setEmail("");
-        }
-      } catch (error) {
-        showError("Login failed!");
-      } finally {
-        setIsLoadingEmail(false);
-      }
-    }
+    return re.test(email);
   };
 
   const handleEmailSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    await submitEmail(email);
-  };
-
-  const handlePasswordSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    try {
-      const result = await loginService(email, password);
-      if (result?.result) {
-        setAppToken(result.result?.token);
-        // Set user data immediately if available
-        if (result.result.user) {
-          Router.push("/forms");
-        }
-        // Redirect immediately without timeout
-        setIsLoading(false);
-      } else {
-        showError(result?.message);
-        setIsLoading(false);
-      }
-    } catch (error) {
-      showError("Login failed!");
-      setIsLoading(false);
+    if (email && validateEmail(email)) {
+      setIsLoadingEmail(true);
+      // Simulate API call to check if email exists
+      setTimeout(() => {
+        setIsLoadingEmail(false);
+        setStep("details");
+      }, 500);
     }
   };
 
@@ -93,64 +43,38 @@ export function LoginForm() {
     setStep("email");
   };
 
-  useEffect(() => {
-    const validate = async () => {
-      if (!appToken) {
-        clearData();
-        setIsValidating(false);
-        return;
-      }
+  const handleRegisterSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
 
-      try {
-        const result = await validationToken(appToken);
-
-        if (result?.success) {
-          const user = result.user ?? {};
-          const role = result.user.roles?.[0]?.name ?? "pro"; // fallback if roles missing
-          setData({
-            companyId: user.secondary_id ?? user.id,
-            accountType: role === "Basic" ? "Basic" : "pro",
-            formQuota: role === "Basic" ? 4 : 5,
-            ...user,
-          });
-          showSuccess(`Welcome back, ${user?.name || "User"}!`);
-          Router.push(`/forms`);
-        } else if (result.status === 301) {
-          clearData();
-          if (
-            result?.data?.allowed_register === true &&
-            typeof window !== "undefined"
-          ) {
-            Router.push(`/auth/connect`);
-          }
-        }
-      } catch (error: any) {
-        showError("Session expired or invalid token!");
-      } finally {
-        setIsValidating(false);
-      }
-    };
-
-    if (appToken) {
-      validate();
-    } else {
-      setIsValidating(false);
+    if (password !== confirmPassword) {
+      showError("Passwords do not match!");
+      return;
     }
-  }, [appToken, clearData, setData, Router]);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("hasRedirected");
+    if (password.length < 8) {
+      showError("Password must be at least 8 characters long!");
+      return;
     }
-  }, []);
 
-  useEffect(() => {
-    if (data) {
-      Router.push("/");
+    setIsLoading(true);
+    try {
+      // TODO: Implement your registration API call here
+      // const result = await registerService(name, email, password);
+
+      // Simulate API call
+      setTimeout(() => {
+        showSuccess("Account created successfully!");
+        Router.push("/auth/signin");
+        setIsLoading(false);
+      }, 1000);
+    } catch (error) {
+      showError("Registration failed!");
+      setIsLoading(false);
     }
-  }, [data]);
+  };
 
-  const handleGoogleLogin = () => {
+  const handleGoogleSignUp = () => {
+    // TODO: Implement Google OAuth
     Router.push("/auth/google");
   };
 
@@ -192,7 +116,7 @@ export function LoginForm() {
           </div>
 
           {/* Back Button */}
-          {step === "password" && (
+          {step === "details" && (
             <button
               type="button"
               onClick={handleBack}
@@ -207,12 +131,12 @@ export function LoginForm() {
             {/* Header */}
             <div className="space-y-2">
               <h2 className="text-3xl font-bold text-gray-900">
-                {step === "email" ? "Sign In" : "Enter Password"}
+                {step === "email" ? "Sign Up" : "Create Your Account"}
               </h2>
               <p className="text-gray-600">
                 {step === "email"
-                  ? "Enter your email to continue"
-                  : `Continue with ${email}`}
+                  ? "Enter your email to get started"
+                  : `Complete your profile for ${email}`}
               </p>
             </div>
 
@@ -258,7 +182,7 @@ export function LoginForm() {
                   type="button"
                   variant="outline"
                   className="w-full h-11 gap-2 border-gray-300 hover:bg-gray-50"
-                  onClick={handleGoogleLogin}
+                  onClick={handleGoogleSignUp}
                 >
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -287,18 +211,25 @@ export function LoginForm() {
               </form>
             )}
 
-            {/* Password Step */}
-            {step === "password" && (
-              <form onSubmit={handlePasswordSubmit} className="space-y-6">
-                {/* User Card */}
-                <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                  <Avatar className="h-12 w-12 bg-blue-100 text-blue-600 flex items-center justify-center font-semibold">
-                    {name?.charAt(0)?.toUpperCase()}
-                  </Avatar>
-                  <div>
-                    <p className="font-medium text-gray-900">{name}</p>
-                    <p className="text-sm text-gray-600">{email}</p>
-                  </div>
+            {/* Details Step */}
+            {step === "details" && (
+              <form onSubmit={handleRegisterSubmit} className="space-y-4">
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="name"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Full Name
+                  </Label>
+                  <Input
+                    id="name"
+                    type="text"
+                    placeholder="John Doe"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-11 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    required
+                  />
                 </div>
 
                 <div className="space-y-2">
@@ -312,7 +243,7 @@ export function LoginForm() {
                     <Input
                       id="password"
                       type={showPassword ? "text" : "password"}
-                      placeholder="Enter your password"
+                      placeholder="At least 8 characters"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       required
@@ -330,13 +261,38 @@ export function LoginForm() {
                       )}
                     </button>
                   </div>
-                  <div className="text-right">
-                    <a
-                      href="#forgot-password"
-                      className="text-sm text-blue-600 hover:underline"
+                </div>
+
+                <div className="space-y-2">
+                  <Label
+                    htmlFor="confirmPassword"
+                    className="text-sm font-medium text-gray-700"
+                  >
+                    Confirm Password
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="confirmPassword"
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="Re-enter your password"
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
+                      className="h-11 pr-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                    />
+                    <button
+                      type="button"
+                      className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      onClick={() =>
+                        setShowConfirmPassword(!showConfirmPassword)
+                      }
                     >
-                      Forgot password?
-                    </a>
+                      {showConfirmPassword ? (
+                        <EyeOff className="h-5 w-5" />
+                      ) : (
+                        <Eye className="h-5 w-5" />
+                      )}
+                    </button>
                   </div>
                 </div>
 
@@ -346,19 +302,19 @@ export function LoginForm() {
                   className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium"
                   disabled={isLoading}
                 >
-                  {isLoading ? "Signing in..." : "Sign In"}
+                  {isLoading ? "Creating account..." : "Sign Up"}
                 </Button>
               </form>
             )}
 
             {/* Footer */}
             <div className="text-center text-sm text-gray-600 pt-6">
-              Don't have an account?{" "}
+              Already have an account?{" "}
               <a
-                href="/auth/signup"
+                href="/auth/signin"
                 className="text-blue-600 hover:underline font-medium"
               >
-                Sign up
+                Sign in
               </a>
             </div>
           </div>

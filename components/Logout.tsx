@@ -1,17 +1,18 @@
 "use client";
-import { useAuthStore } from "../store/useAuthStore";
+import { useRouter } from "next/navigation";
 
 export default function Logout() {
-  const clearAuth = useAuthStore((state) => state.clearAuth);
+  const router = useRouter();
 
   const handleLogout = () => {
-    document.cookie = "authToken=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=" + window.location.hostname;
-    clearAuth(); // Clear Zustand store
-    window.location.href = "/auth/login";
+    router.push("/auth/logout");
   };
 
   return (
-    <button onClick={handleLogout} className="p-2 bg-red-500 text-white rounded">
+    <button
+      onClick={handleLogout}
+      className="p-2 bg-red-500 text-white rounded hover:bg-red-600 transition-colors"
+    >
       Logout
     </button>
   );
