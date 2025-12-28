@@ -8,10 +8,8 @@ export const metadata = {
 
 export default function SignUpPage() {
   return (
-    <div className="flex min-h-screen bg-white">
-      <Suspense fallback={<div></div>}>
-        <RegisterForm />
-      </Suspense>
-    </div>
+    <Suspense fallback={<div></div>}>
+      <RegisterForm />
+    </Suspense>
   );
 }
