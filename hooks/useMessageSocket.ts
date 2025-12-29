@@ -14,7 +14,7 @@ export function useMessageSocket(conversationId: string, userId: string) {
 
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessageStatus = useChatStore((s) => s.updateMessageStatus);
-  const setLastMessage = useConversationsStore((s) => s.setMessage);
+  // Note: setLastMessage removed - Global WebSocket handles conversation list updates
 
   const connectWebSocket = useCallback(() => {
     // ✅ Prevent duplicate connection attempts
@@ -69,7 +69,8 @@ export function useMessageSocket(conversationId: string, userId: string) {
 
             if (msg.conversation_id === conversationId) {
               addMessage(conversationId, { ...msg, status: "sent" });
-              setLastMessage(conversationId, msg, userId);
+              // Note: Don't update conversation list here - Global WebSocket handles that
+              // This prevents double-incrementing unread counter
             }
           }
         } catch (err) {
@@ -130,7 +131,7 @@ export function useMessageSocket(conversationId: string, userId: string) {
         }
       }
     }
-  }, [conversationId, userId, addMessage, updateMessageStatus, setLastMessage]);
+  }, [conversationId, userId, addMessage, updateMessageStatus]);
 
   useEffect(() => {
     isMounted.current = true;
