@@ -11,6 +11,14 @@ export const useChatStore = createWithEqualityFn<ChatStore>()(
       members: {},
       addMessage: (conversationId, msg) => {
         const convMsgs = get().messages[conversationId] || [];
+
+        // Check if message already exists by ID to prevent duplicates
+        const messageExists = convMsgs.some((m) => m.id === msg.id);
+        if (messageExists) {
+          console.log("Message already exists, skipping:", msg.id);
+          return;
+        }
+
         set({
           messages: {
             ...get().messages,
@@ -57,7 +65,7 @@ export const useChatStore = createWithEqualityFn<ChatStore>()(
           },
         });
       },
-      
+
       updateMessageStatus: (id, conversationId, status) => {
         const updated = (get().messages[conversationId] || []).map((m) =>
           m.id === id ? { ...m, status } : m
@@ -84,11 +92,11 @@ export const useChatStore = createWithEqualityFn<ChatStore>()(
     }),
     {
       name: "chat-storage",
-      partialize: (state) => ({ 
+      partialize: (state) => ({
         messages: state.messages,
         conversations: state.conversations, // Persist conversations as well
         members: state.members, // Persist members
-       }), // Persist only messages
+      }), // Persist only messages
     }
   ),
   shallow

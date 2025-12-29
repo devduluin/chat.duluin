@@ -1,27 +1,33 @@
 // components/chat/Sidebar.tsx
-"use client"
+"use client";
 
-import { useState } from 'react'
-import { ConversationList } from './ConversationList'
-import { ContactList } from '@/components/chat/ContactList'
-import { SearchBar } from '../ui/searchBar'
-import { UserProfile } from '../ui/userProfile'
-import { Button } from '../ui/button'
-import { MessageSquare, Users, Plus, PenBoxIcon, UserPlus } from 'lucide-react'
-import { NewChat } from './NewChat'
-import { NewContact } from './NewContact' // New component for contact creation
+import { useState } from "react";
+import { ConversationList } from "./ConversationList";
+import { ContactList } from "@/components/chat/ContactList";
+import { SearchBar } from "../ui/searchBar";
+import { UserProfile } from "../ui/userProfile";
+import { Button } from "../ui/button";
+import { MessageSquare, Users, Plus, PenBoxIcon, UserPlus } from "lucide-react";
+import { NewChat } from "./NewChat";
+import { NewContact } from "./NewContact"; // New component for contact creation
 
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuTrigger,
-} from '../ui/dropdown-menu'
-import { cn } from '@/lib/utils'
+} from "../ui/dropdown-menu";
+import { cn } from "@/lib/utils";
+import { useAccountStore } from "@/store/useAccountStore";
+import { useGlobalMessageSocket } from "@/hooks/useGlobalMessageSocket";
 
 export function Sidebar() {
-  const [activeTab, setActiveTab] = useState<'chats' | 'contacts'>('chats')
-  const userId = "02a7eb2c-3c71-4c7f-8dc8-716ddbd3f24f";
+  const [activeTab, setActiveTab] = useState<"chats" | "contacts">("chats");
+  const { data: account } = useAccountStore();
+  const userId = account?.id || "";
   const [showNewContact, setShowNewContact] = useState(false);
+
+  // Connect to global WebSocket for real-time message notifications
+  useGlobalMessageSocket(userId);
 
   return (
     <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col relative">
@@ -29,7 +35,9 @@ export function Sidebar() {
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4">
           <div className="flex items-center gap-2 text-gray-800 dark:text-white">
-            <div className={`p-2.5 rounded-xl bg-gradient-to-r from-green-500 to-green-700 text-white mr-2 shadow-sm`}>
+            <div
+              className={`p-2.5 rounded-xl bg-gradient-to-r from-green-500 to-green-700 text-white mr-2 shadow-sm`}
+            >
               <MessageSquare className="w-4 h-4 text-white" />
             </div>
             <h1 className="text-xl font-bold">Team Chat</h1>
@@ -57,10 +65,11 @@ export function Sidebar() {
           <Button
             variant="ghost"
             className={cn(
-              'flex-1 justify-center text-sm font-medium rounded-md',
-              activeTab === 'chats' && 'bg-white dark:bg-gray-700 text-blue-600 dark:text-white'
+              "flex-1 justify-center text-sm font-medium rounded-md",
+              activeTab === "chats" &&
+                "bg-white dark:bg-gray-700 text-blue-600 dark:text-white"
             )}
-            onClick={() => setActiveTab('chats')}
+            onClick={() => setActiveTab("chats")}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
             Chats
@@ -68,10 +77,11 @@ export function Sidebar() {
           <Button
             variant="ghost"
             className={cn(
-              'flex-1 justify-center text-sm font-medium rounded-md',
-              activeTab === 'contacts' && 'bg-white dark:bg-gray-700 text-blue-600 dark:text-white'
+              "flex-1 justify-center text-sm font-medium rounded-md",
+              activeTab === "contacts" &&
+                "bg-white dark:bg-gray-700 text-blue-600 dark:text-white"
             )}
-            onClick={() => setActiveTab('contacts')}
+            onClick={() => setActiveTab("contacts")}
           >
             <Users className="h-4 w-4 mr-2" />
             Contacts
@@ -81,7 +91,11 @@ export function Sidebar() {
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
-        {activeTab === 'chats' ? <ConversationList userId={userId} /> : <ContactList userId={userId} />}
+        {activeTab === "chats" ? (
+          <ConversationList userId={userId} />
+        ) : (
+          <ContactList userId={userId} />
+        )}
       </div>
 
       {/* Footer: User Profile */}
@@ -89,7 +103,7 @@ export function Sidebar() {
 
       {/* Floating Action Button */}
       <div className="absolute bottom-20 right-4">
-        {activeTab === 'chats' ? (
+        {activeTab === "chats" ? (
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button
@@ -115,11 +129,11 @@ export function Sidebar() {
       </div>
 
       {/* New Contact Dialog */}
-      <NewContact 
+      <NewContact
         open={showNewContact}
         onOpenChange={setShowNewContact}
         userId={userId}
       />
     </div>
-  )
+  );
 }

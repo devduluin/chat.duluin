@@ -1,21 +1,26 @@
 // hooks/useMessages.ts
 import { useEffect, useState } from "react";
 import { useChatStore } from "@/store/useChatStore";
-import { shallow } from 'zustand/shallow';
+import { shallow } from "zustand/shallow";
 
-const selectChatMessages = (conversationId: string) => 
-  (state: ChatStore) => state.messages[conversationId] || [];
+const selectChatMessages = (conversationId: string) => (state: ChatStore) =>
+  state.messages[conversationId] || [];
 
-const selectConversation = (conversationId: string) =>
-  (state: ChatStore) => state.conversations[conversationId] || [];
+const selectConversation = (conversationId: string) => (state: ChatStore) =>
+  state.conversations[conversationId] || [];
 
 export function useMessages(conversationId: string, userId: string) {
   const messages = useChatStore(selectChatMessages(conversationId), shallow);
-  const conversations = useChatStore(selectConversation(conversationId), shallow);
+  const conversations = useChatStore(
+    selectConversation(conversationId),
+    shallow
+  );
   const setMessages = useChatStore((s) => s.setMessages);
   const setConversation = useChatStore((s) => s.setConversation);
   const setMembers = useChatStore((s) => s.setMembers);
-  const updateMessageReadStatus = useChatStore((s) => s.updateMessageReadStatus);
+  const updateMessageReadStatus = useChatStore(
+    (s) => s.updateMessageReadStatus
+  );
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -26,17 +31,27 @@ export function useMessages(conversationId: string, userId: string) {
           `http://localhost:3000/api/v1/conversations/${conversationId}?user_id=${userId}`
         );
         // if (!res.ok) throw new Error("Failed to fetch messages");
-        
+
         const json = await res.json();
         const apiMessages = json?.data?.Messages as Message[];
         const apiConversation = json?.data?.Conversation as Conversation;
         const apiMembers = json?.data?.Members as Member[];
+        const displayName = json?.data?.display_name;
+        const displayAvatar = json?.data?.display_avatar;
 
-        if (Array.isArray(apiMessages) && apiMessages.every((msg) => typeof msg.id === "string")) {
+        if (
+          Array.isArray(apiMessages) &&
+          apiMessages.every((msg) => typeof msg.id === "string")
+        ) {
           setMessages(conversationId, apiMessages);
-          setConversation(conversationId, apiConversation);
+          // Store conversation with display_name and display_avatar
+          setConversation(conversationId, {
+            ...apiConversation,
+            display_name: displayName,
+            display_avatar: displayAvatar,
+          } as any);
           setMembers(conversationId, apiMembers);
-          
+
           // Update read status for messages not sent by the current user
           apiMessages.forEach((msg) => {
             if (msg.sender_id !== userId && !msg.read_at && msg.id) {

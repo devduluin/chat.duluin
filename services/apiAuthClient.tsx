@@ -3,9 +3,9 @@ import { useAuthStore } from "@/store/useAuthStore";
 
 const apiAuth = axios.create({
   baseURL: process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost/api",
-  headers: { 
+  headers: {
     "Content-Type": "application/json",
-   },
+  },
 });
 
 // 🔹 Request Interceptor: Attach Authorization Token
@@ -33,9 +33,22 @@ apiAuth.interceptors.response.use(
     const status = error?.response?.status;
     if (status === 401 || status === 403) {
       if (typeof window !== "undefined") {
-        console.log("window.location.href", window.location.pathname)
-        if (window.location.pathname !== "/" && !window.location.pathname.startsWith("/auth/")) {
-          window.location.href = "/";
+        // Clear authentication state
+        const { clearAuth } = useAuthStore.getState();
+        clearAuth();
+
+        // Clear cookies and storage
+        document.cookie =
+          "app_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        localStorage.removeItem("auth-storage");
+        localStorage.removeItem("account-store");
+
+        console.log("Session expired, redirecting to login");
+        if (
+          window.location.pathname !== "/" &&
+          !window.location.pathname.startsWith("/auth/")
+        ) {
+          window.location.href = "/auth/login";
         }
       }
     }

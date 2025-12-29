@@ -26,26 +26,37 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
-  const conversation = useChatStore((state) => state.conversations[conversationId]);
+  const conversation = useChatStore(
+    (state) => state.conversations[conversationId]
+  );
   const members = useChatStore((state) => state.members[conversationId]);
+  const messages = useChatStore((state) => state.messages[conversationId]);
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
+
+  // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
+  // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
+  // Untuk group chat: display_name = conversation.name
+  const displayName =
+    (conversation as any)?.display_name || conversation?.name || "Chat";
+  const displayAvatar =
+    (conversation as any)?.display_avatar || conversation?.avatar_url;
   // const members = conversation?.members;
 
   const handleArchiveChat = () => {
-    toast("Chat archived",{
+    toast("Chat archived", {
       description: "This conversation has been archived",
     });
   };
 
   const handleDeleteChat = () => {
-    toast("Chat deleted",{
-      description: "This conversation has been deleted"
+    toast("Chat deleted", {
+      description: "This conversation has been deleted",
     });
   };
 
   const handleAddMembers = (contacts: any[]) => {
-    toast("Members added",{
+    toast("Members added", {
       description: `${contacts.length} members added to the group`,
     });
     setShowAddMembers(false);
@@ -54,7 +65,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
       {/* If there is a members undefined */}
-      {members === undefined &&(
+      {members === undefined && (
         <div className="flex items-center space-x-4">
           <Link href="/">
             <Button variant="ghost" size="icon">
@@ -80,8 +91,12 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
           members={members}
           onGroupNameUpdate={(newGroupName) => {
             // Update the conversation name in the store
-            useChatStore.getState().updateConversation(conversation.id, { name: newGroupName });
-            useConversationsStore.getState().updateConversation(conversation.id, { name: newGroupName });
+            useChatStore
+              .getState()
+              .updateConversation(conversation.id, { name: newGroupName });
+            useConversationsStore
+              .getState()
+              .updateConversation(conversation.id, { name: newGroupName });
           }}
         />
       )}
@@ -108,18 +123,14 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
               onClick={() => setShowContactInfo(true)}
               className="flex items-center space-x-3"
             >
-              <Avatar
-                src={conversation.avatar_url || ""}
-                name={conversation.name || "Chat"}
-                size="md"
-              />
+              <Avatar src={displayAvatar || ""} name={displayName} size="md" />
               <div className="text-left">
                 <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {conversation.name || "Loading..."}
+                  {displayName}
                 </h2>
                 <p className="text-xs text-gray-500 dark:text-gray-400">
                   {conversation.is_group
-                    ? `${(members?.length ?? 0)} members`
+                    ? `${members?.length ?? 0} members`
                     : "Online"}
                 </p>
               </div>

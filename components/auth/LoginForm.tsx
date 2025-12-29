@@ -75,7 +75,7 @@ export function LoginForm() {
         setAppToken(result.result?.token);
         // Set user data immediately if available
         if (result.result.user) {
-          Router.push("/forms");
+          Router.push("/");
         }
         // Redirect immediately without timeout
         setIsLoading(false);
@@ -114,7 +114,7 @@ export function LoginForm() {
             ...user,
           });
           showSuccess(`Welcome back, ${user?.name || "User"}!`);
-          Router.push(`/forms`);
+          Router.push(`/`);
         } else if (result.status === 301) {
           clearData();
           if (

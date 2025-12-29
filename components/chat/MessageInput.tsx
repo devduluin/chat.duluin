@@ -34,6 +34,7 @@ export function MessageInput({
   conversationId,
   replyingTo,
   onCancelReply,
+  sendMessage: sendMessageViaWebSocket,
 }: {
   userId: string;
   conversationId: string;
@@ -43,6 +44,7 @@ export function MessageInput({
     sender: { first_name: string; last_name: string };
   } | null;
   onCancelReply?: () => void;
+  sendMessage?: (payload: string | object) => boolean;
 }) {
   const [message, setMessage] = useState("");
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
@@ -109,55 +111,30 @@ export function MessageInput({
         (id) => id !== null
       ) as string[];
 
-      const newMsg = {
-        id: messageId,
+      // Build message content
+      let contents: any = {
         conversation_id: conversationId,
-        parent_message_id: replyingTo?.id,
-        sender_id: userId,
-        content: message || (attachedFiles.length > 0 ? "📷 Photo" : ""),
-        created_at: new Date().toISOString(),
-        status: "pending" as const,
-        is_system_message: false,
-        sender: dummyUser,
+        content: message.trim() || (attachedFiles.length > 0 ? "📷 Photo" : ""),
       };
 
-      // Attempt to send the message via WebSocket
-      let ws: WebSocket | null = null;
-      try {
-        ws = new WebSocket(`ws://localhost:3000/api/v1/chat/${userId}`);
+      if (replyingTo?.id) {
+        contents.parent_message_id = replyingTo.id;
+      }
 
-        let contents: any = {
-          conversation_id: conversationId,
-          content:
-            message.trim() || (attachedFiles.length > 0 ? "📷 Photo" : ""),
-        };
+      if (validAttachmentIds.length > 0) {
+        contents.attachment_ids = validAttachmentIds;
+      }
 
-        if (replyingTo?.id) {
-          contents.parent_message_id = replyingTo.id;
-        }
-
-        if (validAttachmentIds.length > 0) {
-          contents.attachment_ids = validAttachmentIds;
-        }
-
-        ws.onopen = () => {
-          ws?.send(JSON.stringify(contents));
-          updateMessageStatus(messageId, conversationId, "sent");
+      // Send via existing WebSocket connection
+      if (sendMessageViaWebSocket) {
+        const success = sendMessageViaWebSocket(contents);
+        if (success) {
           toast.success("Message sent successfully");
-        };
-
-        ws.onerror = (error) => {
-          setMessages(conversationId, [newMsg]);
-          addMessage(conversationId, newMsg);
-          toast.error("Failed to send message. Queued for retry.");
-        };
-
-        ws.onclose = () => {
-          console.warn("WebSocket connection closed");
-        };
-      } catch (err) {
-        console.error("WebSocket connection failed:", err);
-        toast.error("Offline - message will be sent later");
+        } else {
+          toast.error("Failed to send message");
+        }
+      } else {
+        toast.error("WebSocket not connected");
       }
 
       setMessage("");
