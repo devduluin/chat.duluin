@@ -16,6 +16,7 @@ import {
   validationToken,
   loginService,
 } from "@/services/loginService";
+import { syncUserToChatBackend } from "@/services/chatUserService";
 import { showError, showSuccess } from "@utils/alertHelper";
 import { Avatar } from "@/components/ui/avatar";
 import { useLoginStore } from "@/store/useLoginStore";
@@ -73,6 +74,21 @@ export function LoginForm() {
       const result = await loginService(email, password);
       if (result?.result) {
         setAppToken(result.result?.token);
+
+        // Sync user to chat backend
+        const syncData = {
+          id: result.result?.id,
+          secondary_id: result.result?.secondary_id,
+          email: email,
+          name: result.result?.name,
+          phone: "", // Will be updated when we get full user data
+        };
+
+        // Sync user asynchronously (don't block login flow)
+        syncUserToChatBackend(syncData).catch((error) => {
+          console.error("Failed to sync user to chat backend:", error);
+        });
+
         // Set user data immediately if available
         if (result.result.user) {
           Router.push("/");
@@ -113,6 +129,20 @@ export function LoginForm() {
             formQuota: role === "Basic" ? 4 : 5,
             ...user,
           });
+
+          // Sync user to chat backend on session validation
+          const syncData = {
+            id: user.id,
+            secondary_id: user.secondary_id ?? user.id,
+            email: user.email,
+            name: user.name,
+            phone: user.phone || "",
+          };
+
+          syncUserToChatBackend(syncData).catch((error) => {
+            console.error("Failed to sync user to chat backend:", error);
+          });
+
           showSuccess(`Welcome back, ${user?.name || "User"}!`);
           Router.push(`/`);
         } else if (result.status === 301) {

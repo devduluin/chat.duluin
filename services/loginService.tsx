@@ -1,51 +1,57 @@
 import apiAuth from "./apiAuthClient";
-import { useAppCookies } from '@/hooks/useAppCookies';
+import { useAppCookies } from "@/hooks/useAppCookies";
 
 export async function validationToken(appToken: string) {
   try {
-    const response = await apiAuth.get("/users/signin-cookies", 
-      { headers: 
-        { Authorization: `Bearer ${appToken}`,
-          "Content-Type": "application/json",
-          "X-Account-Type": "form_workspace",
-         } 
-      });
+    const response = await apiAuth.get("/users/signin-cookies", {
+      headers: {
+        Authorization: `Bearer ${appToken}`,
+        "Content-Type": "application/json",
+        "X-Account-Type": "form_workspace",
+      },
+    });
     const result = response.data;
-    
+
     return result;
-  } catch (error:any) {
+  } catch (error: any) {
     return error?.response;
   }
 }
 export async function getUserInfo(appToken: string) {
   try {
-    const response = await apiAuth.get("/users", 
-      { headers: 
-        { Authorization: `Bearer ${appToken}`,
-          "Content-Type": "application/json",
-         } 
-      });
+    const response = await apiAuth.get("/users", {
+      headers: {
+        Authorization: `Bearer ${appToken}`,
+        "Content-Type": "application/json",
+      },
+    });
     const result = response.data;
-    
+
     return result;
-  } catch (error:any) {
+  } catch (error: any) {
     return error?.response;
   }
 }
-export async function connectAccount(params: { appToken: string, email: string}) {
+export async function connectAccount(params: {
+  appToken: string;
+  email: string;
+}) {
   try {
-    const response = await apiAuth.post("/users/connect-account",
+    const response = await apiAuth.post(
+      "/users/connect-account",
       {
-        email: params.email
+        email: params.email,
       },
-      { headers: 
-        { Authorization: `Bearer ${params.appToken}`,
+      {
+        headers: {
+          Authorization: `Bearer ${params.appToken}`,
           "Content-Type": "application/json",
           "X-Account-Type": "form_workspace",
-         }
-      });
+        },
+      }
+    );
     const result = response.data;
-    
+
     return result;
   } catch (error: any) {
     return error?.response;
@@ -72,12 +78,24 @@ export async function logoutService(params: { appToken: string }) {
   }
 }
 
-
 export async function loginService(email: string, password: string) {
   try {
-    const response = await apiAuth.post("/users/auth/signin", { email, password });
+    const response = await apiAuth.post(
+      "/users/auth/signin",
+      {
+        email,
+        password,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Account-Type": "form_workspace",
+        },
+      }
+    );
+    console.log("User info : ", response);
     const result = response.data;
-    
+
     return result;
   } catch (error: any) {
     return error?.response?.data;
@@ -85,9 +103,10 @@ export async function loginService(email: string, password: string) {
 }
 export async function validateEmailAccount(email: string) {
   try {
-    const response = await apiAuth.post("/users/auth/user-validation", 
-      { 
-        email 
+    const response = await apiAuth.post(
+      "/users/auth/user-validation",
+      {
+        email,
       },
       {
         headers: {
@@ -97,7 +116,7 @@ export async function validateEmailAccount(email: string) {
       }
     );
     const result = response?.data;
-    
+
     return result;
   } catch (error: any) {
     return error?.response;
