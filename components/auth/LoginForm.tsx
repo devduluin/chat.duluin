@@ -20,6 +20,8 @@ import { syncUserToChatBackend } from "@/services/chatUserService";
 import { showError, showSuccess } from "@utils/alertHelper";
 import { Avatar } from "@/components/ui/avatar";
 import { useLoginStore } from "@/store/useLoginStore";
+import { useContactSync } from "@/hooks/useContactSync";
+import Cookies from "js-cookie";
 
 export function LoginForm() {
   const [name, setName] = useState("");
@@ -35,6 +37,7 @@ export function LoginForm() {
   const { data, setData, clearData } = useAccountStore();
   const [isValidating, setIsValidating] = useState(true);
   const Router = useRouter();
+  const { syncContactsFromHRIS } = useContactSync();
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -84,10 +87,36 @@ export function LoginForm() {
           phone: "", // Will be updated when we get full user data
         };
 
+        // Store user info in cookies FIRST before any sync
+        Cookies.set("user_id", result.result?.id);
+        Cookies.set("tenant_id", result.result?.secondary_id);
+
+        console.log("✅ Cookies set:", {
+          user_id: result.result?.id,
+          tenant_id: result.result?.secondary_id,
+          token: result.result?.token ? "Available" : "Missing",
+        });
+
         // Sync user asynchronously (don't block login flow)
         syncUserToChatBackend(syncData).catch((error) => {
           console.error("Failed to sync user to chat backend:", error);
         });
+
+        // Sync contacts from HRIS asynchronously (non-blocking)
+        // Pass token directly to avoid timing issues
+        syncContactsFromHRIS(result.result?.token)
+          .then((syncResult) => {
+            if (syncResult?.success) {
+              console.log(
+                `✅ Contacts synced: ${syncResult.syncedUsers} users, ${syncResult.createdContacts} contacts`
+              );
+            } else {
+              console.warn("⚠️ Contact sync failed:", syncResult?.message);
+            }
+          })
+          .catch((error) => {
+            console.error("❌ Failed to sync contacts from HRIS:", error);
+          });
 
         // Set user data immediately if available
         if (result.result.user) {
@@ -142,6 +171,26 @@ export function LoginForm() {
           syncUserToChatBackend(syncData).catch((error) => {
             console.error("Failed to sync user to chat backend:", error);
           });
+
+          // Store user info in cookies for contact sync
+          Cookies.set("user_id", user.id);
+          Cookies.set("tenant_id", user.secondary_id ?? user.id);
+
+          // Sync contacts from HRIS asynchronously (non-blocking)
+          // Pass appToken for session validation flow
+          syncContactsFromHRIS(appToken)
+            .then((syncResult) => {
+              if (syncResult?.success) {
+                console.log(
+                  `✅ Contacts synced: ${syncResult.syncedUsers} users, ${syncResult.createdContacts} contacts`
+                );
+              } else {
+                console.warn("⚠️ Contact sync failed:", syncResult?.message);
+              }
+            })
+            .catch((error) => {
+              console.error("❌ Failed to sync contacts from HRIS:", error);
+            });
 
           showSuccess(`Welcome back, ${user?.name || "User"}!`);
           Router.push(`/`);
