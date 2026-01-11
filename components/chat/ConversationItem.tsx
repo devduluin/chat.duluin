@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Avatar } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { formatRelativeTime } from "@/utils/formatDate";
+import { linkifyTextToPlainPreview } from "@/utils/linkify";
 
 interface ConversationItemProps {
   conversation: ConversationDetails;
@@ -46,7 +47,7 @@ export function ConversationItem({
 
             <div className="flex justify-between items-center mt-1">
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                {lastMessage.content}
+                {linkifyTextToPlainPreview(lastMessage.content, 40)}
               </p>
               {unreadCount > 0 && (
                 <Badge variant="default" className="ml-2">

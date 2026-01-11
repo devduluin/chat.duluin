@@ -19,6 +19,11 @@ import {
   CheckCheck,
   Check,
   SmilePlus,
+  Forward,
+  Copy,
+  Edit,
+  Pin,
+  Info,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -27,6 +32,18 @@ import { motion } from "framer-motion";
 import { DeleteConfirmDialog } from "@/components/alert/DeleteConfirmDialog";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import { ImagePreviewModal } from "./ImagePreviewModal";
+import { linkifyText } from "@/utils/linkify";
+import { ForwardMessageDialog } from "./ForwardMessageDialog";
+import { EditMessageDialog } from "./EditMessageDialog";
+import { MessageInfoDialog } from "./MessageInfoDialog";
+import { toast } from "sonner";
+import {
+  forwardMessage,
+  editMessage,
+  pinMessage,
+} from "@/services/v1/messageService";
+import { useConversationsStore } from "@/store/useConversationsStore";
+import { useChatStore } from "@/store/useChatStore";
 
 interface Reaction {
   emoji: string;
@@ -55,7 +72,15 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       url: string;
       fileName: string;
     } | null>(null);
+    const [showForwardDialog, setShowForwardDialog] = useState(false);
+    const [showEditDialog, setShowEditDialog] = useState(false);
+    const [showInfoDialog, setShowInfoDialog] = useState(false);
+    const [isPinned, setIsPinned] = useState(false);
     const dropdownRef = useRef<HTMLDivElement>(null);
+    const { updateMessageContent } = useConversationsStore();
+    const updateChatMessageContent = useChatStore(
+      (s) => s.updateMessageContent
+    );
 
     const handleReply = () => {
       onReply?.({
@@ -87,6 +112,77 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       };
       setReactions((prev) => [...prev, newReaction]);
       setIsEmojiPickerOpen(false);
+    };
+
+    const handleCopy = async () => {
+      try {
+        await navigator.clipboard.writeText(message.content);
+        toast.success("Message copied to clipboard");
+      } catch (err) {
+        toast.error("Failed to copy message");
+      }
+    };
+
+    const handleForward = async (conversationIds: string[]) => {
+      try {
+        const result = await forwardMessage(
+          message.id,
+          conversationIds,
+          userId
+        );
+        if (result?.success || result?.data) {
+          toast.success(
+            `Message forwarded to ${conversationIds.length} conversation(s)`
+          );
+        } else {
+          toast.error("Failed to forward message");
+        }
+      } catch (error) {
+        console.error("Error forwarding message:", error);
+        toast.error("Failed to forward message");
+      }
+    };
+
+    const handleEdit = async (messageId: string, newContent: string) => {
+      try {
+        const result = await editMessage(messageId, userId, newContent);
+        if (result?.success || result?.data) {
+          // Update message content in both stores
+          updateMessageContent(message.conversation_id, messageId, newContent);
+          updateChatMessageContent(
+            message.conversation_id,
+            messageId,
+            newContent
+          );
+          toast.success("Message updated successfully");
+        } else {
+          toast.error("Failed to update message");
+        }
+      } catch (error) {
+        console.error("Error editing message:", error);
+        toast.error("Failed to update message");
+      }
+    };
+
+    const handlePin = async () => {
+      const newPinnedState = !isPinned;
+      try {
+        const result = await pinMessage(
+          message.id,
+          message.conversation_id,
+          userId,
+          newPinnedState
+        );
+        if (result?.success || result?.data) {
+          setIsPinned(newPinnedState);
+          toast.success(newPinnedState ? "Message pinned" : "Message unpinned");
+        } else {
+          toast.error("Failed to pin message");
+        }
+      } catch (error) {
+        console.error("Error pinning message:", error);
+        toast.error("Failed to pin message");
+      }
     };
 
     const handleParentMessageClick = () => {
@@ -321,7 +417,18 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                     </div>
                   )}
                   {message.content && (
-                    <p className="break-words">{message.content}</p>
+                    <div>
+                      <p className="break-words whitespace-pre-wrap">
+                        {linkifyText(message.content)}
+                      </p>
+                      {/* Pinned indicator */}
+                      {isPinned && (
+                        <div className="flex items-center mt-2 text-xs opacity-70">
+                          <Pin className="h-3 w-3 mr-1" />
+                          <span>Pinned</span>
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
               </DropdownMenuTrigger>
@@ -343,6 +450,47 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                   <Reply className="mr-2 h-4 w-4" />
                   Reply
                 </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => setShowForwardDialog(true)}
+                  className="px-4 py-2"
+                >
+                  <Forward className="mr-2 h-4 w-4" />
+                  Forward
+                </DropdownMenuItem>
+
+                <DropdownMenuItem onClick={handleCopy} className="px-4 py-2">
+                  <Copy className="mr-2 h-4 w-4" />
+                  Copy
+                </DropdownMenuItem>
+
+                {isCurrentUser && (
+                  <DropdownMenuItem
+                    onClick={() => setShowEditDialog(true)}
+                    className="px-4 py-2"
+                  >
+                    <Edit className="mr-2 h-4 w-4" />
+                    Edit
+                  </DropdownMenuItem>
+                )}
+
+                <DropdownMenuItem onClick={handlePin} className="px-4 py-2">
+                  <Pin
+                    className={`mr-2 h-4 w-4 ${isPinned ? "fill-current" : ""}`}
+                  />
+                  {isPinned ? "Unpin" : "Pin"}
+                </DropdownMenuItem>
+
+                <DropdownMenuItem
+                  onClick={() => setShowInfoDialog(true)}
+                  className="px-4 py-2"
+                >
+                  <Info className="mr-2 h-4 w-4" />
+                  Info
+                </DropdownMenuItem>
+
+                <DropdownMenuSeparator />
+
                 <DropdownMenuItem
                   onClick={handleDelete}
                   className="px-4 py-2 text-red-600 dark:text-red-400"
@@ -474,6 +622,29 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             fileName={imagePreview.fileName}
           />
         )}
+
+        {/* Forward Message Dialog */}
+        <ForwardMessageDialog
+          open={showForwardDialog}
+          onClose={() => setShowForwardDialog(false)}
+          message={message}
+          onForward={handleForward}
+        />
+
+        {/* Edit Message Dialog */}
+        <EditMessageDialog
+          open={showEditDialog}
+          onClose={() => setShowEditDialog(false)}
+          message={message}
+          onEdit={handleEdit}
+        />
+
+        {/* Message Info Dialog */}
+        <MessageInfoDialog
+          open={showInfoDialog}
+          onClose={() => setShowInfoDialog(false)}
+          message={message}
+        />
       </motion.div>
     );
   }

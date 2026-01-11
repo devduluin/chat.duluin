@@ -15,6 +15,11 @@ interface ConversationsState {
     newMessage: Message,
     currentUserId?: string
   ) => void;
+  updateMessageContent: (
+    conversationId: string,
+    messageId: string,
+    newContent: string
+  ) => void;
   clearData: () => void;
 }
 
@@ -128,6 +133,29 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                     : currentUnread + 1,
                 } as any,
               };
+            }
+            return item;
+          });
+
+          return {
+            conversations: updatedConversations,
+          };
+        }),
+
+      updateMessageContent: (conversationId, messageId, newContent) =>
+        set((state) => {
+          const updatedConversations = state.conversations.map((item) => {
+            if (item.Conversation.id === conversationId) {
+              // Update the last message content if it matches the edited message
+              if (item.LastMessage?.id === messageId) {
+                return {
+                  ...item,
+                  LastMessage: {
+                    ...item.LastMessage,
+                    content: newContent,
+                  },
+                };
+              }
             }
             return item;
           });

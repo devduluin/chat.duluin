@@ -3,6 +3,35 @@ import { createWithEqualityFn } from "zustand/traditional";
 import { persist } from "zustand/middleware";
 import { shallow } from "zustand/shallow";
 
+interface ChatStore {
+  messages: Record<string, Message[]>;
+  conversations: Record<string, Conversation>;
+  members: Record<string, Member[]>;
+  addMessage: (conversationId: string, msg: Message) => void;
+  setMessages: (conversationId: string, msgs: Message[]) => void;
+  setConversation: (conversationId: string, conversation: Conversation) => void;
+  updateConversation: (
+    conversationId: string,
+    newDetails: Partial<Conversation>
+  ) => void;
+  setMembers: (conversationId: string, members: Member[]) => void;
+  updateMessageStatus: (
+    id: string,
+    conversationId: string,
+    status: string
+  ) => void;
+  updateMessageReadStatus: (
+    id: string,
+    conversationId: string,
+    read_at: Date
+  ) => void;
+  updateMessageContent: (
+    conversationId: string,
+    messageId: string,
+    newContent: string
+  ) => void;
+}
+
 export const useChatStore = createWithEqualityFn<ChatStore>()(
   persist(
     (set, get) => ({
@@ -81,6 +110,18 @@ export const useChatStore = createWithEqualityFn<ChatStore>()(
       updateMessageReadStatus: (id, conversationId, read_at) => {
         const updated = (get().messages[conversationId] || []).map((m) =>
           m.id === id ? { ...m, read_at } : m
+        );
+        set({
+          messages: {
+            ...get().messages,
+            [conversationId]: updated,
+          },
+        });
+      },
+
+      updateMessageContent: (conversationId, messageId, newContent) => {
+        const updated = (get().messages[conversationId] || []).map((m) =>
+          m.id === messageId ? { ...m, content: newContent } : m
         );
         set({
           messages: {
