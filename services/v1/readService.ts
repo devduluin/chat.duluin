@@ -6,7 +6,7 @@ export const markConversationAsRead = async (
 ) => {
   try {
     const response = await apiClient.post(
-      `/v1/conversations/${conversationId}/read?user_id=${userId}`
+      `/conversations/${conversationId}/read?user_id=${userId}`
     );
     return response.data;
   } catch (error) {

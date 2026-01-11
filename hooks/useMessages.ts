@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import { shallow } from "zustand/shallow";
+import axios from "axios";
 
 const selectChatMessages = (conversationId: string) => (state: ChatStore) =>
   state.messages[conversationId] || [];
@@ -25,19 +26,60 @@ export function useMessages(conversationId: string, userId: string) {
 
   useEffect(() => {
     const fetchMessages = async () => {
+      // Get user_id from cookies as fallback if userId prop is empty
+      const userIdFromCookie = document.cookie
+        .split("; ")
+        .find((row) => row.startsWith("user_id="))
+        ?.split("=")[1];
+
+      const finalUserId = userId || userIdFromCookie;
+
+      // Don't fetch if no userId available
+      if (!finalUserId) {
+        console.warn("⚠️ No userId available, skipping fetch");
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       try {
-        const res = await fetch(
-          `http://localhost:3000/api/v1/conversations/${conversationId}?user_id=${userId}`
-        );
-        // if (!res.ok) throw new Error("Failed to fetch messages");
+        // Get token from cookies
+        const token = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("app_token="))
+          ?.split("=")[1];
 
-        const json = await res.json();
+        console.log("🔍 Fetching conversation:", {
+          conversationId,
+          userId: finalUserId,
+          hasToken: !!token,
+        });
+
+        // Use axios directly to chat backend (not API Gateway)
+        const res = await axios.get(
+          `http://localhost:3000/api/v1/conversations/${conversationId}?user_id=${finalUserId}`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              ...(token && { Authorization: `Bearer ${token}` }),
+            },
+          }
+        );
+
+        const json = res.data;
         const apiMessages = json?.data?.Messages as Message[];
         const apiConversation = json?.data?.Conversation as Conversation;
         const apiMembers = json?.data?.Members as Member[];
         const displayName = json?.data?.display_name;
         const displayAvatar = json?.data?.display_avatar;
+
+        console.log("🔍 DEBUG - Conversation data:", {
+          conversationId,
+          apiConversation,
+          displayName,
+          displayAvatar,
+          fullResponse: json?.data,
+        });
 
         if (
           Array.isArray(apiMessages) &&
@@ -54,7 +96,7 @@ export function useMessages(conversationId: string, userId: string) {
 
           // Update read status for messages not sent by the current user
           apiMessages.forEach((msg) => {
-            if (msg.sender_id !== userId && !msg.read_at && msg.id) {
+            if (msg.sender_id !== finalUserId && !msg.read_at && msg.id) {
               updateMessageReadStatus(msg.id, conversationId, new Date());
             }
           });

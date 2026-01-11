@@ -38,10 +38,22 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
   // Untuk group chat: display_name = conversation.name
   const displayName =
-    (conversation as any)?.display_name || conversation?.name || "Chat";
+    (conversation as any)?.display_name ||
+    conversation?.name ||
+    (members && members.length > 0
+      ? `${members[0].first_name} ${members[0].last_name}`
+      : "Chat");
   const displayAvatar =
     (conversation as any)?.display_avatar || conversation?.avatar_url;
   // const members = conversation?.members;
+
+  console.log("🔍 DEBUG ChatHeader:", {
+    conversationId,
+    conversation,
+    displayName,
+    displayAvatar,
+    members,
+  });
 
   const handleArchiveChat = () => {
     toast("Chat archived", {
@@ -64,18 +76,6 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
 
   return (
     <div className="border-b border-gray-200 dark:border-gray-700 p-4 flex items-center justify-between">
-      {/* If there is a members undefined */}
-      {members === undefined && (
-        <div className="flex items-center space-x-4">
-          <Link href="/">
-            <Button variant="ghost" size="icon">
-              <ArrowLeft className="h-5 w-5" />
-            </Button>
-          </Link>
-          <h1 className="text-xl font-semibold">New Chat</h1>
-        </div>
-      )}
-
       {/* Contact Info Modal */}
       {conversation && (
         <ContactInfoModal

@@ -1,6 +1,6 @@
 // app/conversation/[id]/page.tsx
 "use client";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/chat/Sidebar";
 import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageList } from "@/components/chat/MessageList";
@@ -11,16 +11,42 @@ import { useMessageSocket } from "@/hooks/useMessageSocket";
 import { useAccountStore } from "@/store/useAccountStore";
 import { markConversationAsRead } from "@/services/v1/readService";
 import { useConversationsStore } from "@/store/useConversationsStore";
+import Cookies from "js-cookie";
 
 export default function ConversationPage() {
   const params = useParams();
+  const router = useRouter();
   const conversationId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: account } = useAccountStore();
-  const userId = account?.id || "";
   const { updateConversation } = useConversationsStore();
+  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
-  // Initialize WebSocket for real-time messaging
-  const { sendMessage } = useMessageSocket(conversationId as string, userId);
+  // Get userId from account store or fallback to cookies
+  const userIdFromCookies =
+    typeof window !== "undefined" ? Cookies.get("user_id") || "" : "";
+  const userId = userIdFromCookies;
+
+  console.log("🔍 ConversationPage - userId:", {
+    fromAccount: account?.id,
+    fromCookies: userIdFromCookies,
+    finalUserId: userId,
+  });
+
+  // Wait for account store to load (middleware already handles auth redirect)
+  useEffect(() => {
+    // Give time for account store to hydrate from localStorage
+    const timer = setTimeout(() => {
+      setIsAuthChecking(false);
+    }, 100);
+
+    return () => clearTimeout(timer);
+  }, []);
+
+  // Initialize WebSocket for real-time messaging (only after auth check and userId available)
+  const { sendMessage } = useMessageSocket(
+    conversationId as string,
+    userId // Use userId with fallback
+  );
 
   const [replyingTo, setReplyingTo] = useState<{
     id: string;
@@ -28,8 +54,10 @@ export default function ConversationPage() {
     sender: { first_name: string; last_name: string };
   } | null>(null);
 
-  // Mark conversation as read when opened
+  // Mark conversation as read when opened (only if authenticated and has userId)
   useEffect(() => {
+    if (isAuthChecking) return; // Don't call API until auth is checked
+
     if (conversationId && userId) {
       markConversationAsRead(conversationId, userId)
         .then(() => {
@@ -40,7 +68,19 @@ export default function ConversationPage() {
           console.error("Failed to mark as read:", error);
         });
     }
-  }, [conversationId, userId, updateConversation]);
+  }, [conversationId, userId, updateConversation, isAuthChecking]);
+
+  // Show loading while checking auth
+  if (isAuthChecking) {
+    return (
+      <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
+          <p className="text-gray-600">Checking authentication...</p>
+        </div>
+      </div>
+    );
+  }
 
   if (!conversationId) {
     return (

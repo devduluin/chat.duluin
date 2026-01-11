@@ -7,7 +7,7 @@ export async function validationToken(appToken: string) {
       headers: {
         Authorization: `Bearer ${appToken}`,
         "Content-Type": "application/json",
-        "X-Account-Type": "form_workspace",
+        "X-Account-Type": "chat_workspace",
       },
     });
     const result = response.data;
@@ -46,7 +46,7 @@ export async function connectAccount(params: {
         headers: {
           Authorization: `Bearer ${params.appToken}`,
           "Content-Type": "application/json",
-          "X-Account-Type": "form_workspace",
+          "X-Account-Type": "chat_workspace",
         },
       }
     );
@@ -67,7 +67,7 @@ export async function logoutService(params: { appToken: string }) {
         headers: {
           Authorization: `Bearer ${params.appToken}`,
           "Content-Type": "application/json",
-          "X-Account-Type": "form_workspace",
+          "X-Account-Type": "chat_workspace",
         },
       }
     );
@@ -89,7 +89,7 @@ export async function loginService(email: string, password: string) {
       {
         headers: {
           "Content-Type": "application/json",
-          "X-Account-Type": "form_workspace",
+          "X-Account-Type": "chat_workspace",
         },
       }
     );
@@ -111,7 +111,7 @@ export async function validateEmailAccount(email: string) {
       {
         headers: {
           "Content-Type": "application/json",
-          "X-Account-Type": "form_workspace",
+          "X-Account-Type": "chat_workspace",
         },
       }
     );

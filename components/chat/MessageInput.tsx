@@ -129,7 +129,7 @@ export function MessageInput({
       if (sendMessageViaWebSocket) {
         const success = sendMessageViaWebSocket(contents);
         if (success) {
-          toast.success("Message sent successfully");
+          // toast.success("Message sent successfully");
         } else {
           toast.error("Failed to send message");
         }

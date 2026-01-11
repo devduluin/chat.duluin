@@ -6,6 +6,18 @@ export async function authMiddleware(req: NextRequest) {
   const token = req.cookies.get("app_token")?.value;
   const pathname = req.nextUrl.pathname;
 
+  // Debug logging for conversation routes
+  if (pathname.startsWith("/conversation")) {
+    console.log("🔍 Middleware - Conversation route:", {
+      pathname,
+      hasToken: !!token,
+      allCookies: Array.from(req.cookies.getAll()).map((c) => ({
+        name: c.name,
+        hasValue: !!c.value,
+      })),
+    });
+  }
+
   // Public routes that don't require authentication
   const publicRoutes = [
     "/auth/signin",

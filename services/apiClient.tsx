@@ -8,7 +8,7 @@ const api = axios.create({
       : process.env.NEXT_PUBLIC_GATEWAY_API_URL_PROD,
   headers: {
     "Content-Type": "application/json",
-    "X-Account-Type": "form_workspace",
+    "X-Account-Type": "chat_workspace",
   },
 });
 
@@ -35,8 +35,23 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     const status = error?.response?.status;
+    const requestUrl = error?.config?.url || "";
+
+    console.log("🔍 API Error:", {
+      status,
+      url: requestUrl,
+      message: error?.response?.data?.message || error.message,
+    });
+
+    // Only auto-logout for auth-related endpoints, not for all 401s
     if (status === 401 || status === 403) {
-      if (typeof window !== "undefined") {
+      // Don't auto-logout if it's a conversation/message fetch - let the component handle it
+      const isConversationRequest =
+        requestUrl.includes("/conversations/") ||
+        requestUrl.includes("/messages");
+
+      if (!isConversationRequest && typeof window !== "undefined") {
+        console.warn("⚠️ Authentication failed, redirecting to login");
         // Clear authentication state
         const { clearAuth } = useAuthStore.getState();
         clearAuth();

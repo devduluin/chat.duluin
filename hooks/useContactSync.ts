@@ -82,9 +82,31 @@ export function useContactSync() {
 
         console.log(`✅ Fetched ${employees.length} employee contacts`);
 
+        // Filter employees with valid user_id
+        const validEmployees = employees.filter(
+          (emp: any) => emp.user_id != null
+        );
+
+        console.log(
+          `📋 ${validEmployees.length} of ${employees.length} employees have user_id`
+        );
+
+        if (validEmployees.length === 0) {
+          console.warn("⚠️ No employees with user_id found");
+          const result = {
+            success: true,
+            message: "No contacts with user_id to sync",
+            syncedUsers: 0,
+            createdContacts: 0,
+          };
+          setSyncStatus(result);
+          setIsSyncing(false);
+          return result;
+        }
+
         // 2. Transform employee data to user format
-        const contactsData = employees.map((emp: any) => ({
-          id: emp.id,
+        const contactsData = validEmployees.map((emp: any) => ({
+          id: emp.user_id,
           secondary_id: emp.company_id || tenantId,
           email:
             emp.addressContact?.personal_email ||

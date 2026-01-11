@@ -14,9 +14,23 @@ export function useMessageSocket(conversationId: string, userId: string) {
 
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessageStatus = useChatStore((s) => s.updateMessageStatus);
-  // Note: setLastMessage removed - Global WebSocket handles conversation list updates
+  const setLastMessage = useConversationsStore((s) => s.setMessage);
 
   const connectWebSocket = useCallback(() => {
+    console.log("🔍 connectWebSocket called:", {
+      userId,
+      hasUserId: !!userId && userId.trim() !== "",
+      isMounted: isMounted.current,
+      shouldReconnect: shouldReconnect.current,
+      currentWsState: wsRef.current?.readyState,
+    });
+
+    // ✅ Don't connect if no userId (not authenticated yet)
+    if (!userId || userId.trim() === "") {
+      console.log("⏸️ Skipping WebSocket connection: No userId");
+      return;
+    }
+
     // ✅ Prevent duplicate connection attempts
     if (
       wsRef.current &&
@@ -69,8 +83,9 @@ export function useMessageSocket(conversationId: string, userId: string) {
 
             if (msg.conversation_id === conversationId) {
               addMessage(conversationId, { ...msg, status: "sent" });
-              // Note: Don't update conversation list here - Global WebSocket handles that
-              // This prevents double-incrementing unread counter
+              // Update conversation list with last message
+              // Pass userId so it knows this is from current user (no unread increment)
+              setLastMessage(conversationId, msg, userId);
             }
           }
         } catch (err) {
@@ -148,6 +163,12 @@ export function useMessageSocket(conversationId: string, userId: string) {
   }, [connectWebSocket]);
 
   const sendMessage = useCallback((payload: string | object) => {
+    console.log("🔍 DEBUG sendMessage called:", {
+      payload,
+      wsState: wsRef.current?.readyState,
+      shouldReconnect: shouldReconnect.current,
+    });
+
     if (!shouldReconnect.current) {
       toast.error("You are not part of this conversation", {
         id: "not-in-conversation",
@@ -162,6 +183,7 @@ export function useMessageSocket(conversationId: string, userId: string) {
         const messageToSend =
           typeof payload === "string" ? payload : JSON.stringify(payload);
 
+        console.log("🔍 Sending message via WebSocket:", messageToSend);
         wsRef.current.send(messageToSend);
         return true;
       } catch (error) {
@@ -171,6 +193,10 @@ export function useMessageSocket(conversationId: string, userId: string) {
       }
     }
 
+    console.warn(
+      "⚠️ WebSocket not connected. State:",
+      wsRef.current?.readyState
+    );
     toast.error("Disconnected. Message queued for retry.", {
       id: "ws-disconnected",
     });

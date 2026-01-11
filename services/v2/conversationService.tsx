@@ -1,8 +1,8 @@
 import api from "../apiClient";
 
 interface PyloadProps {
-    page: number;
-    is_favorite: boolean;
+  page: number;
+  is_favorite: boolean;
 }
 
 // export async function getConversations(id: string): Promise<any | null> {
@@ -14,11 +14,16 @@ interface PyloadProps {
 //   }
 // }
 
-export async function getConversations(id: string, filter: PyloadProps): Promise<any | null> {
+export async function getConversations(
+  id: string,
+  filter: PyloadProps
+): Promise<any | null> {
   try {
-    const response = await api.get(`/v1/conversations`, { params: { user_id: id, ...filter } });
+    const response = await api.get(`/conversations`, {
+      params: { user_id: id, ...filter },
+    });
     return response.data;
-  } catch (error:any) {
+  } catch (error: any) {
     return error?.response?.data;
   }
 }

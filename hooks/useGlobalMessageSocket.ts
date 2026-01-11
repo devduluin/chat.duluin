@@ -3,6 +3,13 @@ import { useEffect, useRef, useCallback } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { toast } from "sonner";
+import { getConversationById } from "@/services/v1/conversationService";
+
+// Type definitions for conversation structure
+interface RecentConversation {
+  Conversation: any;
+  LastMessage: Message;
+}
 
 /**
  * Global WebSocket hook for receiving messages from ALL conversations
@@ -15,9 +22,12 @@ export function useGlobalMessageSocket(userId: string) {
   const reconnectInterval = 5000;
   const isMounted = useRef(false);
   const shouldReconnect = useRef(true);
+  const fetchingConversations = useRef<Set<string>>(new Set());
 
   const addMessage = useChatStore((s) => s.addMessage);
   const setLastMessage = useConversationsStore((s) => s.setMessage);
+  const addNewConversation = useConversationsStore((s) => s.addNewConversation);
+  const conversations = useConversationsStore((s) => s.conversations);
 
   const connectWebSocket = useCallback(() => {
     // Prevent duplicate connection attempts
@@ -59,8 +69,77 @@ export function useGlobalMessageSocket(userId: string) {
               addMessage(msg.conversation_id, { ...msg, status: "sent" });
             }
 
-            // Always update conversation list with new message and unread count
-            setLastMessage(msg.conversation_id, msg, userId);
+            // Check if conversation exists in the list
+            const conversationExists = conversations.some(
+              (item) => item.Conversation.id === msg.conversation_id
+            );
+
+            if (!conversationExists) {
+              // Conversation is new, fetch it from API
+              console.log(
+                "🆕 New conversation detected:",
+                msg.conversation_id,
+                "- Fetching details..."
+              );
+
+              // Prevent duplicate fetches
+              if (!fetchingConversations.current.has(msg.conversation_id)) {
+                fetchingConversations.current.add(msg.conversation_id);
+
+                getConversationById(msg.conversation_id, userId)
+                  .then((response) => {
+                    if (response?.status && response?.data) {
+                      const conversationData = response.data;
+
+                      // Create RecentConversation object
+                      const newConversation: RecentConversation = {
+                        Conversation: {
+                          id: conversationData.Conversation.id,
+                          name: conversationData.Conversation.name,
+                          avatar_url: conversationData.Conversation.avatar_url,
+                          is_group: conversationData.Conversation.is_group,
+                          is_cross_tenant:
+                            conversationData.Conversation.is_cross_tenant,
+                          created_by: conversationData.Conversation.created_by,
+                          created_at: conversationData.Conversation.created_at,
+                          updated_at: conversationData.Conversation.updated_at,
+                          members: conversationData.Conversation.members,
+                          messages: conversationData.Conversation.messages,
+                          display_name:
+                            conversationData.display_name ||
+                            conversationData.Conversation.name,
+                          display_avatar:
+                            conversationData.display_avatar ||
+                            conversationData.Conversation.avatar_url,
+                          unread_count: 1, // Set to 1 for the new message
+                        } as any,
+                        LastMessage: msg,
+                      };
+
+                      // Add to conversation list
+                      addNewConversation(newConversation);
+                      console.log(
+                        "✅ New conversation added to list:",
+                        msg.conversation_id
+                      );
+
+                      // Show toast notification for new conversation
+                      toast.success("New conversation", {
+                        description: `${msg.sender.first_name} ${msg.sender.last_name} started a conversation`,
+                      });
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("Failed to fetch new conversation:", error);
+                  })
+                  .finally(() => {
+                    fetchingConversations.current.delete(msg.conversation_id);
+                  });
+              }
+            } else {
+              // Conversation exists, update last message and unread count
+              setLastMessage(msg.conversation_id, msg, userId);
+            }
           }
         } catch (err) {
           console.error("Failed to parse global WebSocket message:", err);
@@ -111,7 +190,7 @@ export function useGlobalMessageSocket(userId: string) {
         }
       }
     }
-  }, [userId, addMessage, setLastMessage]);
+  }, [userId, addMessage, setLastMessage, addNewConversation, conversations]);
 
   useEffect(() => {
     if (!userId) return;
