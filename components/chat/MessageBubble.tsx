@@ -63,10 +63,23 @@ interface MessageBubbleProps {
   onReply?: (message: { id: string; content: string; sender: User }) => void;
   parentMessage?: Message | null;
   scrollToMessage?: (id: string) => void;
+  isPinnedMessage?: boolean;
+  onPinChange?: () => void;
 }
 
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
-  ({ userId, message, onReply, parentMessage, scrollToMessage }, ref) => {
+  (
+    {
+      userId,
+      message,
+      onReply,
+      parentMessage,
+      scrollToMessage,
+      isPinnedMessage = false,
+      onPinChange,
+    },
+    ref
+  ) => {
     const isCurrentUser = message.sender?.id === userId;
     const [reactions, setReactions] = useState<Reaction[]>([]);
     const [showReactors, setShowReactors] = useState(false);
@@ -80,7 +93,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const [showForwardDialog, setShowForwardDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
     const [showInfoDialog, setShowInfoDialog] = useState(false);
-    const [isPinned, setIsPinned] = useState(false);
+    const [isPinned, setIsPinned] = useState(isPinnedMessage);
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { updateMessageContent } = useConversationsStore();
     const updateChatMessageContent = useChatStore(
@@ -186,6 +199,9 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         if (result?.success || result?.data) {
           setIsPinned(newPinnedState);
           toast.success(newPinnedState ? "Message pinned" : "Message unpinned");
+          if (onPinChange) {
+            onPinChange();
+          }
         } else {
           toast.error("Failed to pin message");
         }

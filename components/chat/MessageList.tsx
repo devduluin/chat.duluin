@@ -9,6 +9,9 @@ export function MessageList({
   conversationId,
   onReply,
   userId,
+  pinnedMessages = [],
+  onPinChange,
+  onScrollToMessageReady,
 }: {
   conversationId: string;
   onReply?: (message: {
@@ -17,6 +20,9 @@ export function MessageList({
     sender: { first_name: string; last_name: string };
   }) => void;
   userId: string;
+  pinnedMessages?: any[];
+  onPinChange?: () => void;
+  onScrollToMessageReady?: (fn: (messageId: string) => void) => void;
 }) {
   const { messages, loading } = useMessages(conversationId, userId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -38,6 +44,13 @@ export function MessageList({
       }, 2000);
     }
   }, []);
+
+  // Expose scrollToMessage to parent component
+  useEffect(() => {
+    if (onScrollToMessageReady) {
+      onScrollToMessageReady(scrollToMessage);
+    }
+  }, [scrollToMessage, onScrollToMessageReady]);
 
   const setMessageRef = useCallback(
     (id: string, ref: HTMLDivElement | null) => {
@@ -88,6 +101,8 @@ export function MessageList({
             ? messagesMap.current.get(message.parent_message_id)
             : null;
 
+          const isPinned = pinnedMessages.some((pin) => pin.id === message.id);
+
           return (
             <MessageBubble
               key={message.id}
@@ -97,6 +112,8 @@ export function MessageList({
               onReply={onReply}
               parentMessage={parentMessage}
               scrollToMessage={scrollToMessage}
+              isPinnedMessage={isPinned}
+              onPinChange={onPinChange}
             />
           );
         })}

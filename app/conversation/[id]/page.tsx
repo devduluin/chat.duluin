@@ -12,6 +12,8 @@ import { useAccountStore } from "@/store/useAccountStore";
 import { markConversationAsRead } from "@/services/v1/readService";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import Cookies from "js-cookie";
+import { usePinnedMessages } from "@/hooks/usePinnedMessages";
+import { PinnedMessagesBar } from "@/components/chat/PinnedMessagesBar";
 
 export default function ConversationPage() {
   const params = useParams();
@@ -31,6 +33,18 @@ export default function ConversationPage() {
     fromCookies: userIdFromCookies,
     finalUserId: userId,
   });
+
+  // Pinned messages hook
+  const {
+    pinnedMessages,
+    loading: loadingPinned,
+    refreshPinnedMessages,
+  } = usePinnedMessages(conversationId as string);
+
+  // Ref to store scrollToMessage function from MessageList
+  const [scrollToMessageFn, setScrollToMessageFn] = useState<
+    ((messageId: string) => void) | null
+  >(null);
 
   // Wait for account store to load (middleware already handles auth redirect)
   useEffect(() => {
@@ -103,10 +117,24 @@ export default function ConversationPage() {
       <Sidebar />
       <div className="flex-1 flex flex-col h-screen">
         <ChatHeader conversationId={conversationId} userId={userId} />
+        {pinnedMessages.length > 0 && (
+          <PinnedMessagesBar
+            pinnedMessages={pinnedMessages}
+            onMessageClick={(messageId) => {
+              if (scrollToMessageFn) {
+                scrollToMessageFn(messageId);
+              }
+            }}
+            onRefresh={refreshPinnedMessages}
+          />
+        )}
         <MessageList
           conversationId={conversationId}
           onReply={setReplyingTo}
           userId={userId}
+          pinnedMessages={pinnedMessages}
+          onPinChange={refreshPinnedMessages}
+          onScrollToMessageReady={setScrollToMessageFn}
         />
         <MessageInput
           conversationId={conversationId}
