@@ -13,6 +13,8 @@ import {
   Contact,
   File,
   CheckSquare,
+  WifiOff,
+  Wifi,
 } from "lucide-react";
 import EmojiPicker, { EmojiClickData } from "emoji-picker-react";
 import {
@@ -25,9 +27,12 @@ import { ContactPicker } from "./attachments/ContactPicker";
 import { TaskCreator } from "./attachments/TaskCreator";
 import { ApplicationPicker } from "./attachments/ApplicationPicker";
 import { useChatStore } from "@/store/useChatStore";
+import { useSendMessage } from "@/hooks/useSendMessage";
+import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
 import { toast } from "sonner";
 import { dummyUser } from "@/lib/dummyChat";
 import { v4 as uuidv4 } from "uuid";
+import Cookies from "js-cookie";
 
 export function MessageInput({
   userId,
@@ -57,8 +62,14 @@ export function MessageInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessageStatus = useChatStore((s) => s.updateMessageStatus);
+  const { sendMessage: sendMessageOffline } = useSendMessage();
+  const { isOnline } = useOfflineQueueStore();
 
   const setMessages = useChatStore((s) => s.setMessages);
+
+  // Get tenantId from cookies
+  const tenantId =
+    typeof window !== "undefined" ? Cookies.get("tenant_id") || "" : "";
 
   // Auto-focus when replyingTo changes
   useEffect(() => {
@@ -125,17 +136,17 @@ export function MessageInput({
         contents.attachment_ids = validAttachmentIds;
       }
 
-      // Send via existing WebSocket connection
-      if (sendMessageViaWebSocket) {
-        const success = sendMessageViaWebSocket(contents);
-        if (success) {
-          // toast.success("Message sent successfully");
-        } else {
-          toast.error("Failed to send message");
-        }
-      } else {
-        toast.error("WebSocket not connected");
-      }
+      // Use offline-aware send message
+      sendMessageOffline({
+        conversationId,
+        content: message.trim() || (attachedFiles.length > 0 ? "📷 Photo" : ""),
+        senderId: userId,
+        tenantId,
+        parentMessageId: replyingTo?.id,
+        attachmentIds:
+          validAttachmentIds.length > 0 ? validAttachmentIds : undefined,
+        sendViaWebSocket: sendMessageViaWebSocket,
+      });
 
       setMessage("");
       setAttachedFiles([]);
@@ -336,6 +347,14 @@ export function MessageInput({
       )}
 
       <form onSubmit={handleSubmit} className="flex items-center space-x-2">
+        {/* Network status indicator */}
+        {!isOnline && (
+          <div className="flex items-center space-x-1 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-xs">
+            <WifiOff className="h-3 w-3" />
+            <span>Offline</span>
+          </div>
+        )}
+
         {/* Attachment dropdown */}
         <DropdownMenu>
           <DropdownMenuTrigger asChild>

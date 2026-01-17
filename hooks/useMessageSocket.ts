@@ -12,7 +12,7 @@ export function useMessageSocket(conversationId: string, userId: string) {
   const isMounted = useRef(false);
   const shouldReconnect = useRef(true);
 
-  const addMessage = useChatStore((s) => s.addMessage);
+  const addOrUpdateMessage = useChatStore((s) => s.addOrUpdateMessage);
   const updateMessageStatus = useChatStore((s) => s.updateMessageStatus);
   const setLastMessage = useConversationsStore((s) => s.setMessage);
 
@@ -48,7 +48,11 @@ export function useMessageSocket(conversationId: string, userId: string) {
       wsRef.current = ws;
 
       ws.onopen = () => {
-        console.log("WebSocket connected");
+        console.log(
+          "💬✅ Per-Conversation WebSocket CONNECTED for conversationId:",
+          conversationId
+        );
+        console.log("💬 WebSocket readyState:", ws.readyState, "(1=OPEN)");
         reconnectAttempts.current = 0;
 
         const messages = useChatStore.getState().messages[conversationId] || [];
@@ -64,10 +68,23 @@ export function useMessageSocket(conversationId: string, userId: string) {
 
       ws.onmessage = (event) => {
         try {
+          console.log("💬📨 Per-Conversation WebSocket RAW data:", event.data);
           const response = JSON.parse(event.data);
+          console.log("💬📨 Parsed response:", response);
+
+          console.log("📨 WebSocket message received:", {
+            conversationId,
+            messageId: response.data?.id,
+            content: response.data?.content,
+            status: response.status,
+          });
 
           if (response.status === "error") {
-            if (response.errors) {
+            // Only show error if it's an actual authorization issue, not connection failure
+            if (
+              response.errors &&
+              response.errors.includes("not in conversation")
+            ) {
               shouldReconnect.current = false;
               toast.error("You are not part of this conversation", {
                 id: "not-in-conversation",
@@ -75,18 +92,25 @@ export function useMessageSocket(conversationId: string, userId: string) {
               wsRef.current?.close();
               return;
             }
+            // For other errors, just log and don't show toast (might be connection issue)
+            console.warn("WebSocket error response:", response.errors);
             return;
           }
 
           if (response.status && response.data) {
             const msg = response.data as Message;
 
-            if (msg.conversation_id === conversationId) {
-              addMessage(conversationId, { ...msg, status: "sent" });
-              // Update conversation list with last message
-              // Pass userId so it knows this is from current user (no unread increment)
-              setLastMessage(conversationId, msg, userId);
-            }
+            console.log("✅ Message sent confirmation received:", {
+              messageId: msg.id,
+              conversationId: msg.conversation_id,
+              content: msg.content,
+            });
+
+            // Don't add message here - useGlobalMessageSocket will handle it
+            // This WebSocket is only for sending messages and receiving confirmations
+            console.log(
+              "ℹ️ Skipping message add - useGlobalMessageSocket will handle it"
+            );
           }
         } catch (err) {
           console.error("Failed to parse WebSocket message:", err);
@@ -146,7 +170,7 @@ export function useMessageSocket(conversationId: string, userId: string) {
         }
       }
     }
-  }, [conversationId, userId, addMessage, updateMessageStatus]);
+  }, [conversationId, userId, addOrUpdateMessage, updateMessageStatus]);
 
   useEffect(() => {
     isMounted.current = true;

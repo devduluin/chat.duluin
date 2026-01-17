@@ -4,6 +4,10 @@ import { useEffect } from "react";
 import { useConversations } from "@/hooks/useConversationsList";
 import { ConversationItem } from "./ConversationItem";
 import { useAccountStore } from "@/store/useAccountStore";
+import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
+import Link from "next/link";
+import { Avatar } from "../ui/avatar";
+import { Bot, WifiOff } from "lucide-react";
 
 export function ConversationList({ userId }: { userId: string }) {
   // Get user ID from account store
@@ -15,10 +19,13 @@ export function ConversationList({ userId }: { userId: string }) {
     fetchConversations,
   } = useConversations(userId);
 
+  const isOnline = useOfflineQueueStore((state) => state.isOnline);
+
   // Fetch conversations on mount
   useEffect(() => {
     if (userId) fetchConversations();
   }, [userId, fetchConversations]);
+
   if (loading) {
     return (
       <div className="p-4">
@@ -36,6 +43,47 @@ export function ConversationList({ userId }: { userId: string }) {
 
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
+      {/* Offline Banner */}
+      {!isOnline && (
+        <div className="bg-yellow-50 dark:bg-yellow-900/20 border-b-2 border-yellow-200 dark:border-yellow-800 p-3">
+          <div className="flex items-center space-x-2 text-yellow-800 dark:text-yellow-200">
+            <WifiOff className="h-4 w-4" />
+            <span className="text-sm font-medium">
+              You're offline - showing cached data
+            </span>
+          </div>
+        </div>
+      )}
+
+      {/* AI Chatbot Entry */}
+      <Link
+        href="/conversation/ai-chatbot"
+        className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b-2 border-blue-200 dark:border-blue-800"
+      >
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+              <Bot className="h-6 w-6 text-white" />
+            </div>
+            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
+          </div>
+          <div className="flex-1 min-w-0">
+            <div className="flex justify-between items-center">
+              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
+                AI Assistant
+                <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                  Bot
+                </span>
+              </h3>
+            </div>
+            <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
+              Tanya apa saja kepada asisten AI
+            </p>
+          </div>
+        </div>
+      </Link>
+
+      {/* Regular Conversations */}
       {[...recent_conversations]
         .sort((a, b) => {
           if (a.Conversation.name === "Personal Assistant AI") return -1;

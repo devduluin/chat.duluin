@@ -24,6 +24,10 @@ import {
   Edit,
   Pin,
   Info,
+  Clock,
+  AlertCircle,
+  Loader2,
+  RefreshCw,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -44,6 +48,7 @@ import {
 } from "@/services/v1/messageService";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
+import { useRetryMessage } from "@/hooks/useRetryMessage";
 
 interface Reaction {
   emoji: string;
@@ -81,6 +86,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const updateChatMessageContent = useChatStore(
       (s) => s.updateMessageContent
     );
+    const { retry } = useRetryMessage();
 
     const handleReply = () => {
       onReply?.({
@@ -92,6 +98,10 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
     const handleDelete = () => {
       setOpenDeleteModal(true);
+    };
+
+    const handleRetry = () => {
+      retry(message.id, message.conversation_id);
     };
 
     const confirmDelete = async (isPermanent: boolean) => {
@@ -239,7 +249,9 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           <div className="flex-shrink-0 mr-2 self-start">
             <Avatar
               src={message.sender?.avatar_url || ""}
-              name={`${message.sender.first_name} ${message.sender.last_name}`}
+              name={`${message.sender?.first_name || "User"} ${
+                message.sender?.last_name || ""
+              }`}
               size="sm"
             />
           </div>
@@ -253,9 +265,9 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           )}
         >
           {/* Sender name */}
-          {!isCurrentUser && (
+          {!isCurrentUser && message.sender && (
             <Link
-              href={`/conversation/${message.sender.email}`}
+              href={`/conversation/${message.sender.email || ""}`}
               className="flex items-center mb-1 hover:underline cursor-pointer"
             >
               <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
@@ -579,22 +591,51 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
               {formatRelativeTime(message.created_at || "")}
             </p>
             {isCurrentUser && (
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <span>
-                    {message.read_at ? (
-                      <CheckCheck className="h-3 w-3 text-blue-500" />
-                    ) : (
-                      <Check className="h-3 w-3 text-gray-400" />
-                    )}
-                  </span>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  {message.read_at
-                    ? `Read at ${new Date(message.read_at).toLocaleString()}`
-                    : "Delivered"}
-                </TooltipContent>
-              </Tooltip>
+              <>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <span>
+                      {message.status === "pending" ? (
+                        <Clock className="h-3 w-3 text-yellow-500" />
+                      ) : message.status === "sending" ? (
+                        <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
+                      ) : message.status === "failed" ? (
+                        <AlertCircle className="h-3 w-3 text-red-500" />
+                      ) : message.read_at ? (
+                        <CheckCheck className="h-3 w-3 text-blue-500" />
+                      ) : (
+                        <Check className="h-3 w-3 text-gray-400" />
+                      )}
+                    </span>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    {message.status === "pending"
+                      ? "Waiting to send..."
+                      : message.status === "sending"
+                      ? "Sending..."
+                      : message.status === "failed"
+                      ? "Failed to send. Click retry button to resend."
+                      : message.read_at
+                      ? `Read at ${new Date(message.read_at).toLocaleString()}`
+                      : "Delivered"}
+                  </TooltipContent>
+                </Tooltip>
+                {message.status === "failed" && (
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <button
+                        onClick={handleRetry}
+                        className="ml-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded p-0.5 transition-colors"
+                      >
+                        <RefreshCw className="h-3 w-3 text-red-500 hover:text-red-600" />
+                      </button>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      Retry sending message
+                    </TooltipContent>
+                  </Tooltip>
+                )}
+              </>
             )}
           </div>
         </div>

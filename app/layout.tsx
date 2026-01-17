@@ -5,6 +5,7 @@ import ToastProvider from "@components/alert/ToastProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { GuideProvider } from "@/components/ui/GuideComponent";
 import { SessionMonitor } from "@/components/SessionMonitor";
+import { OfflineManager } from "@/components/OfflineManager";
 
 export const metadata = {
   title: "Duluin Workspace",
@@ -30,6 +31,7 @@ export default function RootLayout({
       </head>
       <body className={`${inter.className} bg-gray-100 dark:bg-gray-900`}>
         <SessionMonitor />
+        <OfflineManager />
         <GuideProvider>
           <div className="flex h-screen overflow-hidden">{children}</div>
         </GuideProvider>

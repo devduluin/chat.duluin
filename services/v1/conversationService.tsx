@@ -15,7 +15,8 @@ export async function getConversations(
     });
     return response.data;
   } catch (error: any) {
-    return error?.response?.data;
+    console.error("getConversations error:", error);
+    return null;
   }
 }
 

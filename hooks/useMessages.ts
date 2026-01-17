@@ -1,30 +1,35 @@
 // hooks/useMessages.ts
 import { useEffect, useState } from "react";
 import { useChatStore } from "@/store/useChatStore";
-import { shallow } from "zustand/shallow";
 import axios from "axios";
 
-const selectChatMessages = (conversationId: string) => (state: ChatStore) =>
-  state.messages[conversationId] || [];
-
-const selectConversation = (conversationId: string) => (state: ChatStore) =>
-  state.conversations[conversationId] || [];
+// Empty array constant to avoid creating new arrays
+const EMPTY_ARRAY: any[] = [];
 
 export function useMessages(conversationId: string, userId: string) {
-  const messages = useChatStore(selectChatMessages(conversationId), shallow);
+  // Use stable selectors with useMemo to prevent infinite loops
+  const messages =
+    useChatStore((state) => state.messages[conversationId]) || EMPTY_ARRAY;
+
+  const version = useChatStore((state) => state._version);
   const conversations = useChatStore(
-    selectConversation(conversationId),
-    shallow
+    (state) => state.conversations[conversationId]
   );
-  const setMessages = useChatStore((s) => s.setMessages);
-  const setConversation = useChatStore((s) => s.setConversation);
-  const setMembers = useChatStore((s) => s.setMembers);
-  const updateMessageReadStatus = useChatStore(
-    (s) => s.updateMessageReadStatus
-  );
+
+  // Get store actions once - these are stable and won't change
+  const setMessages = useChatStore.getState().setMessages;
+  const setConversation = useChatStore.getState().setConversation;
+  const setMembers = useChatStore.getState().setMembers;
+  const updateMessageReadStatus =
+    useChatStore.getState().updateMessageReadStatus;
+
   const [loading, setLoading] = useState(true);
+  const [hasFetched, setHasFetched] = useState(false);
 
   useEffect(() => {
+    // Only fetch once per conversationId change
+    if (hasFetched) return;
+
     const fetchMessages = async () => {
       // Get user_id from cookies as fallback if userId prop is empty
       const userIdFromCookie = document.cookie
@@ -102,18 +107,28 @@ export function useMessages(conversationId: string, userId: string) {
           });
         } else {
           console.warn("Invalid message format:", apiMessages);
-          setMessages(conversationId, []);
+          // Don't clear messages - keep cached data
+          console.log("📦 Using cached messages from localStorage");
         }
       } catch (e) {
         console.error("Fetch error:", e);
-        setMessages(conversationId, []);
+        // Don't clear messages on error - preserve offline data
+        console.log(
+          "📦 Backend offline - showing cached messages from localStorage"
+        );
       } finally {
         setLoading(false);
+        setHasFetched(true);
       }
     };
 
     fetchMessages();
-  }, [conversationId, userId, setMessages, updateMessageReadStatus]);
+  }, [conversationId, userId]); // Remove store actions from dependencies
+
+  // Reset hasFetched when conversationId changes
+  useEffect(() => {
+    setHasFetched(false);
+  }, [conversationId]);
 
   return { conversations, messages, loading };
 }

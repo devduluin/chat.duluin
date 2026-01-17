@@ -2,6 +2,27 @@
 import api from "../apiClient";
 
 /**
+ * Send a message to a conversation
+ */
+export async function sendMessage(payload: {
+  conversation_id: string;
+  sender_id: string;
+  tenant_id: string;
+  content: string;
+  message_type?: string;
+  parent_message_id?: string;
+  attachment_ids?: string[];
+}): Promise<any | null> {
+  try {
+    const response = await api.post(`/messages`, payload);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error sending message:", error);
+    throw error;
+  }
+}
+
+/**
  * Forward a message to multiple conversations
  */
 export async function forwardMessage(

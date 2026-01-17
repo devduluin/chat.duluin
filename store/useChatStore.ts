@@ -1,13 +1,14 @@
 // store/useChatStore.ts
-import { createWithEqualityFn } from "zustand/traditional";
+import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { shallow } from "zustand/shallow";
 
 interface ChatStore {
   messages: Record<string, Message[]>;
   conversations: Record<string, Conversation>;
   members: Record<string, Member[]>;
+  _version: number; // Version counter to force updates
   addMessage: (conversationId: string, msg: Message) => void;
+  addOrUpdateMessage: (conversationId: string, msg: Message) => void;
   setMessages: (conversationId: string, msgs: Message[]) => void;
   setConversation: (conversationId: string, conversation: Conversation) => void;
   updateConversation: (
@@ -30,14 +31,20 @@ interface ChatStore {
     messageId: string,
     newContent: string
   ) => void;
+  replaceOptimisticMessage: (
+    conversationId: string,
+    optimisticId: string,
+    realMessage: Message
+  ) => void;
 }
 
-export const useChatStore = createWithEqualityFn<ChatStore>()(
+export const useChatStore = create<ChatStore>()(
   persist(
     (set, get) => ({
       messages: {},
       conversations: {},
       members: {},
+      _version: 0,
       addMessage: (conversationId, msg) => {
         const convMsgs = get().messages[conversationId] || [];
 
@@ -54,6 +61,67 @@ export const useChatStore = createWithEqualityFn<ChatStore>()(
             [conversationId]: [...convMsgs, msg],
           },
         });
+      },
+
+      addOrUpdateMessage: (conversationId, msg) => {
+        const currentState = get();
+        const convMsgs = currentState.messages[conversationId] || [];
+
+        console.log("🔄 addOrUpdateMessage called:", {
+          conversationId,
+          messageId: msg.id,
+          content: msg.content,
+          existingMessagesCount: convMsgs.length,
+        });
+
+        // Check if message already exists
+        const existingIndex = convMsgs.findIndex((m) => m.id === msg.id);
+
+        console.log("🔍 Message lookup result:", {
+          messageId: msg.id,
+          existingIndex,
+          exists: existingIndex !== -1,
+        });
+
+        if (existingIndex !== -1) {
+          // Message exists - update it
+          console.log("📝 Updating existing message:", {
+            messageId: msg.id,
+            oldContent: convMsgs[existingIndex].content,
+            newContent: msg.content,
+          });
+
+          // Create a completely new array with updated message
+          const updatedMessages = convMsgs.map((m, index) =>
+            index === existingIndex ? { ...m, ...msg } : m
+          );
+
+          console.log("✅ Message updated, setting new state");
+
+          // Force a new reference for the entire messages object AND increment version
+          set({
+            messages: {
+              ...currentState.messages,
+              [conversationId]: updatedMessages,
+            },
+            _version: currentState._version + 1,
+          });
+
+          console.log(
+            "✅ State updated with version:",
+            currentState._version + 1
+          );
+        } else {
+          // Message doesn't exist - add it
+          console.log("➕ Adding new message:", msg.id);
+          set({
+            messages: {
+              ...currentState.messages,
+              [conversationId]: [...convMsgs, msg],
+            },
+            _version: currentState._version + 1,
+          });
+        }
       },
 
       setMessages: (conversationId, msgs) => {
@@ -130,15 +198,44 @@ export const useChatStore = createWithEqualityFn<ChatStore>()(
           },
         });
       },
+
+      replaceOptimisticMessage: (conversationId, optimisticId, realMessage) => {
+        const currentState = get();
+        const convMsgs = currentState.messages[conversationId] || [];
+
+        console.log("🔄 Replacing optimistic message:", {
+          optimisticId,
+          realMessageId: realMessage.id,
+          conversationId,
+        });
+
+        // Remove optimistic message and add real message, then sort by timestamp
+        const updatedMessages = convMsgs
+          .filter((m) => m.id !== optimisticId)
+          .concat({ ...realMessage, status: "sent" })
+          .sort(
+            (a, b) =>
+              new Date(a.created_at).getTime() -
+              new Date(b.created_at).getTime()
+          );
+
+        set({
+          messages: {
+            ...currentState.messages,
+            [conversationId]: updatedMessages,
+          },
+          _version: currentState._version + 1,
+        });
+      },
     }),
     {
       name: "chat-storage",
       partialize: (state) => ({
         messages: state.messages,
-        conversations: state.conversations, // Persist conversations as well
-        members: state.members, // Persist members
-      }), // Persist only messages
+        conversations: state.conversations,
+        members: state.members,
+        _version: state._version,
+      }),
     }
-  ),
-  shallow
+  )
 );

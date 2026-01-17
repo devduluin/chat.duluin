@@ -63,7 +63,7 @@ interface Message {
   sender: User;
   attachments?: Attachment[] | null;
   read_at?: any | null;
-  status?: "pending" | "sent" | "failed";
+  status?: "pending" | "sending" | "sent" | "failed";
 }
 
 interface ChatStore {

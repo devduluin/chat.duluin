@@ -39,11 +39,14 @@ export function MessageList({
     }
   }, []);
 
-  const setMessageRef = useCallback((id: string, ref: HTMLDivElement | null) => {
-    if (ref) {
-      messageRefs.current.set(id, ref);
-    }
-  }, []);
+  const setMessageRef = useCallback(
+    (id: string, ref: HTMLDivElement | null) => {
+      if (ref) {
+        messageRefs.current.set(id, ref);
+      }
+    },
+    []
+  );
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -52,8 +55,8 @@ export function MessageList({
   // Create a stable reference for messages map
   const messagesMap = useRef(new Map<string, Message>());
   useEffect(() => {
-  messagesMap.current = new Map(messages.map((msg) => [msg.id ?? '', msg]));
-}, [messages]);
+    messagesMap.current = new Map(messages.map((msg) => [msg.id ?? "", msg]));
+  }, [messages]);
 
   if (!isClient) {
     // Render nothing or a fallback during SSR
@@ -67,7 +70,9 @@ export function MessageList({
           {[...Array(5)].map((_, i) => (
             <div
               key={i}
-              className={`h-16 bg-gray-200 dark:bg-gray-700 rounded ${i % 2 ? "ml-16" : "mr-16"}`}
+              className={`h-16 bg-gray-200 dark:bg-gray-700 rounded ${
+                i % 2 ? "ml-16" : "mr-16"
+              }`}
             ></div>
           ))}
         </div>
@@ -86,7 +91,7 @@ export function MessageList({
           return (
             <MessageBubble
               key={message.id}
-              ref={(ref) => setMessageRef(message.id ?? '', ref)}
+              ref={(ref) => setMessageRef(message.id ?? "", ref)}
               userId={userId}
               message={message}
               onReply={onReply}

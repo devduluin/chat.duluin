@@ -1,7 +1,7 @@
 // components/chat/Sidebar.tsx
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ConversationList } from "./ConversationList";
 import { ContactList } from "@/components/chat/ContactList";
 import { SearchBar } from "../ui/searchBar";
@@ -25,6 +25,13 @@ export function Sidebar() {
   const { data: account } = useAccountStore();
   const userId = account?.id || "";
   const [showNewContact, setShowNewContact] = useState(false);
+
+  useEffect(() => {
+    console.log("📱 Sidebar MOUNTED - userId:", userId);
+    return () => {
+      console.log("📱 Sidebar UNMOUNTED");
+    };
+  }, [userId]);
 
   // Connect to global WebSocket for real-time message notifications
   useGlobalMessageSocket(userId);
