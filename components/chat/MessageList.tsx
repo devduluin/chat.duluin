@@ -12,6 +12,7 @@ export function MessageList({
   pinnedMessages = [],
   onPinChange,
   onScrollToMessageReady,
+  isGroupConversation = false,
 }: {
   conversationId: string;
   onReply?: (message: {
@@ -23,6 +24,7 @@ export function MessageList({
   pinnedMessages?: any[];
   onPinChange?: () => void;
   onScrollToMessageReady?: (fn: (messageId: string) => void) => void;
+  isGroupConversation?: boolean;
 }) {
   const { messages, loading } = useMessages(conversationId, userId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -114,6 +116,7 @@ export function MessageList({
               scrollToMessage={scrollToMessage}
               isPinnedMessage={isPinned}
               onPinChange={onPinChange}
+              isGroupConversation={isGroupConversation}
             />
           );
         })}

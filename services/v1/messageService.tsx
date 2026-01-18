@@ -98,3 +98,27 @@ export async function getPinnedMessages(
     return error?.response?.data;
   }
 }
+
+/**
+ * Delete a message (for me or for everyone)
+ */
+export async function deleteMessage(
+  messageId: string,
+  userId: string,
+  conversationId: string,
+  deleteForEveryone: boolean
+): Promise<any | null> {
+  try {
+    const response = await api.delete(`/messages/${messageId}`, {
+      data: {
+        user_id: userId,
+        conversation_id: conversationId,
+        delete_for_everyone: deleteForEveryone,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Error deleting message:", error);
+    return error?.response?.data;
+  }
+}

@@ -2,6 +2,7 @@
 import { useEffect, useRef, useCallback } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
+import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { toast } from "sonner";
 import { getConversationById } from "@/services/v1/conversationService";
 
@@ -12,8 +13,8 @@ interface RecentConversation {
 }
 
 /**
- * Global WebSocket hook for receiving messages from ALL conversations
- * This enables real-time unread counter updates across all conversations
+ * Global WebSocket hook - SINGLE WebSocket for ALL conversations
+ * Handles both sending and receiving messages in real-time
  */
 export function useGlobalMessageSocket(userId: string) {
   const wsRef = useRef<WebSocket | null>(null);
@@ -28,8 +29,54 @@ export function useGlobalMessageSocket(userId: string) {
   const setLastMessage = useConversationsStore((s) => s.setMessage);
   const addNewConversation = useConversationsStore((s) => s.addNewConversation);
   const conversations = useConversationsStore((s) => s.conversations);
+  const { setSendMessage, setConnected } = useWebSocketStore();
+
+  // Send message function - stable reference, always uses current wsRef
+  const sendMessageStable = useCallback(
+    (payload: string | object) => {
+      if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
+        console.warn(
+          "⚠️ WebSocket not connected. State:",
+          wsRef.current?.readyState
+        );
+        toast.error("Connection lost. Please wait...", {
+          id: "ws-disconnected",
+        });
+        return false;
+      }
+
+      try {
+        const messageToSend =
+          typeof payload === "string" ? payload : JSON.stringify(payload);
+        console.log("📤 Sending message via WebSocket:", messageToSend);
+        wsRef.current.send(messageToSend);
+        return true;
+      } catch (error) {
+        console.error("❌ Send error:", error);
+        toast.error("Failed to send message", { id: "send-error" });
+        return false;
+      }
+    },
+    [] // No dependencies - stable function that uses ref
+  );
+
+  // Set sendMessage to store immediately on mount
+  useEffect(() => {
+    setSendMessage(sendMessageStable);
+    return () => {
+      setSendMessage(null);
+    };
+  }, [sendMessageStable, setSendMessage]);
 
   const connectWebSocket = useCallback(() => {
+    console.log("🔍 connectWebSocket called:", {
+      userId,
+      hasUserId: !!userId && userId.trim() !== "",
+      isMounted: isMounted.current,
+      shouldReconnect: shouldReconnect.current,
+      currentWsState: wsRef.current?.readyState,
+    });
+
     // Prevent duplicate connection attempts
     if (
       wsRef.current &&
@@ -40,7 +87,19 @@ export function useGlobalMessageSocket(userId: string) {
       return;
     }
 
-    if (!isMounted.current || !shouldReconnect.current || !userId) return;
+    if (
+      !isMounted.current ||
+      !shouldReconnect.current ||
+      !userId ||
+      userId.trim() === ""
+    ) {
+      console.log("⏸️ Cannot connect WebSocket:", {
+        isMounted: isMounted.current,
+        shouldReconnect: shouldReconnect.current,
+        userId: userId || "empty",
+      });
+      return;
+    }
 
     try {
       const ws = new WebSocket(`ws://localhost:3000/api/v1/chat/${userId}`);
@@ -49,14 +108,38 @@ export function useGlobalMessageSocket(userId: string) {
       ws.onopen = () => {
         console.log("🌍✅ Global WebSocket CONNECTED for user:", userId);
         console.log("🌍 WebSocket readyState:", ws.readyState, "(1=OPEN)");
+        setConnected(true);
         reconnectAttempts.current = 0;
       };
 
       ws.onmessage = (event) => {
         try {
-          console.log("🌍📨 Global WebSocket RAW data received:", event.data);
+          console.log("🌍📨 [RAW] WebSocket data:", event.data);
+
+          // Check RAW data for delete message
+          if (
+            typeof event.data === "string" &&
+            event.data.includes("message_deleted")
+          ) {
+            console.log("🔥🔥🔥 DELETE MESSAGE IN RAW DATA!");
+          }
+
           const response = JSON.parse(event.data);
-          console.log("🌍📨 Parsed response:", response);
+          console.log("🌍📨 [PARSED] Full response:", {
+            status: response.status,
+            message: response.message,
+            data: response.data,
+            hasData: !!response.data,
+            dataType: typeof response.data,
+          });
+
+          // Check parsed data for delete
+          if (response.data?.content?.includes("message_deleted")) {
+            console.log(
+              "🔥🔥🔥 DELETE CONTENT IN PARSED DATA:",
+              response.data.content
+            );
+          }
 
           if (response.status === "error") {
             console.error("🌍❌ WebSocket error:", response.errors);
@@ -66,59 +149,112 @@ export function useGlobalMessageSocket(userId: string) {
           if (response.status && response.data) {
             const msg = response.data as Message;
 
-            console.log("🌍✅ Global WebSocket received message:", {
+            console.log("🌍✅ [MSG] Message details:", {
               messageId: msg.id,
               conversationId: msg.conversation_id,
               content: msg.content,
+              messageType: msg.message_type,
+              MessageType: (msg as any).MessageType,
               sender: msg.sender?.first_name,
-              updated_at: msg.updated_at,
+              allKeys: Object.keys(msg),
             });
 
-            // Check if this is a message we sent (to replace optimistic message)
-            const convMsgs =
-              useChatStore.getState().messages[msg.conversation_id] || [];
+            // Handle message deletion event - CHECK THIS FIRST
+            // Try both snake_case and PascalCase
+            const isSystemMessage =
+              msg.message_type === "system" ||
+              (msg as any).MessageType === "system";
+            const isDeleteMessage = msg.content?.startsWith("message_deleted:");
 
-            // Find optimistic message by matching criteria
-            const optimisticMessage = convMsgs.find(
-              (m) =>
-                m.sender_id === msg.sender_id &&
-                m.content === msg.content &&
-                m.conversation_id === msg.conversation_id &&
-                // Match messages with pending status or no status (optimistic UI)
-                (m.status === "pending" ||
-                  !m.status ||
-                  m.status === "sending") &&
-                // Check timestamp difference (within 30 seconds either direction)
-                Math.abs(
-                  new Date(msg.created_at).getTime() -
-                    new Date(m.created_at).getTime()
-                ) < 30000
-            );
+            console.log("🔍 Checking delete conditions:", {
+              isSystemMessage,
+              isDeleteMessage,
+              message_type: msg.message_type,
+              MessageType: (msg as any).MessageType,
+              content: msg.content,
+              contentStartsWith: msg.content?.substring(0, 20),
+            });
 
-            if (optimisticMessage) {
-              // Replace optimistic message with real message using dedicated method
-              console.log(
-                "🔄 Found optimistic message to replace:",
-                optimisticMessage.id,
-                "→",
-                msg.id
-              );
+            if (isSystemMessage && isDeleteMessage) {
+              // Format: "message_deleted:{messageID}:{deleteForEveryone}:{isGroupConversation}"
+              const parts = msg.content.split(":");
+              const deletedMessageId = parts[1]; // The actual message ID being deleted
+              const deleteForEveryone = parts[2] === "true";
 
+              console.log("🗑️🔥 DELETE EVENT DETECTED!", {
+                deletedMessageId,
+                conversationId: msg.conversation_id,
+                deleteForEveryone,
+                fullContent: msg.content,
+                parts: parts,
+              });
+
+              // Remove message from store using the correct message ID
+              console.log("🗑️ Calling removeMessage...");
               useChatStore
                 .getState()
-                .replaceOptimisticMessage(
-                  msg.conversation_id,
-                  optimisticMessage.id,
-                  msg
-                );
-            } else {
-              // ALWAYS add or update message to chat store (for all conversations)
-              // This ensures that even if conversation is open, it gets the update
-              console.log("➡️ Calling addOrUpdateMessage from GlobalWebSocket");
+                .removeMessage(msg.conversation_id, deletedMessageId);
+
+              console.log("🗑️✅ removeMessage completed");
+
+              // Don't process further for delete events
+              return;
+            }
+
+            // Check if message already exists in store
+            const convMsgs =
+              useChatStore.getState().messages[msg.conversation_id] || [];
+            const existingMessage = convMsgs.find((m) => m.id === msg.id);
+
+            if (existingMessage) {
+              // Message already exists, just update it
+              console.log("🔄 Message already exists, updating:", msg.id);
               addOrUpdateMessage(msg.conversation_id, {
                 ...msg,
                 status: "sent",
               });
+            } else {
+              // New message, check if there's an optimistic message to replace
+              const optimisticMessage = convMsgs.find(
+                (m) =>
+                  m.sender_id === msg.sender_id &&
+                  m.content === msg.content &&
+                  m.conversation_id === msg.conversation_id &&
+                  // Match messages with pending status
+                  (m.status === "pending" ||
+                    !m.status ||
+                    m.status === "sending")
+              );
+
+              if (optimisticMessage) {
+                // Replace optimistic message with real message
+                console.log(
+                  "🔄 Found optimistic message to replace:",
+                  optimisticMessage.id,
+                  "→",
+                  msg.id
+                );
+
+                useChatStore
+                  .getState()
+                  .replaceOptimisticMessage(
+                    msg.conversation_id,
+                    optimisticMessage.id,
+                    msg
+                  );
+              } else {
+                // Add as new message
+                console.log("➕ Adding NEW message from GlobalWebSocket:", {
+                  id: msg.id,
+                  conversationId: msg.conversation_id,
+                  content: msg.content,
+                  sender: msg.sender?.first_name,
+                });
+                addOrUpdateMessage(msg.conversation_id, {
+                  ...msg,
+                  status: "sent",
+                });
+              }
             }
 
             // Also update the last message in conversations store
@@ -263,16 +399,14 @@ export function useGlobalMessageSocket(userId: string) {
         }
       }
     }
-  }, [
-    userId,
-    addOrUpdateMessage,
-    setLastMessage,
-    addNewConversation,
-    conversations,
-  ]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]); // Only userId - all others use refs or direct calls
 
   useEffect(() => {
-    if (!userId) return;
+    if (!userId || userId.trim() === "") {
+      console.log("⏸️ Skipping WebSocket - no userId");
+      return;
+    }
 
     isMounted.current = true;
     connectWebSocket();
@@ -280,16 +414,20 @@ export function useGlobalMessageSocket(userId: string) {
     return () => {
       isMounted.current = false;
       shouldReconnect.current = false;
+      setConnected(false);
+      setConnected(false);
       if (wsRef.current) {
         console.log("Closing global WebSocket connection");
         wsRef.current.close();
         wsRef.current = null;
       }
     };
-  }, [connectWebSocket]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, setConnected]); // Only re-run when userId changes
 
-  // Return connection status for debugging
+  // Return connection status and sendMessage function
   return {
     isConnected: wsRef.current?.readyState === WebSocket.OPEN,
+    sendMessage: sendMessageStable,
   };
 }

@@ -46,6 +46,14 @@ export default function ConversationPage() {
     ((messageId: string) => void) | null
   >(null);
 
+  // Check if conversation is group
+  const { conversations } = useConversationsStore();
+  const currentConversation = conversations.find(
+    (conv) => conv?.ConversationDetails?.id === conversationId
+  );
+  const isGroupConversation =
+    currentConversation?.ConversationDetails?.is_group || false;
+
   // Wait for account store to load (middleware already handles auth redirect)
   useEffect(() => {
     // Give time for account store to hydrate from localStorage
@@ -135,6 +143,7 @@ export default function ConversationPage() {
           pinnedMessages={pinnedMessages}
           onPinChange={refreshPinnedMessages}
           onScrollToMessageReady={setScrollToMessageFn}
+          isGroupConversation={isGroupConversation}
         />
         <MessageInput
           conversationId={conversationId}

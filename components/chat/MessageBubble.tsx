@@ -45,6 +45,7 @@ import {
   forwardMessage,
   editMessage,
   pinMessage,
+  deleteMessage,
 } from "@/services/v1/messageService";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
@@ -65,6 +66,7 @@ interface MessageBubbleProps {
   scrollToMessage?: (id: string) => void;
   isPinnedMessage?: boolean;
   onPinChange?: () => void;
+  isGroupConversation?: boolean;
 }
 
 export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
@@ -77,6 +79,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       scrollToMessage,
       isPinnedMessage = false,
       onPinChange,
+      isGroupConversation = false,
     },
     ref
   ) => {
@@ -84,7 +87,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const [reactions, setReactions] = useState<Reaction[]>([]);
     const [showReactors, setShowReactors] = useState(false);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
-    const [permanentDelete, setPermanentDelete] = useState(true);
+    const [permanentDelete, setPermanentDelete] = useState(false);
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     const [imagePreview, setImagePreview] = useState<{
       url: string;
@@ -119,10 +122,30 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
     const confirmDelete = async (isPermanent: boolean) => {
       setOpenDeleteModal(false);
-      if (isPermanent) {
-        console.log("Permanently deleting message:", message.id);
-      } else {
-        console.log("Soft deleting message:", message.id);
+      try {
+        const result = await deleteMessage(
+          message.id,
+          userId,
+          message.conversation_id,
+          isPermanent
+        );
+
+        if (result?.status) {
+          // Remove message from local state immediately
+          const removeMessage = useChatStore.getState().removeMessage;
+          removeMessage(message.conversation_id, message.id);
+
+          toast.success(
+            isPermanent
+              ? "Message deleted for everyone"
+              : "Message deleted for you"
+          );
+        } else {
+          toast.error(result?.message || "Failed to delete message");
+        }
+      } catch (error) {
+        console.error("Error deleting message:", error);
+        toast.error("Failed to delete message");
       }
     };
 
@@ -667,7 +690,9 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           onCancel={() => setOpenDeleteModal(false)}
           onTogglePermanent={setPermanentDelete}
           title="Delete Chat Message"
-          description="Are you sure you want to delete this message?"
+          description="Choose how you want to delete this message:"
+          isMessageSender={isCurrentUser}
+          isGroupConversation={isGroupConversation}
         />
 
         {/* Image Preview Modal */}

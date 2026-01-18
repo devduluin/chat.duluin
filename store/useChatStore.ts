@@ -36,6 +36,7 @@ interface ChatStore {
     optimisticId: string,
     realMessage: Message
   ) => void;
+  removeMessage: (conversationId: string, messageId: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -218,6 +219,31 @@ export const useChatStore = create<ChatStore>()(
               new Date(a.created_at).getTime() -
               new Date(b.created_at).getTime()
           );
+
+        set({
+          messages: {
+            ...currentState.messages,
+            [conversationId]: updatedMessages,
+          },
+          _version: currentState._version + 1,
+        });
+      },
+
+      removeMessage: (conversationId, messageId) => {
+        const currentState = get();
+        const convMsgs = currentState.messages[conversationId] || [];
+
+        console.log("🗑️ Removing message:", {
+          conversationId,
+          messageId,
+          beforeCount: convMsgs.length,
+        });
+
+        const updatedMessages = convMsgs.filter((m) => m.id !== messageId);
+
+        console.log("🗑️ After remove:", {
+          afterCount: updatedMessages.length,
+        });
 
         set({
           messages: {
