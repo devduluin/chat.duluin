@@ -344,9 +344,9 @@ export function useGlobalMessageSocket(userId: string) {
                       );
 
                       // Show toast notification for new conversation
-                      toast.success("New conversation", {
+                      /* toast.success("New conversation", {
                         description: `${msg.sender.first_name} ${msg.sender.last_name} started a conversation`,
-                      });
+                      }); */
                     }
                   })
                   .catch((error) => {

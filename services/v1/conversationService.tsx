@@ -55,3 +55,34 @@ export async function getConversationById(
     return error?.response?.data;
   }
 }
+
+export async function addMemberToConversation(
+  conversationId: string,
+  userIds: string[],
+  tenantId: string
+): Promise<any | null> {
+  try {
+    // Add members one by one
+    const results = await Promise.all(
+      userIds.map(async (userId) => {
+        const response = await api.post(
+          `/conversations/${conversationId}/members`,
+          {
+            user_id: userId,
+            tenant_id: tenantId,
+          }
+        );
+        return response.data;
+      })
+    );
+    return { status: true, data: results };
+  } catch (error: any) {
+    console.error("Failed to add members:", error);
+    console.error("Error details:", error?.response?.data);
+    return {
+      status: false,
+      message: error?.response?.data?.message || "Failed to add members",
+      errors: error?.response?.data?.errors || [error.message],
+    };
+  }
+}

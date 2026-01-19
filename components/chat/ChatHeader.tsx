@@ -76,11 +76,77 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     });
   };
 
-  const handleAddMembers = (contacts: any[]) => {
-    toast("Members added", {
-      description: `${contacts.length} members added to the group`,
-    });
-    setShowAddMembers(false);
+  const handleAddMembers = async (contacts: any[]) => {
+    try {
+      // Import addMemberToConversation and Cookies
+      const { addMemberToConversation } = await import(
+        "@/services/v1/conversationService"
+      );
+      const Cookies = (await import("js-cookie")).default;
+
+      // Extract user IDs from contacts
+      const userIds = contacts.map((contact) => contact.target.id);
+
+      // Get tenant_id from cookies
+      const tenantId = Cookies.get("tenant_id");
+      if (!tenantId) {
+        toast.error("Missing tenant information", {
+          description: "Please login again",
+        });
+        return;
+      }
+
+      // Call API to add members
+      const result = await addMemberToConversation(
+        conversationId,
+        userIds,
+        tenantId
+      );
+
+      if (result?.status) {
+        toast.success("Members added", {
+          description: `${contacts.length} member(s) added to the group`,
+        });
+
+        // Refresh conversation details to get updated members
+        const { getConversationById } = await import(
+          "@/services/v1/conversationService"
+        );
+        const updatedConversation = await getConversationById(
+          conversationId,
+          userId
+        );
+
+        if (updatedConversation?.status && updatedConversation?.data) {
+          // Update members in store
+          useChatStore
+            .getState()
+            .setMembers(conversationId, updatedConversation.data.Members || []);
+
+          // Update conversation in store
+          if (updatedConversation.data.Conversation) {
+            useChatStore.getState().setConversation(conversationId, {
+              ...updatedConversation.data.Conversation,
+              members: updatedConversation.data.Members,
+            });
+          }
+        }
+      } else {
+        // Show detailed error message
+        const errorMsg = result?.message || "Please try again";
+        const errorDetails = result?.errors?.join(", ") || "";
+        toast.error("Failed to add members", {
+          description: errorDetails || errorMsg,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error adding members:", error);
+      toast.error("Failed to add members", {
+        description: error?.message || "An error occurred",
+      });
+    } finally {
+      setShowAddMembers(false);
+    }
   };
 
   return (
