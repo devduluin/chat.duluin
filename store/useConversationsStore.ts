@@ -69,6 +69,21 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
 
       addNewConversation: (conversation) =>
         set((state) => {
+          // Filter out AI Assistant conversation - we have hardcoded entry in UI
+          const AI_BOT_USER_ID = "1196e18b-c1dc-41aa-946a-0c55e9d64fe6";
+          const isAIAssistant =
+            (conversation as any).display_name === "AI Assistant" ||
+            conversation.Conversation?.name === "AI Assistant" ||
+            (conversation as any).other_user_id === AI_BOT_USER_ID;
+
+          if (isAIAssistant) {
+            console.log(
+              "🤖 Store: AI Assistant conversation blocked from being added:",
+              conversation.Conversation.id
+            );
+            return state; // Don't add AI conversation
+          }
+
           // Check if conversation already exists
           const exists = state.conversations.find(
             (item) => item.Conversation.id === conversation.Conversation.id

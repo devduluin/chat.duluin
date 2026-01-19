@@ -266,7 +266,20 @@ export function useGlobalMessageSocket(userId: string) {
               (item) => item.Conversation.id === msg.conversation_id
             );
 
+            // AI Bot user ID - we don't want to show AI conversations in sidebar
+            const AI_BOT_USER_ID = "1196e18b-c1dc-41aa-946a-0c55e9d64fe6";
+            const isAIBotMessage = msg.sender_id === AI_BOT_USER_ID;
+
             if (!conversationExists) {
+              // Skip fetching and adding AI conversation to list
+              if (isAIBotMessage) {
+                console.log(
+                  "🤖 AI Bot message detected - skipping conversation list update:",
+                  msg.conversation_id
+                );
+                return; // Don't add AI conversation to sidebar
+              }
+
               // Conversation is new, fetch it from API
               console.log(
                 "🆕 New conversation detected:",
@@ -282,6 +295,21 @@ export function useGlobalMessageSocket(userId: string) {
                   .then((response) => {
                     if (response?.status && response?.data) {
                       const conversationData = response.data;
+
+                      // Double check: filter out AI Assistant conversation
+                      const isAIAssistant =
+                        conversationData.display_name === "AI Assistant" ||
+                        conversationData.Conversation?.name ===
+                          "AI Assistant" ||
+                        conversationData.other_user_id === AI_BOT_USER_ID;
+
+                      if (isAIAssistant) {
+                        console.log(
+                          "🤖 AI Assistant conversation detected - NOT adding to sidebar:",
+                          conversationData
+                        );
+                        return; // Don't add to list
+                      }
 
                       // Create RecentConversation object
                       const newConversation: RecentConversation = {
@@ -329,6 +357,14 @@ export function useGlobalMessageSocket(userId: string) {
                   });
               }
             } else {
+              // Skip updating last message for AI conversation (no unread badge)
+              if (isAIBotMessage) {
+                console.log(
+                  "🤖 AI Bot message - skipping last message update in sidebar"
+                );
+                return; // Don't update last message/unread count in sidebar
+              }
+
               // Conversation exists, update last message and unread count
               setLastMessage(msg.conversation_id, msg, userId);
             }
