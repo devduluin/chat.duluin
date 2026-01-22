@@ -1,18 +1,23 @@
 // app/contact/[id]/page.tsx
-"use client"
-import { useState, useEffect } from 'react'
-import { Button } from '@/components/ui/button'
-import { useParams } from 'next/navigation'
-import { Phone, Video, Mail, ChevronLeft, MoreVertical } from 'lucide-react'
-import Link from 'next/link'
-import { Avatar } from '@/components/ui/avatar'
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { getContact } from '@/services/v1/contactService'
+"use client";
+import { useState, useEffect } from "react";
+import { Button } from "@/components/ui/button";
+import { useParams } from "next/navigation";
+import { Phone, Video, Mail, ChevronLeft, MoreVertical } from "lucide-react";
+import Link from "next/link";
+import { Avatar } from "@/components/ui/avatar";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { getContact } from "@/services/v1/contactService";
 
-export default function ContactPage({ userId }: { userId: string }) {
+export default function ContactPage() {
   const params = useParams();
-  const [contact, setContact] = useState<any | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [contact, setContact] = useState<any | null>(null);
+  const [loading, setLoading] = useState(true);
   useEffect(() => {
     const fetchContact = async () => {
       try {
@@ -43,7 +48,9 @@ export default function ContactPage({ userId }: { userId: string }) {
   //   position: "Senior Developer"
   // }
   if (loading) {
-    return <div className="flex items-center justify-center h-full">Loading...</div>
+    return (
+      <div className="flex items-center justify-center h-full">Loading...</div>
+    );
   }
 
   return (
@@ -75,16 +82,16 @@ export default function ContactPage({ userId }: { userId: string }) {
       {/* Contact Info */}
       <div className="p-4 flex-1 overflow-y-auto">
         <div className="flex flex-col items-center space-y-4">
-          <Avatar 
-            src={contact.avatar_url || ''} 
-            name={contact.name} 
+          <Avatar
+            src={contact.avatar_url || ""}
+            name={contact.name}
             size="lg"
             isOnline={contact.is_online}
           />
           <div className="text-center">
             <h2 className="text-xl font-semibold">{contact.name}</h2>
             <p className="text-sm text-gray-500 dark:text-gray-400">
-              {contact.status} {!contact.is_online && '• Offline'}
+              {contact.status} {!contact.is_online && "• Offline"}
             </p>
           </div>
 
@@ -111,7 +118,9 @@ export default function ContactPage({ userId }: { userId: string }) {
                     <Mail className="h-5 w-5 text-blue-600 dark:text-blue-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Email</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Email
+                    </p>
                     <p className="font-medium">{contact.email}</p>
                   </div>
                 </div>
@@ -120,7 +129,9 @@ export default function ContactPage({ userId }: { userId: string }) {
                     <Phone className="h-5 w-5 text-green-600 dark:text-green-400" />
                   </div>
                   <div>
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Phone</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Phone
+                    </p>
                     <p className="font-medium">{contact.phone}</p>
                   </div>
                 </div>
@@ -132,11 +143,15 @@ export default function ContactPage({ userId }: { userId: string }) {
                 <h3 className="font-medium">Work Information</h3>
                 <div className="grid grid-cols-2 gap-4 pt-2">
                   <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-800">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Department</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Department
+                    </p>
                     <p className="font-medium">{contact.department}</p>
                   </div>
                   <div className="p-3 rounded-lg bg-gray-100 dark:bg-gray-800">
-                    <p className="text-sm text-gray-500 dark:text-gray-400">Position</p>
+                    <p className="text-sm text-gray-500 dark:text-gray-400">
+                      Position
+                    </p>
                     <p className="font-medium">{contact.position}</p>
                   </div>
                 </div>
@@ -146,5 +161,5 @@ export default function ContactPage({ userId }: { userId: string }) {
         </div>
       </div>
     </div>
-  )
+  );
 }
