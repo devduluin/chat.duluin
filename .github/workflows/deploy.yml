@@ -37,7 +37,7 @@ jobs:
           # Copy Dockerfile and docker-compose.yml to parent directory
           scp Dockerfile ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
           scp docker-compose.yml ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
-          
+
           # Sync source code to src/ directory (excluding node_modules, .git, etc)
           rsync -avz --delete \
             --exclude 'node_modules' \
