@@ -44,6 +44,15 @@ coverage
 README.md
 CHANGELOG.md
 
+# Backup/old files
+*.old.*
+*.old.tsx
+*.old.ts
+*.old.js
+*.old.jsx
+*.backup
+*.bak
+
 # Logs
 logs
 *.log
