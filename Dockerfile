@@ -2,8 +2,8 @@
 FROM node:20-alpine AS deps
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+# Copy package files from src directory
+COPY src/package*.json ./
 
 # Install dependencies
 RUN npm ci
@@ -14,7 +14,7 @@ WORKDIR /app
 
 # Copy dependencies from deps stage
 COPY --from=deps /app/node_modules ./node_modules
-COPY . .
+COPY src/ .
 
 # Set environment variable for production build
 ENV NEXT_TELEMETRY_DISABLED=1

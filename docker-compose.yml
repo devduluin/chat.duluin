@@ -4,8 +4,8 @@ services:
   duluin-chat-frontend:
     container_name: duluin-chat-frontend
     build:
-      context: ./src
-      dockerfile: ../Dockerfile
+      context: .
+      dockerfile: Dockerfile
     ports:
       - "8085:8085"
     environment:

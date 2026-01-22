@@ -34,7 +34,11 @@ jobs:
           # Create necessary directories on server
           ssh ${{ secrets.SERVER_USER }}@$SERVER_IP "mkdir -p $DEPLOY_PATH/src"
 
-          # Sync files to server (excluding node_modules, .git, etc)
+          # Copy Dockerfile and docker-compose.yml to parent directory
+          scp Dockerfile ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
+          scp docker-compose.yml ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
+          
+          # Sync source code to src/ directory (excluding node_modules, .git, etc)
           rsync -avz --delete \
             --exclude 'node_modules' \
             --exclude '.git' \
@@ -42,14 +46,11 @@ jobs:
             --exclude '.env.local' \
             --exclude 'dist' \
             --exclude 'build' \
+            --exclude 'Dockerfile' \
+            --exclude 'docker-compose.yml' \
+            --exclude '.github' \
+            --exclude '.dockerignore' \
             ./ ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/src/
-
-          # Copy Dockerfile and docker-compose.yml to parent directory
-          ssh ${{ secrets.SERVER_USER }}@$SERVER_IP "cp $DEPLOY_PATH/src/Dockerfile $DEPLOY_PATH/Dockerfile"
-          ssh ${{ secrets.SERVER_USER }}@$SERVER_IP "cp $DEPLOY_PATH/src/docker-compose.yml $DEPLOY_PATH/docker-compose.yml"
-
-          # Deploy with Docker Compose
-          ssh ${{ secrets.SERVER_USER }}@$SERVER_IP << 'ENDSSH'
             cd /home/apps/workspaceChatFrontend
             
             # Stop and remove existing containers
