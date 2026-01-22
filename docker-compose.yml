@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   duluin-chat-frontend:
     container_name: duluin-chat-frontend
