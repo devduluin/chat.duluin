@@ -2,7 +2,7 @@
 const nextConfig = {
   reactStrictMode: false,
   compiler: {
-    reactRemoveProperties: process.env.NODE_ENV === 'production',
+    reactRemoveProperties: process.env.NODE_ENV === "production",
   },
   images: {
     remotePatterns: [
@@ -21,6 +21,7 @@ const nextConfig = {
   env: {
     API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
   },
+  output: "standalone",
 };
 
 module.exports = nextConfig;
