@@ -98,9 +98,11 @@ export function ConversationList({ userId }: { userId: string }) {
           const conversationWithDisplay = {
             ...item.Conversation,
             display_name:
-              (item as any).display_name || item.Conversation.display_name,
+              (item as any).display_name ||
+              (item.Conversation as any).display_name,
             display_avatar:
-              (item as any).display_avatar || item.Conversation.display_avatar,
+              (item as any).display_avatar ||
+              (item.Conversation as any).display_avatar,
           };
 
           return (

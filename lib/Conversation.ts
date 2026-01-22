@@ -51,6 +51,9 @@ interface ConversationDetails {
   members: any | null; // You can replace `any` with `Member[]` if known
   messages: any | null; // You can replace `any` with `Message[]` if needed
   is_user_member?: boolean; // Track if current user is still a member (for removed users)
+  display_name?: string;
+  display_avatar?: string;
+  unread_count?: number;
 }
 
 interface LastMessage {

@@ -1,20 +1,18 @@
-'use client';
+"use client";
 
-import React, { useState } from 'react';
-import Sidebar from '@/components/Sidebar';
+import React, { useState } from "react";
+import Sidebar from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
-import Header from '@/components/Header';
-import TemplateForms from '@/components/formBuilder/index/TemplateForms';
-import { templates } from '@/utils/getTemplate';
+import Header from "@/components/Header";
 import { useAccountStore } from "@/store/useAccountStore";
-import { UserDropdown } from '@components/UserDropdown';
-import { handleLogout } from '@hooks/useHandleLogout';
+import { UserDropdown } from "@/components/UserDropdown";
+import { handleLogout } from "@/hooks/useHandleLogout";
 import { useRouter } from "next/navigation";
 
 export default function TemplatesPage() {
   const router = useRouter();
   const [sidebarExpanded, setSidebarExpanded] = useState(false);
-  const { data, clearData} = useAccountStore();
+  const { data, clearData } = useAccountStore();
 
   const toggleSidebar = () => {
     setSidebarExpanded(!sidebarExpanded);
@@ -26,39 +24,39 @@ export default function TemplatesPage() {
 
   const logout = async () => {
     await handleLogout({
-    clearData,
-    onSuccess: () => {
-      router.push("/");
-    },
+      clearData,
+      onSuccess: () => {
+        router.push("/");
+      },
     });
   };
 
-  if(!data) return null;
+  if (!data) return null;
 
   return (
     <>
       <Header
         sidebarMenu={true}
-        sidebarExpanded={sidebarExpanded} 
+        sidebarExpanded={sidebarExpanded}
         onSidebarToggle={toggleSidebar}
       >
         {data ? (
-        <UserDropdown 
+          <UserDropdown
             user={{
-            name: data.name,
-            email: data.email,
-            avatar: data.avatar
-            }} 
+              name: data.name,
+              email: data.email,
+              avatar: data.avatar,
+            }}
             onLogout={logout}
-        />
+          />
         ) : (
-        <Button
+          <Button
             variant="ghost"
             size="sm"
             className="gap-2 px-6 py-2 rounded-md bg-neutral-800 text-white hover:bg-neutral-700 transition-colors"
-        >
+          >
             Sign In
-        </Button>
+          </Button>
         )}
       </Header>
 
@@ -71,11 +69,15 @@ export default function TemplatesPage() {
           className={`
             flex-1 p-6 transition-all duration-300 ease-in-out
             w-full max-w-7xl mx-auto
-            ${sidebarExpanded ? 'md:ml-64' : ''}
+            ${sidebarExpanded ? "md:ml-64" : ""}
           `}
         >
-          <TemplateForms forms={templates} />
-          
+          <div className="text-center py-12">
+            <h1 className="text-2xl font-bold">Templates</h1>
+            <p className="text-gray-500 mt-2">
+              Conversation templates will appear here
+            </p>
+          </div>
         </div>
       </div>
     </>

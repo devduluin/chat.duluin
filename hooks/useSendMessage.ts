@@ -56,11 +56,19 @@ export const useSendMessage = () => {
         parent_message_id: parentMessageId || null,
         sender: {
           id: senderId,
+          tenant_id: "",
+          email: email,
           first_name: firstName,
           last_name: lastName,
-          email: email,
           avatar_url: avatarUrl,
+          status: "online",
+          last_seen_at: now.toISOString(),
           user_type: "employee",
+          contact_visibility: "public",
+          allow_contact_requests: true,
+          auto_approve_contacts: false,
+          created_at: now.toISOString(),
+          updated_at: now.toISOString(),
         },
       };
 
@@ -74,7 +82,7 @@ export const useSendMessage = () => {
         isOnline
           ? "🟢 Online - sending message"
           : "🔴 Offline - queueing message",
-        messageId
+        messageId,
       );
 
       if (isOnline && sendViaWebSocket) {
@@ -121,12 +129,12 @@ export const useSendMessage = () => {
         });
 
         toast.info(
-          "Offline - message will be sent when connection is restored"
+          "Offline - message will be sent when connection is restored",
         );
         return { success: false, messageId, queued: true };
       }
     },
-    [addMessage, setMessage, updateMessageStatus, addToQueue, isOnline]
+    [addMessage, setMessage, updateMessageStatus, addToQueue, isOnline],
   );
 
   return { sendMessage };

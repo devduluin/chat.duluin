@@ -79,8 +79,10 @@ export function NewChat({ userId }: { userId: string }) {
       if (members.length !== 2) return false;
 
       // Check if both current user and target user are members
-      const hasCurrentUser = members.some((m) => m.user_id === userId);
-      const hasTargetUser = members.some((m) => m.user_id === targetUserId);
+      const hasCurrentUser = members.some((m: any) => m.user_id === userId);
+      const hasTargetUser = members.some(
+        (m: any) => m.user_id === targetUserId,
+      );
 
       return hasCurrentUser && hasTargetUser;
     });
@@ -98,7 +100,7 @@ export function NewChat({ userId }: { userId: string }) {
 
       // get targetUserId data
       const targetContact = contacts.find(
-        (contact) => contact.target.id === targetUserId
+        (contact) => contact.target.id === targetUserId,
       );
 
       const response = await createConversation({
@@ -136,7 +138,7 @@ export function NewChat({ userId }: { userId: string }) {
     setSelectedContacts((prev) =>
       prev.includes(contactId)
         ? prev.filter((id) => id !== contactId)
-        : [...prev, contactId]
+        : [...prev, contactId],
     );
   };
 

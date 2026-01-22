@@ -13,28 +13,28 @@ interface ChatStore {
   setConversation: (conversationId: string, conversation: Conversation) => void;
   updateConversation: (
     conversationId: string,
-    newDetails: Partial<Conversation>
+    newDetails: Partial<Conversation>,
   ) => void;
   setMembers: (conversationId: string, members: Member[]) => void;
   updateMessageStatus: (
     id: string,
     conversationId: string,
-    status: string
+    status: "pending" | "sending" | "sent" | "failed",
   ) => void;
   updateMessageReadStatus: (
     id: string,
     conversationId: string,
-    read_at: Date
+    read_at: Date,
   ) => void;
   updateMessageContent: (
     conversationId: string,
     messageId: string,
-    newContent: string
+    newContent: string,
   ) => void;
   replaceOptimisticMessage: (
     conversationId: string,
     optimisticId: string,
-    realMessage: Message
+    realMessage: Message,
   ) => void;
   removeMessage: (conversationId: string, messageId: string) => void;
 }
@@ -94,7 +94,7 @@ export const useChatStore = create<ChatStore>()(
 
           // Create a completely new array with updated message
           const updatedMessages = convMsgs.map((m, index) =>
-            index === existingIndex ? { ...m, ...msg } : m
+            index === existingIndex ? { ...m, ...msg } : m,
           );
 
           console.log("✅ Message updated, setting new state");
@@ -110,7 +110,7 @@ export const useChatStore = create<ChatStore>()(
 
           console.log(
             "✅ State updated with version:",
-            currentState._version + 1
+            currentState._version + 1,
           );
         } else {
           // Message doesn't exist - add it
@@ -166,7 +166,7 @@ export const useChatStore = create<ChatStore>()(
 
       updateMessageStatus: (id, conversationId, status) => {
         const updated = (get().messages[conversationId] || []).map((m) =>
-          m.id === id ? { ...m, status } : m
+          m.id === id ? { ...m, status } : m,
         );
         set({
           messages: {
@@ -178,7 +178,7 @@ export const useChatStore = create<ChatStore>()(
 
       updateMessageReadStatus: (id, conversationId, read_at) => {
         const updated = (get().messages[conversationId] || []).map((m) =>
-          m.id === id ? { ...m, read_at } : m
+          m.id === id ? { ...m, read_at } : m,
         );
         set({
           messages: {
@@ -190,7 +190,7 @@ export const useChatStore = create<ChatStore>()(
 
       updateMessageContent: (conversationId, messageId, newContent) => {
         const updated = (get().messages[conversationId] || []).map((m) =>
-          m.id === messageId ? { ...m, content: newContent } : m
+          m.id === messageId ? { ...m, content: newContent } : m,
         );
         set({
           messages: {
@@ -216,8 +216,8 @@ export const useChatStore = create<ChatStore>()(
           .concat({ ...realMessage, status: "sent" })
           .sort(
             (a, b) =>
-              new Date(a.created_at).getTime() -
-              new Date(b.created_at).getTime()
+              new Date(a.created_at || 0).getTime() -
+              new Date(b.created_at || 0).getTime(),
           );
 
         set({
@@ -262,6 +262,6 @@ export const useChatStore = create<ChatStore>()(
         members: state.members,
         _version: state._version,
       }),
-    }
-  )
+    },
+  ),
 );

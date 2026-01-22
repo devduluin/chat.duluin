@@ -35,7 +35,7 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const conversation = useChatStore(
-    (state) => state.conversations[conversationId]
+    (state) => state.conversations[conversationId],
   );
   const members = useChatStore((state) => state.members[conversationId]);
   const messages = useChatStore((state) => state.messages[conversationId]);
@@ -54,7 +54,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     (conversation as any)?.display_name ||
     conversation?.name ||
     (members && members.length > 0
-      ? `${members[0].first_name} ${members[0].last_name}`
+      ? `${members[0].user?.first_name} ${members[0].user?.last_name}`
       : "Chat");
   const displayAvatar =
     (conversation as any)?.display_avatar || conversation?.avatar_url;
@@ -85,9 +85,8 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const handleAddMembers = async (contacts: any[]) => {
     try {
       // Import addMemberToConversation and Cookies
-      const { addMemberToConversation } = await import(
-        "@/services/v1/conversationService"
-      );
+      const { addMemberToConversation } =
+        await import("@/services/v1/conversationService");
       const Cookies = (await import("js-cookie")).default;
 
       // Extract user IDs from contacts
@@ -106,7 +105,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
       const result = await addMemberToConversation(
         conversationId,
         userIds,
-        tenantId
+        tenantId,
       );
 
       if (result?.status) {
@@ -115,12 +114,11 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         });
 
         // Refresh conversation details to get updated members
-        const { getConversationById } = await import(
-          "@/services/v1/conversationService"
-        );
+        const { getConversationById } =
+          await import("@/services/v1/conversationService");
         const updatedConversation = await getConversationById(
           conversationId,
-          userId
+          userId,
         );
 
         if (updatedConversation?.status && updatedConversation?.data) {

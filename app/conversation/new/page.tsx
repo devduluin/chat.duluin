@@ -6,8 +6,9 @@ import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { EmptyState } from "@/components/ui/emptyState";
 import Cookies from "js-cookie";
+import { Suspense } from "react";
 
-export default function NewConversationPage() {
+function NewConversationContent() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
@@ -40,5 +41,13 @@ export default function NewConversationPage() {
         <MessageInput conversationId={conversationId} userId={userId} />
       </div>
     </>
+  );
+}
+
+export default function NewConversationPage() {
+  return (
+    <Suspense fallback={<div>Loading...</div>}>
+      <NewConversationContent />
+    </Suspense>
   );
 }

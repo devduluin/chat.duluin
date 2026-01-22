@@ -108,7 +108,7 @@ export function LoginForm() {
           .then((syncResult) => {
             if (syncResult?.success) {
               console.log(
-                `✅ Contacts synced: ${syncResult.syncedUsers} users, ${syncResult.createdContacts} contacts`
+                `✅ Contacts synced: ${(syncResult as any).syncedUsers || 0} users, ${(syncResult as any).createdContacts || 0} contacts`,
               );
             } else {
               console.warn("⚠️ Contact sync failed:", syncResult?.message);
@@ -182,7 +182,7 @@ export function LoginForm() {
             .then((syncResult) => {
               if (syncResult?.success) {
                 console.log(
-                  `✅ Contacts synced: ${syncResult.syncedUsers} users, ${syncResult.createdContacts} contacts`
+                  `✅ Contacts synced: ${(syncResult as any).syncedUsers || 0} users, ${(syncResult as any).createdContacts || 0} contacts`,
                 );
               } else {
                 console.warn("⚠️ Contact sync failed:", syncResult?.message);
@@ -372,9 +372,11 @@ export function LoginForm() {
                 <form onSubmit={handlePasswordSubmit} className="space-y-5">
                   {/* User Card */}
                   <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-gray-200">
-                    <Avatar className="h-12 w-12 bg-blue-100 text-blue-600 flex items-center justify-center font-semibold">
-                      {name?.charAt(0)?.toUpperCase()}
-                    </Avatar>
+                    <Avatar
+                      name={name || ""}
+                      size="lg"
+                      className="bg-blue-100"
+                    />
                     <div>
                       <p className="font-medium text-gray-900">{name}</p>
                       <p className="text-sm text-gray-600">{email}</p>

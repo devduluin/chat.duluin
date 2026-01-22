@@ -6,14 +6,14 @@ declare global {
     id: string;
     conversation_id: string;
     sender_id: string;
-    sender?: User;
+    sender: User;
     content: string;
-    message_type: string;
+    message_type?: string;
     status?: "pending" | "sending" | "sent" | "failed";
-    created_at: string | Date;
-    updated_at: string | Date;
-    read_at: string | Date | null;
-    parent_message_id: string | null;
+    created_at?: string | Date;
+    updated_at?: string | Date;
+    read_at?: string | Date | null;
+    parent_message_id?: string | null;
     attachments?: Attachment[];
     reactions?: Reaction[];
   }
