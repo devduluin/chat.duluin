@@ -51,6 +51,9 @@ jobs:
             --exclude '.github' \
             --exclude '.dockerignore' \
             ./ ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/src/
+
+          # Deploy with Docker Compose
+          ssh ${{ secrets.SERVER_USER }}@$SERVER_IP << 'ENDSSH'
             cd /home/apps/workspaceChatFrontend
             
             # Stop and remove existing containers
