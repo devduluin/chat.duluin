@@ -27,6 +27,7 @@ import { ContactPicker } from "./attachments/ContactPicker";
 import { TaskCreator } from "./attachments/TaskCreator";
 import { ApplicationPicker } from "./attachments/ApplicationPicker";
 import { useChatStore } from "@/store/useChatStore";
+import { useConversationsStore } from "@/store/useConversationsStore";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
 import { toast } from "sonner";
@@ -66,6 +67,73 @@ export function MessageInput({
   const { isOnline } = useOfflineQueueStore();
 
   const setMessages = useChatStore((s) => s.setMessages);
+
+  // Check if user is still a member of this conversation
+  const conversation = useChatStore((s) => s.conversations[conversationId]);
+  const conversationFromList = useConversationsStore((s) =>
+    s.conversations.find(
+      (item: any) => item.Conversation.id === conversationId,
+    ),
+  );
+
+  // Subscribe to version to force re-render when state changes
+  const storeVersion = useChatStore((s) => s._version);
+
+  // Check is_user_member from both stores
+  const isUserMemberChat = (conversation as any)?.is_user_member;
+  const isUserMemberList = conversationFromList?.Conversation?.is_user_member;
+
+  // Also check if current user is in the members list as a fallback
+  const members = useChatStore((s) => s.members[conversationId]);
+
+  // Check multiple possible field names for user ID in members
+  const isInMemberList =
+    members && members.length > 0
+      ? members.some((m: any) => {
+          const memberUserId =
+            m.user_id || m.UserID || m.user?.id || m.User?.id;
+          return memberUserId === userId;
+        })
+      : undefined; // undefined if no members data yet
+
+  // Priority logic:
+  // 1. If is_user_member explicitly false in EITHER store -> NOT member
+  // 2. If is_user_member explicitly true in EITHER store -> IS member
+  // 3. Otherwise, check member list
+  const isUserMember =
+    isUserMemberChat === false || isUserMemberList === false
+      ? false // Explicitly removed
+      : isUserMemberChat === true || isUserMemberList === true
+        ? true // Explicitly member
+        : isInMemberList === true; // Fallback to member list check
+
+  const isGroupChat =
+    conversation?.is_group ||
+    conversationFromList?.Conversation?.is_group ||
+    false;
+
+  // Debug log to check member status
+  console.log("🔍 MessageInput - Member Status Check:", {
+    conversationId,
+    userId,
+    isGroupChat,
+    storeVersion,
+    is_user_member_chat: (conversation as any)?.is_user_member,
+    is_user_member_list: conversationFromList?.Conversation?.is_user_member,
+    isUserMemberChat,
+    isUserMemberList,
+    isInMemberList,
+    membersCount: members?.length,
+    memberIds: members?.map(
+      (m: any) => m.user_id || m.UserID || m.user?.id || m.User?.id,
+    ),
+    currentUserId: userId,
+    finalIsUserMember: isUserMember,
+    logic:
+      "isUserMemberChat === false || isUserMemberList === false ? false : isUserMemberChat === true || isUserMemberList === true ? true : isInMemberList === true",
+    conversation,
+    conversationFromList,
+  });
 
   // Get tenantId from cookies
   const tenantId =
@@ -119,7 +187,7 @@ export function MessageInput({
     Promise.all(uploadPromises).then((attachmentIds) => {
       // Filter out any failed uploads (null values)
       const validAttachmentIds = attachmentIds.filter(
-        (id) => id !== null
+        (id) => id !== null,
       ) as string[];
 
       // Build message content
@@ -209,7 +277,7 @@ export function MessageInput({
 
   const handleRemoveAttachment = (indexToRemove: number) => {
     setAttachedFiles((prevFiles) =>
-      prevFiles.filter((_, index) => index !== indexToRemove)
+      prevFiles.filter((_, index) => index !== indexToRemove),
     );
   };
 
@@ -346,82 +414,95 @@ export function MessageInput({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="flex items-center space-x-2">
-        {/* Network status indicator */}
-        {!isOnline && (
-          <div className="flex items-center space-x-1 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-xs">
-            <WifiOff className="h-3 w-3" />
-            <span>Offline</span>
+      {/* Show message if user is not a member */}
+      {isGroupChat && !isUserMember ? (
+        <div className="flex items-center justify-center p-4 bg-gray-100 dark:bg-gray-800 rounded-lg">
+          <div className="flex items-center gap-2 text-gray-600 dark:text-gray-400">
+            <WifiOff className="h-5 w-5" />
+            <span className="text-sm font-medium">
+              You are not a group participant. You can view the chat history but
+              cannot send messages.
+            </span>
           </div>
-        )}
+        </div>
+      ) : (
+        <form onSubmit={handleSubmit} className="flex items-center space-x-2">
+          {/* Network status indicator */}
+          {!isOnline && (
+            <div className="flex items-center space-x-1 px-3 py-1 bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-200 rounded-full text-xs">
+              <WifiOff className="h-3 w-3" />
+              <span>Offline</span>
+            </div>
+          )}
 
-        {/* Attachment dropdown */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
+          {/* Attachment dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              >
+                <Paperclip className="h-5 w-5" />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent className="w-48">
+              {attachmentOptions.map((option) => (
+                <DropdownMenuItem
+                  key={option.name}
+                  onSelect={option.action}
+                  className="cursor-pointer"
+                >
+                  {option.icon}
+                  {option.name}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* Message input */}
+          <input
+            ref={inputRef}
+            type="text"
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            onClick={handleInputClick}
+            onKeyUp={handleKeyUp}
+            placeholder="Type a message..."
+            className="flex-1 border mb-2 border-gray-300 dark:border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
+          />
+
+          {/* Emoji picker */}
+          <div className="relative">
             <button
               type="button"
               className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+              onClick={() => setShowEmojiPicker(!showEmojiPicker)}
             >
-              <Paperclip className="h-5 w-5" />
+              <Smile className="h-5 w-5" />
             </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent className="w-48">
-            {attachmentOptions.map((option) => (
-              <DropdownMenuItem
-                key={option.name}
-                onSelect={option.action}
-                className="cursor-pointer"
-              >
-                {option.icon}
-                {option.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
+            {showEmojiPicker && (
+              <div className="absolute bottom-12 right-0 z-10">
+                <EmojiPicker
+                  width={300}
+                  height={350}
+                  onEmojiClick={handleEmojiClick}
+                  previewConfig={{ showPreview: false }}
+                />
+              </div>
+            )}
+          </div>
 
-        {/* Message input */}
-        <input
-          ref={inputRef}
-          type="text"
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          onClick={handleInputClick}
-          onKeyUp={handleKeyUp}
-          placeholder="Type a message..."
-          className="flex-1 border mb-2 border-gray-300 dark:border-gray-600 rounded-full py-2 px-4 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent dark:bg-gray-700 dark:text-white"
-        />
-
-        {/* Emoji picker */}
-        <div className="relative">
-          <button
-            type="button"
-            className="p-2 text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
-            onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+          {/* Send button */}
+          <Button
+            type="submit"
+            variant="default"
+            size="icon"
+            disabled={!message.trim() && attachedFiles.length === 0}
           >
-            <Smile className="h-5 w-5" />
-          </button>
-          {showEmojiPicker && (
-            <div className="absolute bottom-12 right-0 z-10">
-              <EmojiPicker
-                width={300}
-                height={350}
-                onEmojiClick={handleEmojiClick}
-                previewConfig={{ showPreview: false }}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Send button */}
-        <Button
-          type="submit"
-          variant="default"
-          size="icon"
-          disabled={!message.trim() && attachedFiles.length === 0}
-        >
-          <SendHorizonal className="h-5 w-5" />
-        </Button>
-      </form>
+            <SendHorizonal className="h-5 w-5" />
+          </Button>
+        </form>
+      )}
     </div>
   );
 }

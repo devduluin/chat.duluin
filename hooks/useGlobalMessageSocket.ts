@@ -24,6 +24,7 @@ export function useGlobalMessageSocket(userId: string) {
   const isMounted = useRef(false);
   const shouldReconnect = useRef(true);
   const fetchingConversations = useRef<Set<string>>(new Set());
+  const processedMessageIds = useRef<Record<string, number>>({}); // Track processed events with timestamps
 
   const addOrUpdateMessage = useChatStore((s) => s.addOrUpdateMessage);
   const setLastMessage = useConversationsStore((s) => s.setMessage);
@@ -37,7 +38,7 @@ export function useGlobalMessageSocket(userId: string) {
       if (!wsRef.current || wsRef.current.readyState !== WebSocket.OPEN) {
         console.warn(
           "⚠️ WebSocket not connected. State:",
-          wsRef.current?.readyState
+          wsRef.current?.readyState,
         );
         toast.error("Connection lost. Please wait...", {
           id: "ws-disconnected",
@@ -57,7 +58,7 @@ export function useGlobalMessageSocket(userId: string) {
         return false;
       }
     },
-    [] // No dependencies - stable function that uses ref
+    [], // No dependencies - stable function that uses ref
   );
 
   // Set sendMessage to store immediately on mount
@@ -137,7 +138,7 @@ export function useGlobalMessageSocket(userId: string) {
           if (response.data?.content?.includes("message_deleted")) {
             console.log(
               "🔥🔥🔥 DELETE CONTENT IN PARSED DATA:",
-              response.data.content
+              response.data.content,
             );
           }
 
@@ -201,6 +202,410 @@ export function useGlobalMessageSocket(userId: string) {
               return;
             }
 
+            // Handle member added event
+            const isMemberAddedMessage =
+              msg.content?.startsWith("member_added:");
+            if (isSystemMessage && isMemberAddedMessage) {
+              // Format: "member_added:{userID}:{userName}:{groupName}"
+              const parts = msg.content.split(":");
+              const addedUserId = parts[1];
+              const addedUserName = parts[2];
+              const groupName = parts[3];
+
+              // Create unique key for deduplication based on event + conversationId + userId
+              const dedupeKey = `added_${msg.conversation_id}_${addedUserId}`;
+
+              // Prevent duplicate processing - check if processed in last 5 seconds
+              const now = Date.now();
+              const lastProcessed = (processedMessageIds.current as any)[
+                dedupeKey
+              ];
+              if (lastProcessed && now - lastProcessed < 5000) {
+                console.log("⏭️ Skipping duplicate member_added event:", {
+                  dedupeKey,
+                  timeSinceLastProcess: now - lastProcessed,
+                });
+                return;
+              }
+              (processedMessageIds.current as any)[dedupeKey] = now;
+
+              console.log("👥✅ MEMBER ADDED EVENT DETECTED!", {
+                dedupeKey,
+                addedUserId,
+                addedUserName,
+                groupName,
+                conversationId: msg.conversation_id,
+              });
+
+              // Check if current user is the one added
+              if (addedUserId === userId) {
+                // Current user was added to group - update state immediately
+                console.log(
+                  "🎉 Current user added back to group, updating state...",
+                );
+
+                // Fetch latest conversation data to get full member list
+                getConversationById(msg.conversation_id, userId)
+                  .then((response) => {
+                    if (response?.status && response?.data) {
+                      const conversationData = response.data;
+
+                      // IMPORTANT: Update members in chat store
+                      useChatStore
+                        .getState()
+                        .setMembers(
+                          msg.conversation_id,
+                          conversationData.Members || [],
+                        );
+                      console.log(
+                        "✅ Updated members list in chat store:",
+                        conversationData.Members?.length,
+                      );
+
+                      // Update conversation in chat store with is_user_member: true
+                      useChatStore
+                        .getState()
+                        .setConversation(msg.conversation_id, {
+                          ...conversationData.Conversation,
+                          members: conversationData.Members,
+                          is_user_member: true, // User is now an active member again
+                          display_name: conversationData.display_name,
+                          display_avatar: conversationData.display_avatar,
+                        } as any);
+                      console.log(
+                        "✅ Updated is_user_member to TRUE in chat store",
+                      );
+
+                      // Force increment version to trigger re-render
+                      useChatStore.setState((state) => ({
+                        _version: state._version + 1,
+                      }));
+                      console.log("✅ Force re-render triggered");
+
+                      // Check if conversation already in sidebar
+                      const conversationsInStore = useConversationsStore
+                        .getState()
+                        .conversations.find(
+                          (c: any) => c.Conversation.id === msg.conversation_id,
+                        );
+
+                      if (conversationsInStore) {
+                        // Update existing conversation
+                        useConversationsStore
+                          .getState()
+                          .updateConversation(msg.conversation_id, {
+                            is_user_member: true,
+                          } as any);
+                        console.log(
+                          "✅ Updated is_user_member to TRUE in conversations store",
+                        );
+
+                        // Show toast notification
+                        toast.success(`Added back to group`, {
+                          description: `You were added back to ${groupName}`,
+                        });
+                      } else {
+                        // Create new conversation entry for sidebar
+                        const newConversation: RecentConversation = {
+                          Conversation: {
+                            id: conversationData.Conversation.id,
+                            name: conversationData.Conversation.name,
+                            avatar_url:
+                              conversationData.Conversation.avatar_url,
+                            is_group: conversationData.Conversation.is_group,
+                            is_cross_tenant:
+                              conversationData.Conversation.is_cross_tenant,
+                            created_by:
+                              conversationData.Conversation.created_by,
+                            created_at:
+                              conversationData.Conversation.created_at,
+                            updated_at:
+                              conversationData.Conversation.updated_at,
+                            members: conversationData.Members,
+                            messages: conversationData.Conversation.messages,
+                            display_name:
+                              conversationData.display_name ||
+                              conversationData.Conversation.name,
+                            display_avatar:
+                              conversationData.display_avatar ||
+                              conversationData.Conversation.avatar_url,
+                            unread_count: 0,
+                            is_user_member: true, // User is an active member
+                          } as any,
+                          LastMessage: msg,
+                        };
+
+                        // Add to conversation list
+                        addNewConversation(newConversation);
+                        console.log(
+                          "✅ Group conversation added to sidebar:",
+                          msg.conversation_id,
+                        );
+
+                        // Show toast notification
+                        toast.success(`Added to group`, {
+                          description: `You were added to ${groupName}`,
+                        });
+                      }
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("Failed to fetch group conversation:", error);
+                  });
+              } else {
+                // Another user was added - just refresh the member list for this conversation
+                console.log(
+                  "👤 Another user added to group, refreshing conversation...",
+                );
+
+                getConversationById(msg.conversation_id, userId)
+                  .then((response) => {
+                    if (response?.status && response?.data) {
+                      const conversationData = response.data;
+
+                      // Update members in chat store
+                      useChatStore
+                        .getState()
+                        .setMembers(
+                          msg.conversation_id,
+                          conversationData.Members || [],
+                        );
+
+                      // Update conversation in chat store
+                      if (conversationData.Conversation) {
+                        useChatStore
+                          .getState()
+                          .setConversation(msg.conversation_id, {
+                            ...conversationData.Conversation,
+                            members: conversationData.Members,
+                          });
+                      }
+
+                      console.log(
+                        "✅ Members updated for conversation:",
+                        msg.conversation_id,
+                      );
+                    }
+                  })
+                  .catch((error) => {
+                    console.error(
+                      "Failed to refresh conversation members:",
+                      error,
+                    );
+                  });
+              }
+
+              // Add system message to chat
+              addOrUpdateMessage(msg.conversation_id, {
+                ...msg,
+                content: `${addedUserName} was added to the group`,
+                status: "sent",
+              });
+
+              // Update last message in sidebar
+              setLastMessage(msg.conversation_id, {
+                ...msg,
+                content: `${addedUserName} was added to the group`,
+              });
+
+              // Don't process further for member added events
+              return;
+            }
+
+            // Handle member removed event
+            const isMemberRemovedMessage =
+              msg.content?.startsWith("member_removed:");
+            if (isSystemMessage && isMemberRemovedMessage) {
+              // Format: "member_removed:{userID}:{userName}:{groupName}"
+              const parts = msg.content.split(":");
+              const removedUserId = parts[1];
+              const removedUserName = parts[2];
+              const groupName = parts[3];
+
+              // Create unique key for deduplication based on event + conversationId + userId
+              const dedupeKey = `removed_${msg.conversation_id}_${removedUserId}`;
+
+              // Prevent duplicate processing - check if processed in last 5 seconds
+              const now = Date.now();
+              const lastProcessed = (processedMessageIds.current as any)[
+                dedupeKey
+              ];
+              if (lastProcessed && now - lastProcessed < 5000) {
+                console.log("⏭️ Skipping duplicate member_removed event:", {
+                  dedupeKey,
+                  timeSinceLastProcess: now - lastProcessed,
+                });
+                return;
+              }
+              (processedMessageIds.current as any)[dedupeKey] = now;
+
+              console.log("👥❌ MEMBER REMOVED EVENT DETECTED!", {
+                dedupeKey,
+                messageId: msg.id,
+                removedUserId,
+                currentUserId: userId,
+                removedUserName,
+                groupName,
+                conversationId: msg.conversation_id,
+                isCurrentUser: removedUserId === userId,
+                userIdType: typeof userId,
+                removedUserIdType: typeof removedUserId,
+              });
+
+              // Check if current user is the one removed
+              if (removedUserId === userId) {
+                // Current user was removed from group - mark as not member
+                console.log(
+                  "🚫 Current user removed from group, marking as not member...",
+                  {
+                    removedUserId,
+                    currentUserId: userId,
+                    conversationId: msg.conversation_id,
+                  },
+                );
+
+                // IMMEDIATELY mark user as not member (don't wait for API)
+                const currentConversation =
+                  useChatStore.getState().conversations[msg.conversation_id];
+                if (currentConversation) {
+                  useChatStore.getState().setConversation(msg.conversation_id, {
+                    ...currentConversation,
+                    is_user_member: false, // Flag to indicate user is no longer member
+                  } as any);
+                  console.log("✅ Set is_user_member to FALSE in chat store");
+                }
+
+                // Update members list - remove current user from members
+                const currentMembers =
+                  useChatStore.getState().members[msg.conversation_id] || [];
+                const updatedMembers = currentMembers.filter((m: any) => {
+                  const memberId =
+                    m.user_id || m.UserID || m.user?.id || m.User?.id;
+                  return memberId !== userId;
+                });
+                useChatStore
+                  .getState()
+                  .setMembers(msg.conversation_id, updatedMembers);
+                console.log("✅ Removed current user from members list:", {
+                  before: currentMembers.length,
+                  after: updatedMembers.length,
+                });
+
+                // IMPORTANT: Keep conversation in useConversationsStore (sidebar)
+                // Update the conversation in conversations list to mark as not member
+                const conversationInList = conversations.find(
+                  (item) => item.Conversation.id === msg.conversation_id,
+                );
+                if (conversationInList) {
+                  // Update existing conversation with is_user_member flag
+                  useConversationsStore
+                    .getState()
+                    .updateConversation(msg.conversation_id, {
+                      ...conversationInList.Conversation,
+                      is_user_member: false,
+                    } as any);
+                  console.log(
+                    "✅ Set is_user_member to FALSE in conversations store",
+                  );
+                }
+
+                // Force increment version to trigger re-render
+                useChatStore.setState((state) => ({
+                  _version: state._version + 1,
+                }));
+                console.log("✅ Force re-render triggered");
+
+                // Show toast notification
+                toast.error(`Removed from group`, {
+                  description: `You were removed from ${groupName}. You can still view the chat history.`,
+                });
+
+                // Add system message to chat (make sure it's marked as system message)
+                addOrUpdateMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `You were removed from the group`,
+                  message_type: "system",
+                  is_system_message: true,
+                  status: "sent",
+                });
+              } else {
+                // Another user was removed - refresh the member list
+                console.log(
+                  "👤 Another user removed from group, refreshing conversation...",
+                );
+
+                getConversationById(msg.conversation_id, userId)
+                  .then((response) => {
+                    if (response?.status && response?.data) {
+                      const conversationData = response.data;
+
+                      // Update members in chat store
+                      useChatStore
+                        .getState()
+                        .setMembers(
+                          msg.conversation_id,
+                          conversationData.Members || [],
+                        );
+
+                      // Update conversation in chat store
+                      if (conversationData.Conversation) {
+                        useChatStore
+                          .getState()
+                          .setConversation(msg.conversation_id, {
+                            ...conversationData.Conversation,
+                            members: conversationData.Members,
+                          });
+                      }
+
+                      console.log(
+                        "✅ Members updated for conversation:",
+                        msg.conversation_id,
+                      );
+                    }
+                  })
+                  .catch((error) => {
+                    console.error(
+                      "Failed to refresh conversation members:",
+                      error,
+                    );
+                  });
+
+                // Add system message to chat
+                addOrUpdateMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `${removedUserName} was removed from the group`,
+                  status: "sent",
+                });
+
+                // Update last message in sidebar
+                setLastMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `${removedUserName} was removed from the group`,
+                });
+              }
+
+              // Don't process further for member removed events
+              return;
+            }
+
+            // Check if user is still a member of this conversation (for removed users)
+            const chatStoreConversation =
+              useChatStore.getState().conversations[msg.conversation_id];
+            const isUserNotMember =
+              chatStoreConversation &&
+              (chatStoreConversation as any).is_user_member === false;
+
+            if (isUserNotMember && msg.message_type !== "system") {
+              console.log(
+                "🚫 User is not a member of this conversation - ignoring message:",
+                msg.conversation_id,
+                msg.id,
+              );
+              // Still update last message in conversations store for display
+              setLastMessage(msg.conversation_id, msg);
+              return; // Don't process further if user is not a member
+            }
+
             // Check if message already exists in store
             const convMsgs =
               useChatStore.getState().messages[msg.conversation_id] || [];
@@ -223,7 +628,7 @@ export function useGlobalMessageSocket(userId: string) {
                   // Match messages with pending status
                   (m.status === "pending" ||
                     !m.status ||
-                    m.status === "sending")
+                    m.status === "sending"),
               );
 
               if (optimisticMessage) {
@@ -232,7 +637,7 @@ export function useGlobalMessageSocket(userId: string) {
                   "🔄 Found optimistic message to replace:",
                   optimisticMessage.id,
                   "→",
-                  msg.id
+                  msg.id,
                 );
 
                 useChatStore
@@ -240,7 +645,7 @@ export function useGlobalMessageSocket(userId: string) {
                   .replaceOptimisticMessage(
                     msg.conversation_id,
                     optimisticMessage.id,
-                    msg
+                    msg,
                   );
               } else {
                 // Add as new message
@@ -263,7 +668,7 @@ export function useGlobalMessageSocket(userId: string) {
 
             // Check if conversation exists in the list
             const conversationExists = conversations.some(
-              (item) => item.Conversation.id === msg.conversation_id
+              (item) => item.Conversation.id === msg.conversation_id,
             );
 
             // AI Bot user ID - we don't want to show AI conversations in sidebar
@@ -271,11 +676,26 @@ export function useGlobalMessageSocket(userId: string) {
             const isAIBotMessage = msg.sender_id === AI_BOT_USER_ID;
 
             if (!conversationExists) {
+              // Check if this conversation exists in chat store but user is not a member
+              const chatStoreConversation =
+                useChatStore.getState().conversations[msg.conversation_id];
+              const isUserNotMember =
+                chatStoreConversation &&
+                (chatStoreConversation as any).is_user_member === false;
+
+              if (isUserNotMember) {
+                console.log(
+                  "🚫 User is not a member of this conversation - skipping fetch:",
+                  msg.conversation_id,
+                );
+                return; // Don't fetch conversation if user is not a member
+              }
+
               // Skip fetching and adding AI conversation to list
               if (isAIBotMessage) {
                 console.log(
                   "🤖 AI Bot message detected - skipping conversation list update:",
-                  msg.conversation_id
+                  msg.conversation_id,
                 );
                 return; // Don't add AI conversation to sidebar
               }
@@ -284,7 +704,7 @@ export function useGlobalMessageSocket(userId: string) {
               console.log(
                 "🆕 New conversation detected:",
                 msg.conversation_id,
-                "- Fetching details..."
+                "- Fetching details...",
               );
 
               // Prevent duplicate fetches
@@ -306,7 +726,7 @@ export function useGlobalMessageSocket(userId: string) {
                       if (isAIAssistant) {
                         console.log(
                           "🤖 AI Assistant conversation detected - NOT adding to sidebar:",
-                          conversationData
+                          conversationData,
                         );
                         return; // Don't add to list
                       }
@@ -340,7 +760,7 @@ export function useGlobalMessageSocket(userId: string) {
                       addNewConversation(newConversation);
                       console.log(
                         "✅ New conversation added to list:",
-                        msg.conversation_id
+                        msg.conversation_id,
                       );
 
                       // Show toast notification for new conversation
@@ -351,6 +771,32 @@ export function useGlobalMessageSocket(userId: string) {
                   })
                   .catch((error) => {
                     console.error("Failed to fetch new conversation:", error);
+
+                    // If error is 500, likely user is not authorized (not a member)
+                    // Mark conversation as not accessible
+                    if (error?.response?.status === 500) {
+                      console.log(
+                        "🚫 User not authorized to access conversation (likely not a member):",
+                        msg.conversation_id,
+                      );
+
+                      // Mark in chat store as not a member
+                      useChatStore
+                        .getState()
+                        .setConversation(msg.conversation_id, {
+                          id: msg.conversation_id,
+                          name: "Group Chat",
+                          avatar_url: "",
+                          is_group: true,
+                          is_cross_tenant: false,
+                          created_by: "",
+                          created_at: new Date().toISOString(),
+                          updated_at: new Date().toISOString(),
+                          members: [],
+                          messages: null,
+                          is_user_member: false, // Mark as not a member
+                        } as any);
+                    }
                   })
                   .finally(() => {
                     fetchingConversations.current.delete(msg.conversation_id);
@@ -360,7 +806,7 @@ export function useGlobalMessageSocket(userId: string) {
               // Skip updating last message for AI conversation (no unread badge)
               if (isAIBotMessage) {
                 console.log(
-                  "🤖 AI Bot message - skipping last message update in sidebar"
+                  "🤖 AI Bot message - skipping last message update in sidebar",
                 );
                 return; // Don't update last message/unread count in sidebar
               }
@@ -382,8 +828,8 @@ export function useGlobalMessageSocket(userId: string) {
             ws.readyState === WebSocket.CONNECTING
               ? "Still connecting..."
               : ws.readyState === WebSocket.CLOSED
-              ? "Connection closed"
-              : "Unknown error"
+                ? "Connection closed"
+                : "Unknown error",
           );
         }
       };
@@ -392,7 +838,7 @@ export function useGlobalMessageSocket(userId: string) {
         console.warn(
           `🌍🔌 Global WebSocket closed: code ${event.code}, reason: ${
             event.reason || "No reason provided"
-          }, wasClean: ${event.wasClean}`
+          }, wasClean: ${event.wasClean}`,
         );
         console.log("🌍 Close event details:", {
           code: event.code,
@@ -412,7 +858,7 @@ export function useGlobalMessageSocket(userId: string) {
           reconnectAttempts.current += 1;
           if (reconnectAttempts.current <= maxReconnectAttempts) {
             console.log(
-              `Reconnecting global WebSocket attempt ${reconnectAttempts.current}/${maxReconnectAttempts}...`
+              `Reconnecting global WebSocket attempt ${reconnectAttempts.current}/${maxReconnectAttempts}...`,
             );
             setTimeout(connectWebSocket, reconnectInterval);
           } else {

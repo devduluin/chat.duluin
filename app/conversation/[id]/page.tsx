@@ -92,6 +92,19 @@ export default function ConversationPage() {
     }
   }, [conversationId, userId, updateConversation, isAuthChecking]);
 
+  // Listen for navigate-home event (smooth redirect when removed from group)
+  useEffect(() => {
+    const handleNavigateHome = (event: any) => {
+      console.log("🏠 Navigate home event received:", event.detail);
+      router.push("/");
+    };
+
+    window.addEventListener("navigate-home", handleNavigateHome);
+    return () => {
+      window.removeEventListener("navigate-home", handleNavigateHome);
+    };
+  }, [router]);
+
   // Show loading while checking auth
   if (isAuthChecking) {
     return (

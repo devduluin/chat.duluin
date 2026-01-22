@@ -39,6 +39,10 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   );
   const members = useChatStore((state) => state.members[conversationId]);
   const messages = useChatStore((state) => state.messages[conversationId]);
+
+  // Force reactivity by watching store version
+  const storeVersion = useChatStore((state) => state._version);
+
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
   const isOnline = useOfflineQueueStore((state) => state.isOnline);
@@ -62,6 +66,8 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     displayName,
     displayAvatar,
     members,
+    membersCount: members?.length,
+    storeVersion,
   });
 
   const handleArchiveChat = () => {

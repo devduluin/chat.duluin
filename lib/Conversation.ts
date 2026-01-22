@@ -1,36 +1,37 @@
 // lib/Conversation.ts
 
 interface UserSettings {
-  id: string
-  user_id: string
-  notification_prefs: any | null
-  theme: string
-  language: string
-  created_at: string
-  updated_at: string
+  id: string;
+  user_id: string;
+  notification_prefs: any | null;
+  theme: string;
+  language: string;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ConversationMember {
-  id: string
-  conversation_id: string
-  user_id: string
-  tenant_id: string
-  role: string
-  joined_at: string
-  user: User
+  id: string;
+  conversation_id: string;
+  user_id: string;
+  tenant_id: string;
+  role: string;
+  joined_at: string;
+  user: User;
 }
 
 interface Conversation {
-  id: string
-  name: string
-  avatar_url: string
-  is_group: boolean
-  is_cross_tenant: boolean
-  created_by: string
-  created_at: string
-  updated_at: string
-  members: ConversationMember[]
-  messages: any[] | null
+  id: string;
+  name: string;
+  avatar_url: string;
+  is_group: boolean;
+  is_cross_tenant: boolean;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  members: ConversationMember[];
+  messages: any[] | null;
+  is_user_member?: boolean; // Track if current user is still a member (for removed users)
 }
 
 interface RecentConversation {
@@ -47,8 +48,9 @@ interface ConversationDetails {
   created_by: string;
   created_at: string;
   updated_at: string;
-  members: any | null;    // You can replace `any` with `Member[]` if known
-  messages: any | null;   // You can replace `any` with `Message[]` if needed
+  members: any | null; // You can replace `any` with `Member[]` if known
+  messages: any | null; // You can replace `any` with `Message[]` if needed
+  is_user_member?: boolean; // Track if current user is still a member (for removed users)
 }
 
 interface LastMessage {
@@ -75,4 +77,3 @@ interface UserSettings {
   created_at: string;
   updated_at: string;
 }
-

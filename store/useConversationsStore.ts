@@ -6,6 +6,7 @@ interface ConversationsState {
   conversations: RecentConversation[];
   setConversation: (data: RecentConversation[]) => void;
   addNewConversation: (conversation: RecentConversation) => void;
+  removeConversation: (conversationId: string) => void;
   updateConversation: (
     conversationId: string,
     newDetails: Partial<ConversationDetails>
@@ -49,7 +50,7 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                 (item) => item.Conversation.id === current.Conversation.id
               );
               if (!exists) {
-                // Preserve display_name, display_avatar, and unread_count from API
+                // Preserve display_name, display_avatar, unread_count, and is_user_member from API
                 acc.push({
                   ...current,
                   Conversation: {
@@ -57,6 +58,7 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                     display_name: (current as any).display_name,
                     display_avatar: (current as any).display_avatar,
                     unread_count: (current as any).unread_count || 0,
+                    is_user_member: (current as any).is_user_member !== false, // Default to true if not specified
                   },
                 });
               }
@@ -99,6 +101,13 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
             conversations: [conversation, ...state.conversations],
           };
         }),
+
+      removeConversation: (conversationId) =>
+        set((state) => ({
+          conversations: state.conversations.filter(
+            (item) => item.Conversation.id !== conversationId
+          ),
+        })),
 
       setMessage: (conversationId, newMessage, currentUserId) =>
         set((state) => {

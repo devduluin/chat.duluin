@@ -13,7 +13,7 @@ export function useMessages(conversationId: string, userId: string) {
 
   const version = useChatStore((state) => state._version);
   const conversations = useChatStore(
-    (state) => state.conversations[conversationId]
+    (state) => state.conversations[conversationId],
   );
 
   // Get store actions once - these are stable and won't change
@@ -68,7 +68,7 @@ export function useMessages(conversationId: string, userId: string) {
               "Content-Type": "application/json",
               ...(token && { Authorization: `Bearer ${token}` }),
             },
-          }
+          },
         );
 
         const json = res.data;
@@ -77,12 +77,14 @@ export function useMessages(conversationId: string, userId: string) {
         const apiMembers = json?.data?.Members as Member[];
         const displayName = json?.data?.display_name;
         const displayAvatar = json?.data?.display_avatar;
+        const isUserMember = json?.data?.is_user_member; // Get is_user_member flag from backend
 
         console.log("🔍 DEBUG - Conversation data:", {
           conversationId,
           apiConversation,
           displayName,
           displayAvatar,
+          isUserMember,
           fullResponse: json?.data,
         });
 
@@ -91,11 +93,12 @@ export function useMessages(conversationId: string, userId: string) {
           apiMessages.every((msg) => typeof msg.id === "string")
         ) {
           setMessages(conversationId, apiMessages);
-          // Store conversation with display_name and display_avatar
+          // Store conversation with display_name, display_avatar, and is_user_member
           setConversation(conversationId, {
             ...apiConversation,
             display_name: displayName,
             display_avatar: displayAvatar,
+            is_user_member: isUserMember, // Store is_user_member flag
           } as any);
           setMembers(conversationId, apiMembers);
 
@@ -114,7 +117,7 @@ export function useMessages(conversationId: string, userId: string) {
         console.error("Fetch error:", e);
         // Don't clear messages on error - preserve offline data
         console.log(
-          "📦 Backend offline - showing cached messages from localStorage"
+          "📦 Backend offline - showing cached messages from localStorage",
         );
       } finally {
         setLoading(false);

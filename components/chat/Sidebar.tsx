@@ -2,6 +2,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { ConversationList } from "./ConversationList";
 import { ContactList } from "@/components/chat/ContactList";
 import { SearchBar } from "../ui/searchBar";
@@ -21,6 +22,7 @@ import { useAccountStore } from "@/store/useAccountStore";
 import { useGlobalMessageSocket } from "@/hooks/useGlobalMessageSocket";
 
 export function Sidebar() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"chats" | "contacts">("chats");
   const { data: account } = useAccountStore();
   const userId = account?.id || "";
@@ -35,6 +37,19 @@ export function Sidebar() {
 
   // Connect to global WebSocket for real-time message notifications
   useGlobalMessageSocket(userId);
+
+  // Listen for navigate-home event (when removed from group)
+  useEffect(() => {
+    const handleNavigateHome = (event: any) => {
+      console.log("🏠 Sidebar: Navigate home event received:", event.detail);
+      router.push("/");
+    };
+
+    window.addEventListener("navigate-home", handleNavigateHome);
+    return () => {
+      window.removeEventListener("navigate-home", handleNavigateHome);
+    };
+  }, [router]);
 
   return (
     <div className="w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col relative">

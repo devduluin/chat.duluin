@@ -86,3 +86,23 @@ export async function addMemberToConversation(
     };
   }
 }
+
+export async function removeMemberFromConversation(
+  conversationId: string,
+  userId: string
+): Promise<any | null> {
+  try {
+    const response = await api.delete(
+      `/conversations/${conversationId}/members/${userId}`
+    );
+    return { status: true, data: response.data };
+  } catch (error: any) {
+    console.error("Failed to remove member:", error);
+    console.error("Error details:", error?.response?.data);
+    return {
+      status: false,
+      message: error?.response?.data?.message || "Failed to remove member",
+      errors: error?.response?.data?.errors || [error.message],
+    };
+  }
+}
