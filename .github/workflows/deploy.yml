@@ -57,16 +57,16 @@ jobs:
             cd /home/apps/workspaceChatFrontend
             
             # Stop and remove existing containers
-            docker-compose down || true
+            docker compose down || true
             
             # Remove old images to save space (optional)
             docker image prune -f
             
             # Build and start containers
-            docker-compose up -d --build
+            docker compose up -d --build
             
             # Show container status
-            docker-compose ps
+            docker compose ps
           ENDSSH
 
       - name: Verify deployment
