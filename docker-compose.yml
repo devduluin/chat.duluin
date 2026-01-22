@@ -1,0 +1,20 @@
+version: "3.8"
+
+services:
+  duluin-chat-frontend:
+    container_name: duluin-chat-frontend
+    build:
+      context: ./src
+      dockerfile: ../Dockerfile
+    ports:
+      - "8085:8085"
+    environment:
+      - NODE_ENV=production
+      - PORT=8085
+    restart: unless-stopped
+    networks:
+      - duluin-network
+
+networks:
+  duluin-network:
+    driver: bridge
