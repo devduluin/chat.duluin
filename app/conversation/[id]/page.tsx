@@ -49,10 +49,10 @@ export default function ConversationPage() {
   // Check if conversation is group
   const { conversations } = useConversationsStore();
   const currentConversation = conversations.find(
-    (conv) => conv?.ConversationDetails?.id === conversationId
+    (conv) => conv?.Conversation?.id === conversationId,
   );
   const isGroupConversation =
-    currentConversation?.ConversationDetails?.is_group || false;
+    currentConversation?.Conversation?.is_group || false;
 
   // Wait for account store to load (middleware already handles auth redirect)
   useEffect(() => {
@@ -67,7 +67,7 @@ export default function ConversationPage() {
   // Initialize WebSocket for real-time messaging (only after auth check and userId available)
   const { sendMessage } = useMessageSocket(
     conversationId as string,
-    userId // Use userId with fallback
+    userId, // Use userId with fallback
   );
 
   const [replyingTo, setReplyingTo] = useState<{
