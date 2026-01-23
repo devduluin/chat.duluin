@@ -1,0 +1,29 @@
+services:
+  duluin-chat-frontend-dev:
+    container_name: duluin-chat-frontend-dev
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_NODE_ENV=development
+        - NEXT_PUBLIC_API_BASE_URL=http://next:3000
+        - NEXT_PUBLIC_APP_NAME=Duluin Chat Dev
+        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=AIzaSyCPKQPWvhKoQ9RC8mPSBM5XSPcY2VNSa3U
+        - NEXT_PUBLIC_AUTH_API_URL=https://ssodev.duluin.com/api
+        - NEXT_PUBLIC_GATEWAY_API_URL=https://ssodev.duluin.com/api
+        - NEXT_PUBLIC_GATEWAY_API_URL_PROD=https://apidev-hrms.duluin.com/api
+        - NEXT_PUBLIC_GATEWAY_API_URL_DEV=http://localhost:3000/api/v1
+        - NEXT_PUBLIC_WORKSPACE_URL=/
+        - NEXT_PUBLIC_NLP_SERVICE_URL=http://localhost:5000
+    ports:
+      - "8085:8085"
+    environment:
+      - NODE_ENV=production
+      - PORT=8085
+    restart: unless-stopped
+    networks:
+      - duluin-network
+
+networks:
+  duluin-network:
+    driver: bridge

@@ -34,9 +34,9 @@ jobs:
           # Create necessary directories on server
           ssh ${{ secrets.SERVER_USER }}@$SERVER_IP "mkdir -p $DEPLOY_PATH/src"
 
-          # Copy Dockerfile and docker-compose.yml to parent directory
+          # Copy Dockerfile and docker-compose files to parent directory
           scp Dockerfile ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
-          scp docker-compose.yml ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
+          scp docker-compose.dev.yml ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/
 
           # Sync source code to src/ directory (excluding node_modules, .git, etc)
           rsync -avz --delete \
@@ -47,7 +47,7 @@ jobs:
             --exclude 'dist' \
             --exclude 'build' \
             --exclude 'Dockerfile' \
-            --exclude 'docker-compose.yml' \
+            --exclude 'docker-compose*.yml' \
             --exclude '.github' \
             --exclude '.dockerignore' \
             ./ ${{ secrets.SERVER_USER }}@$SERVER_IP:$DEPLOY_PATH/src/
@@ -57,16 +57,16 @@ jobs:
             cd /home/apps/workspaceChatFrontend
             
             # Stop and remove existing containers
-            docker compose down || true
+            docker compose -f docker-compose.dev.yml down || true
             
             # Remove old images to save space (optional)
             docker image prune -f
             
             # Build and start containers
-            docker compose up -d --build
+            docker compose -f docker-compose.dev.yml up -d --build
             
             # Show container status
-            docker compose ps
+            docker compose -f docker-compose.dev.yml ps
           ENDSSH
 
       - name: Verify deployment
