@@ -1,0 +1,84 @@
+name: Deploy to Production Server
+
+on:
+  push:
+    branches:
+      - production # Trigger deployment on push to production branch
+  workflow_dispatch: # Allow manual trigger
+
+jobs:
+  deploy:
+    name: Deploy Frontend to Production
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY_PROD }}
+
+      - name: Add server to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          ssh-keyscan -H ${{ secrets.PROD_SERVER_IP }} >> ~/.ssh/known_hosts
+
+      - name: Deploy to production server
+        env:
+          SERVER_IP: ${{ secrets.PROD_SERVER_IP }}
+          SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
+          DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+        run: |
+          # Create necessary directories on server
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }} "mkdir -p ${DEPLOY_PATH}/src"
+
+          # Copy Dockerfile and docker-compose files to parent directory
+          scp Dockerfile ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:${DEPLOY_PATH}/
+          scp docker-compose.prod.yml ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:${DEPLOY_PATH}/
+
+          # Sync source code to src/ directory (excluding node_modules, .git, etc)
+          rsync -avz --delete \
+            --exclude 'node_modules' \
+            --exclude '.git' \
+            --exclude '.next' \
+            --exclude '.env.local' \
+            --exclude 'dist' \
+            --exclude 'build' \
+            --exclude 'Dockerfile' \
+            --exclude 'docker-compose*.yml' \
+            --exclude '.github' \
+            --exclude '.dockerignore' \
+            ./ ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:${DEPLOY_PATH}/src/
+
+          # Deploy with Docker Compose
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }} << 'ENDSSH'
+            cd ${DEPLOY_PATH}
+            
+            # Stop and remove existing containers
+            docker compose -f docker-compose.prod.yml down || true
+            
+            # Remove old images to save space (optional)
+            docker image prune -f
+            
+            # Build and start containers
+            docker compose -f docker-compose.prod.yml up -d --build
+            
+            # Show container status
+            docker compose -f docker-compose.prod.yml ps
+          ENDSSH
+
+      - name: Verify deployment
+        run: |
+          echo "Production deployment completed successfully!"
+          echo "Application should be accessible at https://${{ secrets.PROD_SERVER_IP }} or your production domain"
+
+      - name: Notify deployment status
+        if: always()
+        run: |
+          if [ ${{ job.status }} == 'success' ]; then
+            echo "✅ Production deployment successful"
+          else
+            echo "❌ Production deployment failed"
+          fi

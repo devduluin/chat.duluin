@@ -1,0 +1,30 @@
+services:
+  duluin-chat-frontend-prod:
+    container_name: duluin-chat-frontend-prod
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # TODO: Sesuaikan environment variables untuk production
+        - NEXT_PUBLIC_NODE_ENV=production
+        - NEXT_PUBLIC_API_BASE_URL=https://your-production-domain.com
+        - NEXT_PUBLIC_APP_NAME=Duluin Chat
+        - NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=YOUR_GOOGLE_MAPS_API_KEY
+        - NEXT_PUBLIC_AUTH_API_URL=https://sso.duluin.com/api
+        - NEXT_PUBLIC_GATEWAY_API_URL=https://api-hrms.duluin.com/api
+        - NEXT_PUBLIC_GATEWAY_API_URL_PROD=https://api-hrms.duluin.com/api
+        - NEXT_PUBLIC_GATEWAY_API_URL_DEV=http://localhost:3000/api/v1
+        - NEXT_PUBLIC_WORKSPACE_URL=/
+        - NEXT_PUBLIC_NLP_SERVICE_URL=https://nlp.duluin.com
+    ports:
+      - "8085:8085" # TODO: Sesuaikan port production jika berbeda
+    environment:
+      - NODE_ENV=production
+      - PORT=8085
+    restart: unless-stopped
+    networks:
+      - duluin-network
+
+networks:
+  duluin-network:
+    driver: bridge
