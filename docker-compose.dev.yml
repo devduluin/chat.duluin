@@ -12,7 +12,7 @@ services:
         - NEXT_PUBLIC_AUTH_API_URL=https://ssodev.duluin.com/api
         - NEXT_PUBLIC_GATEWAY_API_URL=https://ssodev.duluin.com/api
         - NEXT_PUBLIC_GATEWAY_API_URL_PROD=https://apidev-hrms.duluin.com/api
-        - NEXT_PUBLIC_GATEWAY_API_URL_DEV=http://localhost:3000/api/v1
+        - NEXT_PUBLIC_GATEWAY_API_URL_DEV=http://76.13.17.180:3900/api/v1
         - NEXT_PUBLIC_WORKSPACE_URL=/
         - NEXT_PUBLIC_NLP_SERVICE_URL=http://localhost:5000
     ports:
