@@ -2,7 +2,7 @@ import axios from "axios";
 
 const EMPLOYEE_API_URL =
   process.env.NEXT_PUBLIC_EMPLOYEE_API_URL ||
-  "http://localhost.employees:5555/api";
+  "https://apidev-hrms.duluin.com/api/v1/employees";
 
 export interface EmployeeContact {
   id: string;
@@ -36,21 +36,18 @@ export async function getEmployeeContacts(params: {
   search?: string | null;
 }): Promise<EmployeeContactsResponse | null> {
   try {
-    const response = await axios.get(
-      `${EMPLOYEE_API_URL}/v1/employee/contacts`,
-      {
-        params: {
-          company_id: params.company_id,
-          page: params.page || 1,
-          limit: params.limit || 100,
-          search: params.search || null,
-        },
-        headers: {
-          Authorization: `Bearer ${params.token}`,
-          "Content-Type": "application/json",
-        },
+    const response = await axios.get(`${EMPLOYEE_API_URL}/employee/contacts`, {
+      params: {
+        company_id: params.company_id,
+        page: params.page || 1,
+        limit: params.limit || 100,
+        search: params.search || null,
       },
-    );
+      headers: {
+        Authorization: `Bearer ${params.token}`,
+        "Content-Type": "application/json",
+      },
+    });
     return response.data;
   } catch (error: any) {
     console.error("Failed to fetch employee contacts:", error);
