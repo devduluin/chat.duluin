@@ -46,6 +46,8 @@ export async function getEmployeeContacts(params: {
       headers: {
         Authorization: `Bearer ${params.token}`,
         "Content-Type": "application/json",
+        "X-Forwarded-Host": "https://duluin.hrms.duluin.com",
+        "X-Account-Type": "hris_employee",
       },
     });
     return response.data;
