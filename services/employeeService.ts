@@ -1,7 +1,8 @@
 import axios from "axios";
 
 const EMPLOYEE_API_URL =
-  process.env.NEXT_PUBLIC_EMPLOYEE_API_URL || "http://127.0.0.1:4444/api";
+  process.env.NEXT_PUBLIC_EMPLOYEE_API_URL ||
+  "http://localhost.employees:5555/api";
 
 export interface EmployeeContact {
   id: string;
@@ -48,7 +49,7 @@ export async function getEmployeeContacts(params: {
           Authorization: `Bearer ${params.token}`,
           "Content-Type": "application/json",
         },
-      }
+      },
     );
     return response.data;
   } catch (error: any) {
