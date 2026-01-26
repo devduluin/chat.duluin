@@ -3,7 +3,7 @@ name: Deploy to Production Server
 on:
   push:
     branches:
-      - main # Trigger deployment on push to main branch
+      - staging # Trigger deployment on push to staging branch
   workflow_dispatch: # Allow manual trigger
 
 jobs:
