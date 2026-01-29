@@ -103,13 +103,21 @@ export function useGlobalMessageSocket(userId: string) {
     }
 
     try {
-      // Ensure no double slashes in WebSocket URL
       const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
       if (!API_URL) {
         throw new Error("NEXT_PUBLIC_GATEWAY_API_URL_DEV is not defined");
       }
-      const baseUrl = API_URL.replace(/\/$/, "").replace(/^http/, "ws");
-      const ws = new WebSocket(`${baseUrl}/${userId}`);
+
+      const url = new URL(API_URL);
+
+      // Tentukan ws / wss dari browser
+      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+      url.protocol = wsProtocol;
+
+      // Pastikan path rapi
+      const wsUrl = `${url.toString().replace(/\/$/, "")}/${userId}`;
+
+      const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
