@@ -66,6 +66,8 @@ export function MessageInput({
   const { sendMessage: sendMessageOffline } = useSendMessage();
   const { isOnline } = useOfflineQueueStore();
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
   const setMessages = useChatStore((s) => s.setMessages);
 
   // Check if user is still a member of this conversation
@@ -162,7 +164,7 @@ export function MessageInput({
       formData.append("user_id", userId);
 
       try {
-        const response = await fetch("http://localhost:3000/api/v1/upload", {
+        const response = await fetch(`${API_URL}/api/v1/upload`, {
           method: "POST",
           body: formData,
         });

@@ -24,7 +24,10 @@ services:
     restart: unless-stopped
     networks:
       - duluin-network
+      - apigateway_internal_network
 
 networks:
   duluin-network:
     driver: bridge
+  apigateway_internal_network:
+    external: true

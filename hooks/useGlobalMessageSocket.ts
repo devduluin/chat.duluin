@@ -32,6 +32,8 @@ export function useGlobalMessageSocket(userId: string) {
   const conversations = useConversationsStore((s) => s.conversations);
   const { setSendMessage, setConnected } = useWebSocketStore();
 
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
   // Send message function - stable reference, always uses current wsRef
   const sendMessageStable = useCallback(
     (payload: string | object) => {
@@ -103,7 +105,9 @@ export function useGlobalMessageSocket(userId: string) {
     }
 
     try {
-      const ws = new WebSocket(`ws://localhost:3000/api/v1/chat/${userId}`);
+      const ws = new WebSocket(
+        `${API_URL.replace(/^http/, "ws")}/api/v1/chat/${userId}`,
+      );
       wsRef.current = ws;
 
       ws.onopen = () => {
