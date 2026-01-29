@@ -6,6 +6,8 @@ import axios from "axios";
 // Empty array constant to avoid creating new arrays
 const EMPTY_ARRAY: any[] = [];
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+
 export function useMessages(conversationId: string, userId: string) {
   // Use stable selectors with useMemo to prevent infinite loops
   const messages =
@@ -62,7 +64,7 @@ export function useMessages(conversationId: string, userId: string) {
 
         // Use axios directly to chat backend (not API Gateway)
         const res = await axios.get(
-          `http://localhost:3000/api/v1/conversations/${conversationId}?user_id=${finalUserId}`,
+          `${API_URL}/api/v1/conversations/${conversationId}?user_id=${finalUserId}`,
           {
             headers: {
               "Content-Type": "application/json",
