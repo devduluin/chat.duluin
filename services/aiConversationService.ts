@@ -53,7 +53,7 @@ export async function getOrCreateAIConversation(): Promise<AIConversation | null
           Authorization: `Bearer ${Cookies.get("app_token")}`,
         },
         credentials: "include",
-      }
+      },
     );
 
     if (!response.ok) {
@@ -83,7 +83,7 @@ export async function saveAIMessage(
   conversationId: string,
   senderId: string,
   content: string,
-  messageType: string = "text"
+  messageType: string = "text",
 ): Promise<AIMessage | null> {
   try {
     const response = await fetch(`${API_BASE_URL}/ai-conversation/message`, {
@@ -127,7 +127,7 @@ export async function saveAIMessage(
 export async function getAIConversationMessages(
   conversationId: string,
   limit: number = 50,
-  offset: number = 0
+  offset: number = 0,
 ): Promise<{ messages: AIMessage[]; total: number } | null> {
   try {
     const response = await fetch(
@@ -139,7 +139,7 @@ export async function getAIConversationMessages(
           Authorization: `Bearer ${Cookies.get("app_token")}`,
         },
         credentials: "include",
-      }
+      },
     );
 
     if (!response.ok) {

@@ -1,5 +1,6 @@
 // services/conversationService.ts
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_URL =
+  process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV || "http://localhost:3000";
 
 export interface CreateConversationRequest {
   name: string;
