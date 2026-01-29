@@ -109,7 +109,7 @@ export function useGlobalMessageSocket(userId: string) {
         throw new Error("NEXT_PUBLIC_GATEWAY_API_URL_DEV is not defined");
       }
       const baseUrl = API_URL.replace(/\/$/, "").replace(/^http/, "ws");
-      const ws = new WebSocket(`${baseUrl}/api/v1/chat/${userId}`);
+      const ws = new WebSocket(`${baseUrl}/${userId}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
