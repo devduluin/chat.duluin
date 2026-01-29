@@ -6,7 +6,7 @@ import axios from "axios";
 // Empty array constant to avoid creating new arrays
 const EMPTY_ARRAY: any[] = [];
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
 export function useMessages(conversationId: string, userId: string) {
   // Use stable selectors with useMemo to prevent infinite loops

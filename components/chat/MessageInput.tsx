@@ -66,7 +66,7 @@ export function MessageInput({
   const { sendMessage: sendMessageOffline } = useSendMessage();
   const { isOnline } = useOfflineQueueStore();
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
   const setMessages = useChatStore((s) => s.setMessages);
 

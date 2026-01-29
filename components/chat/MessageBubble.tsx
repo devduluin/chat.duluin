@@ -104,8 +104,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     );
     const { retry } = useRetryMessage();
 
-    const API_URL =
-      process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV || "http://localhost:3000";
+    const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
     const handleReply = () => {
       onReply?.({

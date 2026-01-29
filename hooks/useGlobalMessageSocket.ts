@@ -32,7 +32,7 @@ export function useGlobalMessageSocket(userId: string) {
   const conversations = useConversationsStore((s) => s.conversations);
   const { setSendMessage, setConnected } = useWebSocketStore();
 
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+  const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
   // Send message function - stable reference, always uses current wsRef
   const sendMessageStable = useCallback(
