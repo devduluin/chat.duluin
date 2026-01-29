@@ -81,7 +81,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       onPinChange,
       isGroupConversation = false,
     },
-    ref
+    ref,
   ) => {
     const isCurrentUser = message.sender?.id === userId;
     const [reactions, setReactions] = useState<Reaction[]>([]);
@@ -100,9 +100,11 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const dropdownRef = useRef<HTMLDivElement>(null);
     const { updateMessageContent } = useConversationsStore();
     const updateChatMessageContent = useChatStore(
-      (s) => s.updateMessageContent
+      (s) => s.updateMessageContent,
     );
     const { retry } = useRetryMessage();
+
+    const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
 
     const handleReply = () => {
       onReply?.({
@@ -127,7 +129,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           message.id,
           userId,
           message.conversation_id,
-          isPermanent
+          isPermanent,
         );
 
         if (result?.status) {
@@ -138,7 +140,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           toast.success(
             isPermanent
               ? "Message deleted for everyone"
-              : "Message deleted for you"
+              : "Message deleted for you",
           );
         } else {
           toast.error(result?.message || "Failed to delete message");
@@ -174,11 +176,11 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         const result = await forwardMessage(
           message.id,
           conversationIds,
-          userId
+          userId,
         );
         if (result?.success || result?.data) {
           toast.success(
-            `Message forwarded to ${conversationIds.length} conversation(s)`
+            `Message forwarded to ${conversationIds.length} conversation(s)`,
           );
         } else {
           toast.error("Failed to forward message");
@@ -198,7 +200,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           updateChatMessageContent(
             message.conversation_id,
             messageId,
-            newContent
+            newContent,
           );
           toast.success("Message updated successfully");
         } else {
@@ -217,7 +219,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           message.id,
           message.conversation_id,
           userId,
-          newPinnedState
+          newPinnedState,
         );
         if (result?.success || result?.data) {
           setIsPinned(newPinnedState);
@@ -240,13 +242,16 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       }
     };
 
-    const reactionGroups = reactions.reduce((acc, reaction) => {
-      if (!acc[reaction.emoji]) {
-        acc[reaction.emoji] = [];
-      }
-      acc[reaction.emoji].push(reaction);
-      return acc;
-    }, {} as Record<string, Reaction[]>);
+    const reactionGroups = reactions.reduce(
+      (acc, reaction) => {
+        if (!acc[reaction.emoji]) {
+          acc[reaction.emoji] = [];
+        }
+        acc[reaction.emoji].push(reaction);
+        return acc;
+      },
+      {} as Record<string, Reaction[]>,
+    );
 
     const variants = {
       hidden: { opacity: 0, y: 20 },
@@ -280,7 +285,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         transition={{ duration: 0.2 }}
         className={cn(
           "flex mb-4 w-full",
-          isCurrentUser ? "justify-end pl-10" : "justify-start pr-10"
+          isCurrentUser ? "justify-end pl-10" : "justify-start pr-10",
         )}
       >
         {/* Avatar for received messages */}
@@ -300,7 +305,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           className={cn(
             "flex flex-col",
             isCurrentUser ? "items-end" : "items-start",
-            "max-w-[80%]"
+            "max-w-[80%]",
           )}
         >
           {/* Sender name */}
@@ -327,7 +332,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                 "mb-1 p-2 text-sm rounded-lg w-full max-w-full cursor-pointer hover:opacity-80 transition-opacity",
                 isCurrentUser
                   ? "bg-blue-400/20 text-blue-700 dark:text-blue-300"
-                  : "bg-gray-200/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300"
+                  : "bg-gray-200/50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300",
               )}
             >
               <div className="flex items-center text-xs font-medium mb-1">
@@ -351,7 +356,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                     "rounded-2xl px-4 py-3 cursor-pointer",
                     isCurrentUser
                       ? "bg-blue-500 text-white rounded-tr-none"
-                      : "bg-white dark:bg-gray-700 rounded-tl-none"
+                      : "bg-white dark:bg-gray-700 rounded-tl-none",
                   )}
                 >
                   {/* Display attachments if any */}
@@ -359,7 +364,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                     <div
                       className={cn(
                         "mb-2 space-y-2",
-                        message.content ? "" : ""
+                        message.content ? "" : "",
                       )}
                     >
                       {message.attachments.map((attachment: any) => (
@@ -367,7 +372,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                           {attachment.attachment_type === "image" ? (
                             <div className="relative group">
                               <img
-                                src={`http://localhost:3000${attachment.file_url}`}
+                                src={`${API_URL}${attachment.file_url}`}
                                 alt={attachment.file_name}
                                 className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                 style={{
@@ -377,7 +382,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setImagePreview({
-                                    url: `http://localhost:3000${attachment.file_url}`,
+                                    url: `${API_URL}${attachment.file_url}`,
                                     fileName: attachment.file_name,
                                   });
                                 }}
@@ -387,7 +392,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const link = document.createElement("a");
-                                  link.href = `http://localhost:3000${attachment.file_url}`;
+                                  link.href = `${API_URL}${attachment.file_url}`;
                                   link.download = attachment.file_name;
                                   document.body.appendChild(link);
                                   link.click();
@@ -417,7 +422,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const link = document.createElement("a");
-                                link.href = `http://localhost:3000${attachment.file_url}`;
+                                link.href = `${API_URL}${attachment.file_url}`;
                                 link.download = attachment.file_name;
                                 document.body.appendChild(link);
                                 link.click();
@@ -575,7 +580,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                     handleReact(emojiData.emoji);
                     setIsEmojiPickerOpen(false);
                     document.dispatchEvent(
-                      new KeyboardEvent("keydown", { key: "Escape" })
+                      new KeyboardEvent("keydown", { key: "Escape" }),
                     );
                   }}
                   previewConfig={{ showPreview: false }}
@@ -651,12 +656,12 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                     {message.status === "pending"
                       ? "Waiting to send..."
                       : message.status === "sending"
-                      ? "Sending..."
-                      : message.status === "failed"
-                      ? "Failed to send. Click retry button to resend."
-                      : message.read_at
-                      ? `Read at ${new Date(message.read_at).toLocaleString()}`
-                      : "Delivered"}
+                        ? "Sending..."
+                        : message.status === "failed"
+                          ? "Failed to send. Click retry button to resend."
+                          : message.read_at
+                            ? `Read at ${new Date(message.read_at).toLocaleString()}`
+                            : "Delivered"}
                   </TooltipContent>
                 </Tooltip>
                 {message.status === "failed" && (
@@ -729,7 +734,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         />
       </motion.div>
     );
-  }
+  },
 );
 
 MessageBubble.displayName = "MessageBubble";

@@ -64,7 +64,7 @@ export function useMessages(conversationId: string, userId: string) {
 
         // Use axios directly to chat backend (not API Gateway)
         const res = await axios.get(
-          `${API_URL}/api/v1/conversations/${conversationId}?user_id=${finalUserId}`,
+          `${API_URL}/conversations/${conversationId}?user_id=${finalUserId}`,
           {
             headers: {
               "Content-Type": "application/json",

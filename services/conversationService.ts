@@ -25,9 +25,9 @@ export interface ConversationResponse {
 }
 
 export const createConversation = async (
-  data: CreateConversationRequest
+  data: CreateConversationRequest,
 ): Promise<ConversationResponse> => {
-  const response = await fetch(`${API_URL}/api/v1/conversations`, {
+  const response = await fetch(`${API_URL}/conversations`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
