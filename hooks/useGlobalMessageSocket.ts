@@ -32,8 +32,6 @@ export function useGlobalMessageSocket(userId: string) {
   const conversations = useConversationsStore((s) => s.conversations);
   const { setSendMessage, setConnected } = useWebSocketStore();
 
-  const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
-
   // Send message function - stable reference, always uses current wsRef
   const sendMessageStable = useCallback(
     (payload: string | object) => {
@@ -105,9 +103,13 @@ export function useGlobalMessageSocket(userId: string) {
     }
 
     try {
-      const ws = new WebSocket(
-        `${API_URL.replace(/^http/, "ws")}/api/v1/chat/${userId}`,
-      );
+      // Ensure no double slashes in WebSocket URL
+      const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
+      if (!API_URL) {
+        throw new Error("NEXT_PUBLIC_GATEWAY_API_URL_DEV is not defined");
+      }
+      const baseUrl = API_URL.replace(/\/$/, "").replace(/^http/, "ws");
+      const ws = new WebSocket(`${baseUrl}/api/v1/chat/${userId}`);
       wsRef.current = ws;
 
       ws.onopen = () => {
