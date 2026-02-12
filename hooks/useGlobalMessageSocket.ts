@@ -103,7 +103,9 @@ export function useGlobalMessageSocket(userId: string) {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_WS_GATEWAY_URL;
+      const API_URL =
+        process.env.NEXT_PUBLIC_WS_GATEWAY_URL ||
+        "https://apidev-hrms.duluin.com/api/ws/chat";
       if (!API_URL) {
         throw new Error("NEXT_PUBLIC_WS_GATEWAY_URL is not defined");
       }
