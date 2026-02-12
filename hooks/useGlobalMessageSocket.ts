@@ -949,7 +949,7 @@ export function useGlobalMessageSocket(userId: string) {
     }
 
     isMounted.current = true;
-    connectWebSocket();
+    connectWebSocket(); // Initial connection attempt
 
     return () => {
       isMounted.current = false;
