@@ -103,19 +103,45 @@ export function useGlobalMessageSocket(userId: string) {
     }
 
     try {
-      const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
+      const API_URL = process.env.NEXT_PUBLIC_WS_GATEWAY_URL;
       if (!API_URL) {
-        throw new Error("NEXT_PUBLIC_GATEWAY_API_URL_DEV is not defined");
+        throw new Error("NEXT_PUBLIC_WS_GATEWAY_URL is not defined");
       }
 
+      console.log("🔗 Building WebSocket URL from:", API_URL);
+
+      // Parse the HTTP URL
       const url = new URL(API_URL);
 
-      // Tentukan ws / wss dari browser
-      const wsProtocol = window.location.protocol === "https:" ? "wss:" : "ws:";
-      url.protocol = wsProtocol;
+      // Convert protocol: http -> ws, https -> wss
+      const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
 
-      // Pastikan path rapi
-      const wsUrl = `${url.toString().replace(/\/$/, "")}/${userId}`;
+      // Get authentication token from cookies
+      const token =
+        typeof window !== "undefined"
+          ? document.cookie
+              .split("; ")
+              .find((row) => row.startsWith("app_token="))
+              ?.split("=")[1] || ""
+          : "";
+
+      if (!token) {
+        console.error(
+          "❌ No app_token found in cookies - cannot establish WebSocket connection",
+        );
+        console.log("Available cookies:", document.cookie);
+        toast.error("Authentication required. Please login.", {
+          id: "ws-no-token",
+        });
+        return; // Don't attempt WebSocket connection without token
+      }
+
+      console.log("✅ Token found, proceeding with WebSocket connection");
+
+      // Construct WebSocket URL: ws://host:port/path/userId?token=xxx
+      const wsUrl = `${wsProtocol}//${url.host}${url.pathname}${url.pathname.endsWith("/") ? "" : "/"}${userId}?token=${encodeURIComponent(token)}`;
+
+      console.log("🔗 WebSocket URL:", wsUrl.replace(token, "***TOKEN***")); // Hide token in logs
 
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
@@ -127,19 +153,37 @@ export function useGlobalMessageSocket(userId: string) {
         reconnectAttempts.current = 0;
       };
 
-      ws.onmessage = (event) => {
+      ws.onmessage = async (event) => {
         try {
           console.log("🌍📨 [RAW] WebSocket data:", event.data);
+          console.log(
+            "🌍📨 [TYPE] Data type:",
+            typeof event.data,
+            event.data instanceof Blob ? "(Blob)" : "",
+          );
+
+          // Handle Blob data (convert to text first)
+          let jsonData: string;
+          if (event.data instanceof Blob) {
+            console.log("🌍📨 [BLOB] Converting Blob to text...");
+            jsonData = await event.data.text();
+            console.log(
+              "🌍📨 [BLOB] Converted text:",
+              jsonData.substring(0, 200),
+            );
+          } else {
+            jsonData = event.data;
+          }
 
           // Check RAW data for delete message
           if (
-            typeof event.data === "string" &&
-            event.data.includes("message_deleted")
+            typeof jsonData === "string" &&
+            jsonData.includes("message_deleted")
           ) {
             console.log("🔥🔥🔥 DELETE MESSAGE IN RAW DATA!");
           }
 
-          const response = JSON.parse(event.data);
+          const response = JSON.parse(jsonData);
           console.log("🌍📨 [PARSED] Full response:", {
             status: response.status,
             message: response.message,

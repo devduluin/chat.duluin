@@ -80,13 +80,15 @@ export const useSendMessage = () => {
 
       console.log(
         isOnline
-          ? "🟢 Online - sending message"
-          : "🔴 Offline - queueing message",
+          ? sendViaWebSocket
+            ? "🟢 Online + WebSocket available - sending via WebSocket"
+            : "🟡 Online but WebSocket not ready - will queue and sync via HTTP"
+          : "🔴 Offline - queueing message for later",
         messageId,
       );
 
+      // Priority 1: If online AND WebSocket available, send via WebSocket
       if (isOnline && sendViaWebSocket) {
-        // Try to send via WebSocket
         const payload = {
           conversation_id: conversationId,
           content,
@@ -97,12 +99,14 @@ export const useSendMessage = () => {
         const success = sendViaWebSocket(payload);
 
         if (success) {
-          // Message sent via WebSocket, will get confirmation via WebSocket events
+          // Message sent via WebSocket successfully
           console.log("✅ Message sent via WebSocket");
           return { success: true, messageId };
         } else {
-          // WebSocket failed, add to queue for retry
-          console.log("⚠️ WebSocket failed, adding to queue");
+          // WebSocket failed, fallback to queue + HTTP
+          console.warn(
+            "⚠️ WebSocket send failed, adding to queue for HTTP sync",
+          );
           updateMessageStatus(messageId, conversationId, "pending");
 
           addToQueue({
@@ -114,11 +118,15 @@ export const useSendMessage = () => {
             createdAt: now,
           });
 
-          // Don't show toast - offline banner already visible
           return { success: false, messageId, queued: true };
         }
       } else {
-        // Offline mode - add to queue
+        // Priority 2: Offline or WebSocket not ready - add to queue for HTTP sync
+        console.log(
+          "📥 Adding message to queue (will sync via HTTP when online)",
+        );
+        updateMessageStatus(messageId, conversationId, "pending");
+
         addToQueue({
           id: messageId,
           conversationId,
@@ -128,9 +136,15 @@ export const useSendMessage = () => {
           createdAt: now,
         });
 
-        toast.info(
-          "Offline - message will be sent when connection is restored",
-        );
+        if (!isOnline) {
+          toast.info(
+            "Offline - message will be sent when connection is restored",
+            {
+              id: "offline-queue",
+            },
+          );
+        }
+
         return { success: false, messageId, queued: true };
       }
     },

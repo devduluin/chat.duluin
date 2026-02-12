@@ -30,6 +30,7 @@ import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useSendMessage } from "@/hooks/useSendMessage";
 import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
+import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { toast } from "sonner";
 import { dummyUser } from "@/lib/dummyChat";
 import { v4 as uuidv4 } from "uuid";
@@ -65,6 +66,7 @@ export function MessageInput({
   const updateMessageStatus = useChatStore((s) => s.updateMessageStatus);
   const { sendMessage: sendMessageOffline } = useSendMessage();
   const { isOnline } = useOfflineQueueStore();
+  const { isConnected: isWebSocketConnected } = useWebSocketStore();
 
   const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
@@ -500,10 +502,23 @@ export function MessageInput({
             variant="default"
             size="icon"
             disabled={!message.trim() && attachedFiles.length === 0}
+            title={
+              !isWebSocketConnected
+                ? "Will send via queue (offline mode)"
+                : "Send message via WebSocket"
+            }
           >
             <SendHorizonal className="h-5 w-5" />
           </Button>
         </form>
+      )}
+
+      {/* Connection status indicator - informational only, not blocking */}
+      {!isWebSocketConnected && (
+        <div className="absolute top-2 left-1/2 transform -translate-x-1/2 bg-blue-100 dark:bg-blue-900 text-blue-800 dark:text-blue-200 px-3 py-1 rounded-full text-xs flex items-center gap-2 z-50">
+          <WifiOff className="h-3 w-3" />
+          Offline mode - messages will sync later
+        </div>
       )}
     </div>
   );

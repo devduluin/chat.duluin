@@ -2,7 +2,7 @@ import axios from "axios";
 
 const EMPLOYEE_API_URL =
   process.env.NEXT_PUBLIC_EMPLOYEE_API_URL ||
-  "https://apidev-hrms.duluin.com/api/v1/employees";
+  "http://localhost:9999/api/proxy/v1/employees";
 
 export interface EmployeeContact {
   id: string;

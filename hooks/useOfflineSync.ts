@@ -46,14 +46,14 @@ export const useOfflineSync = () => {
           // Replace optimistic message with real message from backend
           if (realMessage && realMessage.id) {
             console.log(
-              "🔄 Replacing optimistic message with real message from backend"
+              "🔄 Replacing optimistic message with real message from backend",
             );
             useChatStore
               .getState()
               .replaceOptimisticMessage(
                 queuedMsg.conversationId,
                 queuedMsg.id,
-                realMessage
+                realMessage,
               );
           } else {
             // Fallback: just update status if no real message data
@@ -92,7 +92,7 @@ export const useOfflineSync = () => {
         return { success: false, error };
       }
     },
-    [updateQueueItem, updateMessageStatus, removeFromQueue]
+    [updateQueueItem, updateMessageStatus, removeFromQueue],
   );
 
   const syncQueue = useCallback(async () => {
@@ -104,7 +104,7 @@ export const useOfflineSync = () => {
     setSyncingStatus(true);
 
     const pendingMessages = queue.filter(
-      (msg) => msg.status === "pending" || msg.status === "failed"
+      (msg) => msg.status === "pending" || msg.status === "failed",
     );
 
     // Sync messages one by one to maintain order
@@ -120,10 +120,12 @@ export const useOfflineSync = () => {
     console.log("✅ Queue sync completed");
   }, [isOnline, isSyncing, queue, setSyncingStatus, syncMessage]);
 
-  // Auto-sync when coming back online
+  // Auto-sync via HTTP when coming back online (fallback for failed WebSocket)
   useEffect(() => {
     if (isOnline && queue.length > 0 && !isSyncing) {
-      console.log("🟢 Online - starting auto-sync");
+      console.log(
+        "🟢 Online - starting auto-sync via HTTP for queued messages",
+      );
       const timer = setTimeout(() => {
         syncQueue();
       }, 1000); // Wait 1 second before syncing
