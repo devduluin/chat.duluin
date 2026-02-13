@@ -116,7 +116,7 @@ export function useGlobalMessageSocket(userId: string) {
       const url = new URL(API_URL);
 
       // Convert protocol: http -> ws, https -> wss
-      const wsProtocol = url.protocol === "https:" ? "ws:" : "ws:";
+      const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
 
       // Get authentication token from cookies
       const token =
