@@ -9,19 +9,42 @@ import { LayoutDashboard, Eye, EyeOff, ArrowLeft } from "lucide-react";
 import { motion } from "framer-motion";
 import { useRouter } from "next/navigation";
 import { showError, showSuccess } from "@utils/alertHelper";
+import {
+  validateEmailAccount,
+  registerChatWorkspace,
+  validationToken,
+} from "@/services/loginService";
+import { Avatar } from "@/components/ui/avatar";
+import { useAppCookies } from "@/hooks/useAppCookies";
+import Cookies from "js-cookie";
+import { syncUserToChatBackend } from "@/services/chatUserService";
+import { useContactSync } from "@/hooks/useContactSync";
+import { useAccountStore } from "@/store/useAccountStore";
 
 export function RegisterForm() {
-  const [step, setStep] = useState<"email" | "details">("email");
+  const [step, setStep] = useState<"email" | "details" | "workin-password">(
+    "email",
+  );
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
+  const [workinPassword, setWorkinPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [showWorkinPassword, setShowWorkinPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoadingEmail, setIsLoadingEmail] = useState(false);
+  const [existingUser, setExistingUser] = useState<{
+    name: string;
+    email: string;
+    hasAccount: boolean;
+  } | null>(null);
 
   const Router = useRouter();
+  const { setAppToken } = useAppCookies();
+  const { syncContactsFromHRIS } = useContactSync();
+  const { clearData, setData } = useAccountStore();
 
   const validateEmail = (email: string) => {
     const re = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -32,11 +55,175 @@ export function RegisterForm() {
     e.preventDefault();
     if (email && validateEmail(email)) {
       setIsLoadingEmail(true);
-      // Simulate API call to check if email exists
-      setTimeout(() => {
-        setIsLoadingEmail(false);
+      setExistingUser(null);
+
+      try {
+        const result = await validateEmailAccount(email);
+
+        if (result?.success && result?.data) {
+          // User exists in the system
+          const hasAccount = result?.data?.has_account || false;
+
+          setExistingUser({
+            name: result.data.name,
+            email: result.data.email,
+            hasAccount: hasAccount,
+          });
+
+          // If user already has chat_workspace account, show message
+          if (hasAccount) {
+            showError("This email is already registered. Please sign in.");
+          }
+        } else {
+          // User doesn't exist, proceed to registration
+          setStep("details");
+        }
+      } catch (error) {
+        // If user validation fails (user not found), that's good for signup
         setStep("details");
-      }, 500);
+      } finally {
+        setIsLoadingEmail(false);
+      }
+    }
+  };
+
+  const handleWorkinSSORegister = () => {
+    if (existingUser?.hasAccount) {
+      // User already has chat_workspace, redirect to signin
+      Router.push("/auth/signin");
+    } else {
+      // User needs to enter Workin password
+      setStep("workin-password");
+    }
+  };
+
+  const handleWorkinPasswordSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!workinPassword || workinPassword.length < 8) {
+      showError("Please enter your Workin password (minimum 8 characters)");
+      return;
+    }
+
+    setIsLoading(true);
+    try {
+      const result = await registerChatWorkspace(email, workinPassword);
+
+      console.log("🔍 Register chat result:", result);
+
+      // Backend returns { message, result, errors } structure
+      // Check if result exists and errors is null
+      if (result?.result && !result?.errors) {
+        console.log("✅ Registration successful, starting sync...");
+
+        // Clear ALL old data before setting new credentials
+        clearData(); // Clear localStorage
+
+        // Clear all cookies to prevent session conflict
+        document.cookie.split(";").forEach((c) => {
+          document.cookie = c
+            .replace(/^ +/, "")
+            .replace(
+              /=.*/,
+              "=;expires=" + new Date().toUTCString() + ";path=/",
+            );
+        });
+
+        console.log("🧹 Cleared all old data and cookies");
+
+        // Now set new token
+        setAppToken(result.result.token);
+
+        // Store user info in cookies
+        Cookies.set("user_id", result.result.id);
+        Cookies.set("tenant_id", result.result.secondary_id);
+
+        console.log("✅ Token and cookies set:", {
+          user_id: result.result.id,
+          tenant_id: result.result.secondary_id,
+          token: result.result.token ? "Available" : "Missing",
+        });
+
+        // Fetch full user data from validation endpoint to populate accountStore
+        try {
+          const validationResult = await validationToken(result.result.token);
+
+          console.log("🔍 Validation result:", validationResult);
+
+          if (validationResult?.success && validationResult?.user) {
+            const user = validationResult.user;
+            const role = user.roles?.[0]?.name ?? "pro";
+
+            // Set user data to accountStore (same as login flow)
+            setData({
+              companyId: user.secondary_id ?? user.id,
+              accountType: role === "Basic" ? "Basic" : "pro",
+              formQuota: role === "Basic" ? 4 : 5,
+              ...user,
+            });
+
+            console.log("✅ User data set to accountStore:", {
+              id: user.id,
+              name: user.name,
+              email: user.email,
+              secondary_id: user.secondary_id,
+            });
+          }
+        } catch (validationError) {
+          console.error("⚠️ Failed to fetch user data:", validationError);
+          // Continue anyway with data from registration response
+        }
+
+        // Sync user to chat backend
+        const syncData = {
+          id: result.result.id,
+          secondary_id: result.result.secondary_id,
+          email: email,
+          name: result.result.name,
+          phone: "", // Will be updated when we get full user data
+        };
+
+        // Sync user asynchronously (don't block registration flow)
+        syncUserToChatBackend(syncData)
+          .then(() => {
+            console.log("✅ User synced to chat backend");
+          })
+          .catch((error) => {
+            console.error("❌ Failed to sync user to chat backend:", error);
+          });
+
+        // Sync contacts from HRIS asynchronously (non-blocking)
+        // Pass token directly to avoid timing issues
+        syncContactsFromHRIS(result.result.token)
+          .then((syncResult) => {
+            if (syncResult?.success) {
+              console.log(
+                `✅ Contacts synced: ${(syncResult as any).syncedUsers || 0} users, ${(syncResult as any).createdContacts || 0} contacts`,
+              );
+            } else {
+              console.warn("⚠️ Contact sync failed:", syncResult?.message);
+            }
+          })
+          .catch((error) => {
+            console.error("❌ Failed to sync contacts from HRIS:", error);
+          });
+
+        showSuccess("Chat workspace account registered successfully!");
+
+        console.log("🚀 Redirecting to dashboard...");
+        // Use Router.push like login flow
+        Router.push("/");
+      } else {
+        console.error("❌ Registration failed:", result);
+        showError(
+          result?.message || "Registration failed. Please check your password.",
+        );
+      }
+    } catch (error) {
+      console.error("❌ Exception during registration:", error);
+      showError("Failed to register. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -116,7 +303,7 @@ export function RegisterForm() {
               </div>
 
               {/* Back Button */}
-              {step === "details" && (
+              {(step === "details" || step === "workin-password") && (
                 <button
                   type="button"
                   onClick={handleBack}
@@ -130,12 +317,18 @@ export function RegisterForm() {
               {/* Header */}
               <div className="space-y-2 text-center">
                 <h2 className="text-2xl font-bold text-gray-900">
-                  {step === "email" ? "Sign Up" : "Create Your Account"}
+                  {step === "email"
+                    ? "Sign Up"
+                    : step === "workin-password"
+                      ? "Register with Workin SSO"
+                      : "Create Your Account"}
                 </h2>
                 <p className="text-sm text-gray-500">
                   {step === "email"
                     ? "Enter your email to get started"
-                    : `Complete your profile for ${email}`}
+                    : step === "workin-password"
+                      ? "Enter your Workin password to complete registration"
+                      : `Complete your profile for ${email}`}
                 </p>
               </div>
 
@@ -168,20 +361,69 @@ export function RegisterForm() {
                         type="email"
                         placeholder="you@example.com"
                         value={email}
-                        onChange={(e) => setEmail(e.target.value)}
+                        onChange={(e) => {
+                          setEmail(e.target.value);
+                          setExistingUser(null);
+                        }}
                         className="h-11 pl-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
                         required
                       />
                     </div>
                   </div>
 
+                  {/* Existing User Info */}
+                  {existingUser && (
+                    <motion.div
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className={`${
+                        existingUser.hasAccount
+                          ? "bg-amber-50 border-amber-200"
+                          : "bg-blue-50 border-blue-200"
+                      } border rounded-lg p-4`}
+                    >
+                      <div className="flex items-center gap-3 mb-2">
+                        <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600">
+                          <div className="flex h-full w-full items-center justify-center text-white font-semibold">
+                            {existingUser.name.charAt(0).toUpperCase()}
+                          </div>
+                        </Avatar>
+                        <div className="flex-1">
+                          <p className="font-medium text-gray-900">
+                            {existingUser.name}
+                          </p>
+                          <p className="text-xs text-gray-600">
+                            {existingUser.email}
+                          </p>
+                        </div>
+                      </div>
+                      {existingUser.hasAccount && (
+                        <p className="text-sm text-amber-700 mt-2">
+                          This account is already registered. Please sign in.
+                        </p>
+                      )}
+                      {!existingUser.hasAccount && (
+                        <p className="text-sm text-blue-700 mt-2">
+                          You can register using your Workin account.
+                        </p>
+                      )}
+                    </motion.div>
+                  )}
+
                   <Button
-                    type="submit"
+                    type={existingUser ? "button" : "submit"}
                     size="lg"
                     className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md"
                     disabled={!validateEmail(email) || isLoadingEmail}
+                    onClick={existingUser ? handleWorkinSSORegister : undefined}
                   >
-                    {isLoadingEmail ? "Checking..." : "Continue"}
+                    {isLoadingEmail
+                      ? "Checking..."
+                      : existingUser
+                        ? existingUser.hasAccount
+                          ? "Sign In"
+                          : "Register with Workin SSO"
+                        : "Continue"}
                   </Button>
 
                   {/* Divider */}
@@ -221,6 +463,83 @@ export function RegisterForm() {
                       />
                     </svg>
                     Google
+                  </Button>
+                </form>
+              )}
+
+              {/* Workin Password Step */}
+              {step === "workin-password" && existingUser && (
+                <form
+                  onSubmit={handleWorkinPasswordSubmit}
+                  className="space-y-5"
+                >
+                  {/* User Info Card */}
+                  <motion.div
+                    initial={{ opacity: 0, y: -10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    className="bg-blue-50 border border-blue-200 rounded-lg p-4"
+                  >
+                    <div className="flex items-center gap-3">
+                      <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600">
+                        <div className="flex h-full w-full items-center justify-center text-white font-semibold">
+                          {existingUser.name.charAt(0).toUpperCase()}
+                        </div>
+                      </Avatar>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">
+                          {existingUser.name}
+                        </p>
+                        <p className="text-xs text-gray-600">
+                          {existingUser.email}
+                        </p>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Password Input */}
+                  <div className="space-y-2">
+                    <Label
+                      htmlFor="workinPassword"
+                      className="text-sm font-medium text-gray-700"
+                    >
+                      Workin Password
+                    </Label>
+                    <div className="relative">
+                      <Input
+                        id="workinPassword"
+                        type={showWorkinPassword ? "text" : "password"}
+                        placeholder="Enter your Workin password"
+                        value={workinPassword}
+                        onChange={(e) => setWorkinPassword(e.target.value)}
+                        required
+                        className="h-11 pr-10 border-gray-300 focus:border-blue-500 focus:ring-blue-500"
+                      />
+                      <button
+                        type="button"
+                        className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                        onClick={() =>
+                          setShowWorkinPassword(!showWorkinPassword)
+                        }
+                      >
+                        {showWorkinPassword ? (
+                          <EyeOff className="h-5 w-5" />
+                        ) : (
+                          <Eye className="h-5 w-5" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Use your existing Workin account password
+                    </p>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full h-11 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md"
+                    disabled={isLoading || !workinPassword}
+                  >
+                    {isLoading ? "Registering..." : "Complete Registration"}
                   </Button>
                 </form>
               )}

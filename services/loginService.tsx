@@ -48,7 +48,7 @@ export async function connectAccount(params: {
           "Content-Type": "application/json",
           "X-Account-Type": "chat_workspace",
         },
-      }
+      },
     );
     const result = response.data;
 
@@ -69,7 +69,7 @@ export async function logoutService(params: { appToken: string }) {
           "Content-Type": "application/json",
           "X-Account-Type": "chat_workspace",
         },
-      }
+      },
     );
     return response.data;
   } catch (error) {
@@ -91,7 +91,7 @@ export async function loginService(email: string, password: string) {
           "Content-Type": "application/json",
           "X-Account-Type": "chat_workspace",
         },
-      }
+      },
     );
     console.log("User info : ", response);
     const result = response.data;
@@ -113,12 +113,35 @@ export async function validateEmailAccount(email: string) {
           "Content-Type": "application/json",
           "X-Account-Type": "chat_workspace",
         },
-      }
+      },
     );
     const result = response?.data;
 
     return result;
   } catch (error: any) {
     return error?.response;
+  }
+}
+
+export async function registerChatWorkspace(email: string, password: string) {
+  try {
+    const response = await apiAuth.post(
+      "/users/auth/register-chat",
+      {
+        email,
+        password,
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+          "X-Account-Type": "chat_workspace",
+        },
+      },
+    );
+    const result = response?.data;
+
+    return result;
+  } catch (error: any) {
+    return error?.response?.data;
   }
 }
