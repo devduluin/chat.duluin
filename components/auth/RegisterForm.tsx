@@ -383,11 +383,11 @@ export function RegisterForm() {
                       } border rounded-lg p-4`}
                     >
                       <div className="flex items-center gap-3 mb-2">
-                        <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600">
-                          <div className="flex h-full w-full items-center justify-center text-white font-semibold">
-                            {existingUser.name.charAt(0).toUpperCase()}
-                          </div>
-                        </Avatar>
+                        <Avatar
+                          name={existingUser.name}
+                          size="md"
+                          className="h-10 w-10"
+                        />
                         <div className="flex-1">
                           <p className="font-medium text-gray-900">
                             {existingUser.name}
@@ -480,11 +480,11 @@ export function RegisterForm() {
                     className="bg-blue-50 border border-blue-200 rounded-lg p-4"
                   >
                     <div className="flex items-center gap-3">
-                      <Avatar className="h-10 w-10 bg-gradient-to-br from-blue-600 to-purple-600">
-                        <div className="flex h-full w-full items-center justify-center text-white font-semibold">
-                          {existingUser.name.charAt(0).toUpperCase()}
-                        </div>
-                      </Avatar>
+                      <Avatar
+                        name={existingUser.name}
+                        size="md"
+                        className="h-10 w-10"
+                      />
                       <div className="flex-1">
                         <p className="font-medium text-gray-900">
                           {existingUser.name}
