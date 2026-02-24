@@ -1,7 +1,7 @@
 // services/aiConversationService.ts
 import Cookies from "js-cookie";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
+const API_BASE_URL = process.env.NEXT_PUBLIC_NLP_GATEWAY_URL;
 
 export interface AIConversation {
   id: string;

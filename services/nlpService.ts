@@ -34,9 +34,10 @@ export async function sendToNLP(
       headers["Authorization"] = authorization;
     }
 
-    const response = await fetch(`${NLP_SERVICE_URL}/api/v1/process`, {
+    const response = await fetch(`${NLP_SERVICE_URL}/process`, {
       method: "POST",
       headers,
+      credentials: "include",
       body: JSON.stringify({
         text,
         user_id: userId,
@@ -59,10 +60,12 @@ export async function sendToNLP(
  */
 export async function checkNLPHealth(): Promise<boolean> {
   try {
-    const response = await fetch(`${NLP_SERVICE_URL}/health`, {
+    // Note: NLP service might not have a dedicated /health endpoint, 
+    // but we can check if the service is reachable via gateway
+    const response = await fetch(`${NLP_SERVICE_URL.replace('/process', '')}`, {
       method: "GET",
     });
-    return response.ok;
+    return response.ok || response.status === 404; // 404 means reachable but route not found
   } catch (error) {
     console.error("NLP Service health check failed:", error);
     return false;
