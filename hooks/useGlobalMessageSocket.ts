@@ -220,49 +220,121 @@ export function useGlobalMessageSocket(userId: string) {
               allKeys: Object.keys(msg),
             });
 
-            // Handle message deletion event - CHECK THIS FIRST
-            // Try both snake_case and PascalCase
-            const isSystemMessage =
-              msg.message_type === "system" ||
-              (msg as any).MessageType === "system";
-            const isDeleteMessage = msg.content?.startsWith("message_deleted:");
+            // Normalize message type
+            const messageType =
+              msg.message_type || (msg as any).MessageType || "";
 
-            console.log("🔍 Checking delete conditions:", {
-              isSystemMessage,
-              isDeleteMessage,
-              message_type: msg.message_type,
-              MessageType: (msg as any).MessageType,
-              content: msg.content,
-              contentStartsWith: msg.content?.substring(0, 20),
-            });
+            // --- 1. HANDLE MESSAGE DELETION ---
+            if (messageType === "message_deleted") {
+              let deletedMessageId = msg.id;
+              let deleteForEveryone = false;
 
-            if (isSystemMessage && isDeleteMessage) {
-              // Format: "message_deleted:{messageID}:{deleteForEveryone}:{isGroupConversation}"
-              const parts = msg.content.split(":");
-              const deletedMessageId = parts[1]; // The actual message ID being deleted
-              const deleteForEveryone = parts[2] === "true";
+              // Parse JSON content if available (new format)
+              try {
+                const eventData = JSON.parse(msg.content);
+                deletedMessageId = eventData.message_id || msg.id;
+                deleteForEveryone = eventData.delete_for_everyone;
+              } catch (e) {
+                // Fallback for legacy format or if content is not JSON
+                if (msg.content?.startsWith("message_deleted:")) {
+                  const parts = msg.content.split(":");
+                  deletedMessageId = parts[1];
+                  deleteForEveryone = parts[2] === "true";
+                }
+              }
 
               console.log("🗑️🔥 DELETE EVENT DETECTED!", {
                 deletedMessageId,
                 conversationId: msg.conversation_id,
                 deleteForEveryone,
-                fullContent: msg.content,
-                parts: parts,
               });
 
-              // Remove message from store using the correct message ID
-              console.log("🗑️ Calling removeMessage...");
               useChatStore
                 .getState()
                 .removeMessage(msg.conversation_id, deletedMessageId);
-
-              console.log("🗑️✅ removeMessage completed");
-
-              // Don't process further for delete events
               return;
             }
 
-            // Handle member added event
+            // --- 2. HANDLE READ RECEIPTS ---
+            if (messageType === "message_read") {
+              try {
+                const readData = JSON.parse(msg.content);
+                console.log("👁️ MESSAGE READ EVENT:", readData);
+                
+                // Update message status in store
+                useChatStore.getState().updateMessageReadStatus(
+                  readData.message_id,
+                  msg.conversation_id,
+                  readData.read_at || new Date()
+                );
+              } catch (e) {
+                console.error("Failed to parse message_read event", e);
+              }
+              return;
+            }
+
+            // --- 3. HANDLE TYPING INDICATORS (Future Implementation) ---
+            if (
+              messageType === "typing_started" ||
+              messageType === "typing_stopped"
+            ) {
+              try {
+                const typingData = JSON.parse(msg.content);
+                console.log(
+                  `✍️ TYPING EVENT (${messageType}):`,
+                  typingData.user_name,
+                );
+                
+                // Update typing status in store
+                // We'll implement this store method next
+                if (useChatStore.getState().setTypingStatus) {
+                  useChatStore.getState().setTypingStatus(
+                    msg.conversation_id, 
+                    typingData.user_id, 
+                    messageType === 'typing_started',
+                    typingData.user_name
+                  );
+                }
+              } catch (e) {
+                console.error("Failed to parse typing event", e);
+              }
+              return;
+            }
+
+            // --- 4. HANDLE GROUP UPDATES (Future Implementation) ---
+            if (messageType === "group_update") {
+              try {
+                const updateData = JSON.parse(msg.content);
+                console.log("👥 GROUP UPDATE EVENT:", updateData);
+
+                // Example: Handle member add/remove
+                if (updateData.action === "add_member") {
+                  // Logic to refresh members list
+                }
+              } catch (e) {
+                console.error("Failed to parse group_update event", e);
+              }
+              return;
+            }
+
+            // --- LEGACY SUPPORT & SYSTEM MESSAGES ---
+            // Check for old system message format
+            const isSystemMessage = messageType === "system";
+
+            // Legacy Delete
+            if (
+              isSystemMessage &&
+              msg.content?.startsWith("message_deleted:")
+            ) {
+              const parts = msg.content.split(":");
+              const deletedMessageId = parts[1];
+              useChatStore
+                .getState()
+                .removeMessage(msg.conversation_id, deletedMessageId);
+              return;
+            }
+
+            // Handle member added event (Current Implementation)
             const isMemberAddedMessage =
               msg.content?.startsWith("member_added:");
             if (isSystemMessage && isMemberAddedMessage) {
@@ -950,22 +1022,30 @@ export function useGlobalMessageSocket(userId: string) {
       return;
     }
 
+    console.log("🔄 Global WebSocket Effect Triggered for:", userId);
+    shouldReconnect.current = true;
     isMounted.current = true;
-    connectWebSocket(); // Initial connection attempt
+    
+    // Only connect if not already connected/connecting
+    if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
+      connectWebSocket();
+    }
 
     return () => {
+      console.log("🧹 Cleanup Global WebSocket Effect");
       isMounted.current = false;
       shouldReconnect.current = false;
-      setConnected(false);
-      setConnected(false);
+      // Don't close immediately on unmount in dev mode to prevent strict mode double-invoke issues
+      // But in production we should. For now, let's be safer.
       if (wsRef.current) {
-        console.log("Closing global WebSocket connection");
-        wsRef.current.close();
+        console.log("🔌 Closing global WebSocket connection due to unmount/change");
+        wsRef.current.close(1000, "Component unmounted");
         wsRef.current = null;
+        setConnected(false);
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId, setConnected]); // Only re-run when userId changes
+  }, [userId]); // STRICTLY only userId. setConnected is stable from store.
 
   // Return connection status and sendMessage function
   return {

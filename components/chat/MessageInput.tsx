@@ -67,8 +67,39 @@ export function MessageInput({
   const { sendMessage: sendMessageOffline } = useSendMessage();
   const { isOnline } = useOfflineQueueStore();
   const { isConnected: isWebSocketConnected } = useWebSocketStore();
+  const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
+
+  const handleTyping = () => {
+    if (!isWebSocketConnected || !sendMessageViaWebSocket) return;
+
+    // Send typing started event if not already typing
+    if (!typingTimeoutRef.current) {
+      sendMessageViaWebSocket({
+        type: "typing",
+        conversation_id: conversationId,
+        is_typing: true,
+        content: "typing", // Content is required by backend validation
+      });
+    }
+
+    // Clear existing timeout
+    if (typingTimeoutRef.current) {
+      clearTimeout(typingTimeoutRef.current);
+    }
+
+    // Set timeout to stop typing after 2 seconds of inactivity
+    typingTimeoutRef.current = setTimeout(() => {
+      sendMessageViaWebSocket({
+        type: "typing",
+        conversation_id: conversationId,
+        is_typing: false,
+        content: "typing",
+      });
+      typingTimeoutRef.current = null;
+    }, 2000);
+  };
 
   const setMessages = useChatStore((s) => s.setMessages);
 
@@ -468,7 +499,10 @@ export function MessageInput({
             ref={inputRef}
             type="text"
             value={message}
-            onChange={(e) => setMessage(e.target.value)}
+            onChange={(e) => {
+                  setMessage(e.target.value);
+                  handleTyping();
+                }}
             onClick={handleInputClick}
             onKeyUp={handleKeyUp}
             placeholder="Type a message..."

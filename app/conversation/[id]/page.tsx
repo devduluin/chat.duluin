@@ -8,9 +8,11 @@ import { MessageInput } from "@/components/chat/MessageInput";
 import { EmptyState } from "@/components/ui/emptyState";
 import { useState, useEffect } from "react";
 import { useMessageSocket } from "@/hooks/useMessageSocket";
+import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { useAccountStore } from "@/store/useAccountStore";
 import { markConversationAsRead } from "@/services/v1/readService";
 import { useConversationsStore } from "@/store/useConversationsStore";
+import { useChatStore } from "@/store/useChatStore";
 import Cookies from "js-cookie";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { PinnedMessagesBar } from "@/components/chat/PinnedMessagesBar";
@@ -21,6 +23,7 @@ export default function ConversationPage() {
   const conversationId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: account } = useAccountStore();
   const { updateConversation } = useConversationsStore();
+  const { isConnected } = useWebSocketStore(); // Get connection status
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Get userId from account store or fallback to cookies
@@ -89,8 +92,30 @@ export default function ConversationPage() {
         .catch((error) => {
           console.error("Failed to mark as read:", error);
         });
+
+      // --- TRIGGER READ RECEIPT EVENT ---
+      // ONLY if WebSocket is connected to avoid errors
+      if (!isConnected) {
+        console.log("⏳ WebSocket not connected yet, skipping read receipt");
+        return;
+      }
+
+      // Get the last message to mark as read
+      const messages = useChatStore.getState().messages[conversationId as string] || [];
+      if (messages.length > 0) {
+        const lastMessage = messages[messages.length - 1];
+
+        if (lastMessage && lastMessage.sender_id !== userId && !lastMessage.read_at) {
+          sendMessage({
+            type: "read",
+            conversation_id: conversationId,
+            message_id: lastMessage.id,
+            content: "read" // Required by backend validation
+          });
+        }
+      }
     }
-  }, [conversationId, userId, updateConversation, isAuthChecking]);
+  }, [conversationId, userId, updateConversation, isAuthChecking, sendMessage, isConnected]);
 
   // Listen for navigate-home event (smooth redirect when removed from group)
   useEffect(() => {

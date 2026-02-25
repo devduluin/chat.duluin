@@ -634,54 +634,38 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {formatRelativeTime(message.created_at || "")}
             </p>
-            {isCurrentUser && (
-              <>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <span>
-                      {message.status === "pending" ? (
-                        <Clock className="h-3 w-3 text-yellow-500" />
-                      ) : message.status === "sending" ? (
-                        <Loader2 className="h-3 w-3 text-blue-500 animate-spin" />
-                      ) : message.status === "failed" ? (
-                        <AlertCircle className="h-3 w-3 text-red-500" />
-                      ) : message.read_at ? (
-                        <CheckCheck className="h-3 w-3 text-blue-500" />
-                      ) : (
-                        <Check className="h-3 w-3 text-gray-400" />
-                      )}
-                    </span>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">
-                    {message.status === "pending"
-                      ? "Waiting to send..."
-                      : message.status === "sending"
-                        ? "Sending..."
-                        : message.status === "failed"
-                          ? "Failed to send. Click retry button to resend."
-                          : message.read_at
-                            ? `Read at ${new Date(message.read_at).toLocaleString()}`
-                            : "Delivered"}
-                  </TooltipContent>
-                </Tooltip>
-                {message.status === "failed" && (
+                {/* Read Status Indicator */}
+                {isCurrentUser && (
                   <Tooltip>
                     <TooltipTrigger asChild>
-                      <button
-                        onClick={handleRetry}
-                        className="ml-1 hover:bg-gray-200 dark:hover:bg-gray-700 rounded p-0.5 transition-colors"
-                      >
-                        <RefreshCw className="h-3 w-3 text-red-500 hover:text-red-600" />
-                      </button>
+                      <span>
+                        {message.status === "failed" ? (
+                          <button onClick={handleRetry}>
+                            <RefreshCw className="h-3 w-3 text-red-500" />
+                          </button>
+                        ) : message.status === "pending" || message.status === "sending" ? (
+                          <Clock className="h-3 w-3 text-gray-400" />
+                        ) : message.read_at ? (
+                          <CheckCheck className="h-3 w-3 text-blue-500" />
+                        ) : (
+                          <CheckCheck className="h-3 w-3 text-gray-400" />
+                        )}
+                      </span>
                     </TooltipTrigger>
-                    <TooltipContent side="top">
-                      Retry sending message
+                    <TooltipContent>
+                      <p>
+                        {message.status === "failed"
+                          ? "Failed to send. Click to retry"
+                          : message.status === "pending"
+                          ? "Sending..."
+                          : message.read_at
+                          ? `Read at ${new Date(message.read_at).toLocaleTimeString()}`
+                          : "Delivered"}
+                      </p>
                     </TooltipContent>
                   </Tooltip>
                 )}
-              </>
-            )}
-          </div>
+              </div>
         </div>
 
         {/* Spacer */}

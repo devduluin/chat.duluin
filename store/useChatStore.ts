@@ -6,6 +6,7 @@ interface ChatStore {
   messages: Record<string, Message[]>;
   conversations: Record<string, Conversation>;
   members: Record<string, Member[]>;
+  typingUsers: Record<string, Record<string, string>>; // conversationId -> { userId: userName }
   _version: number; // Version counter to force updates
   addMessage: (conversationId: string, msg: Message) => void;
   addOrUpdateMessage: (conversationId: string, msg: Message) => void;
@@ -16,6 +17,12 @@ interface ChatStore {
     newDetails: Partial<Conversation>,
   ) => void;
   setMembers: (conversationId: string, members: Member[]) => void;
+  setTypingStatus: (
+    conversationId: string,
+    userId: string,
+    isTyping: boolean,
+    userName?: string,
+  ) => void;
   updateMessageStatus: (
     id: string,
     conversationId: string,
@@ -45,7 +52,8 @@ export const useChatStore = create<ChatStore>()(
       messages: {},
       conversations: {},
       members: {},
-      _version: 0,
+      typingUsers: {},
+      _version: 1,
       addMessage: (conversationId, msg) => {
         const convMsgs = get().messages[conversationId] || [];
 
@@ -164,6 +172,34 @@ export const useChatStore = create<ChatStore>()(
         });
       },
 
+      setTypingStatus: (conversationId, userId, isTyping, userName) => {
+        const currentTyping = get().typingUsers[conversationId] || {};
+        
+        if (isTyping) {
+          // Add user to typing list
+          set({
+            typingUsers: {
+              ...get().typingUsers,
+              [conversationId]: {
+                ...currentTyping,
+                [userId]: userName || "Someone",
+              },
+            },
+          });
+        } else {
+          // Remove user from typing list
+          const newTyping = { ...currentTyping };
+          delete newTyping[userId];
+          
+          set({
+            typingUsers: {
+              ...get().typingUsers,
+              [conversationId]: newTyping,
+            },
+          });
+        }
+      },
+
       updateMessageStatus: (id, conversationId, status) => {
         const updated = (get().messages[conversationId] || []).map((m) =>
           m.id === id ? { ...m, status } : m,
@@ -262,6 +298,19 @@ export const useChatStore = create<ChatStore>()(
         members: state.members,
         _version: state._version,
       }),
+      version: 1, // Increment version for migration
+      migrate: (persistedState: any, version: number) => {
+        if (version === 0) {
+          // Migration from version 0 to 1
+          // Ensure typingUsers exists
+          return {
+            ...persistedState,
+            typingUsers: persistedState.typingUsers || {},
+            _version: 1,
+          };
+        }
+        return persistedState as ChatStore;
+      },
     },
   ),
 );
