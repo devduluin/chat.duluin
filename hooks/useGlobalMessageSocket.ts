@@ -5,6 +5,7 @@ import { useConversationsStore } from "@/store/useConversationsStore";
 import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { toast } from "sonner";
 import { getConversationById } from "@/services/v1/conversationService";
+import Cookies from "js-cookie";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -119,13 +120,7 @@ export function useGlobalMessageSocket(userId: string) {
       const wsProtocol = url.protocol === "https:" ? "wss:" : "ws:";
 
       // Get authentication token from cookies
-      const token =
-        typeof window !== "undefined"
-          ? document.cookie
-              .split("; ")
-              .find((row) => row.startsWith("app_token="))
-              ?.split("=")[1] || ""
-          : "";
+      const token = Cookies.get("app_token");
 
       if (!token) {
         console.error(
