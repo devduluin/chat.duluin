@@ -51,7 +51,7 @@ export async function getOrCreateAIConversation(): Promise<AIConversation | null
           "Content-Type": "application/json",
           Authorization: `Bearer ${Cookies.get("app_token")}`,
         },
-        credentials: "include",
+        // credentials: "include",
       },
     );
 
@@ -91,7 +91,7 @@ export async function saveAIMessage(
         "Content-Type": "application/json",
         Authorization: `Bearer ${Cookies.get("app_token")}`,
       },
-      credentials: "include",
+      // credentials: "include",
       body: JSON.stringify({
         conversation_id: conversationId,
         sender_id: senderId,
@@ -137,7 +137,7 @@ export async function getAIConversationMessages(
           "Content-Type": "application/json",
           Authorization: `Bearer ${Cookies.get("app_token")}`,
         },
-        credentials: "include",
+        // credentials: "include",
       },
     );
 

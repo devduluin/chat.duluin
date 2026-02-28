@@ -37,7 +37,7 @@ export async function sendToNLP(
     const response = await fetch(`${NLP_SERVICE_URL}/process`, {
       method: "POST",
       headers,
-      credentials: "include",
+      // credentials: "include",
       body: JSON.stringify({
         text,
         user_id: userId,
