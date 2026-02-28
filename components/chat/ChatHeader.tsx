@@ -12,6 +12,7 @@ import {
 import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { ContactPicker } from "./ContactPicker";
@@ -34,6 +35,7 @@ interface ChatHeaderProps {
 }
 
 export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
+  const router = useRouter();
   const conversation = useChatStore(
     (state) => state.conversations[conversationId],
   );
@@ -46,6 +48,8 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const [showContactInfo, setShowContactInfo] = useState(false);
   const [showAddMembers, setShowAddMembers] = useState(false);
   const isOnline = useOfflineQueueStore((state) => state.isOnline);
+  const removeConversation = useConversationsStore((state) => state.removeConversation);
+  const clearConversationData = useChatStore((state) => state.clearConversationData);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
@@ -76,10 +80,44 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     });
   };
 
-  const handleDeleteChat = () => {
-    toast("Chat deleted", {
-      description: "This conversation has been deleted",
-    });
+  const handleDeleteChat = async () => {
+    const confirmed = window.confirm(
+      "Delete chat for you? This will remove it from your list until a new message arrives.",
+    );
+    if (!confirmed) return;
+
+    if (!isOnline) {
+      toast.error("You're offline", {
+        description: "Connect to the internet to delete chat.",
+      });
+      return;
+    }
+
+    try {
+      const { clearConversationHistory } = await import(
+        "@/services/v1/conversationService"
+      );
+      const result = await clearConversationHistory(conversationId, userId);
+
+      if (result?.status) {
+        removeConversation(conversationId);
+        clearConversationData(conversationId);
+        toast.success("Chat deleted", {
+          description:
+            "This chat has been removed for you. Other participants can still see it.",
+        });
+        router.push("/");
+        return;
+      }
+
+      const errorDetails =
+        result?.errors?.join(", ") || result?.message || "Please try again";
+      toast.error("Failed to delete chat", { description: errorDetails });
+    } catch (error: any) {
+      toast.error("Failed to delete chat", {
+        description: error?.message || "An error occurred",
+      });
+    }
   };
 
   const handleAddMembers = async (contacts: any[]) => {

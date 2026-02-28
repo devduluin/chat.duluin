@@ -44,6 +44,7 @@ interface ChatStore {
     realMessage: Message,
   ) => void;
   removeMessage: (conversationId: string, messageId: string) => void;
+  clearConversationData: (conversationId: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -286,6 +287,26 @@ export const useChatStore = create<ChatStore>()(
             ...currentState.messages,
             [conversationId]: updatedMessages,
           },
+          _version: currentState._version + 1,
+        });
+      },
+
+      clearConversationData: (conversationId) => {
+        const currentState = get();
+        const { [conversationId]: _msgs, ...restMessages } =
+          currentState.messages;
+        const { [conversationId]: _members, ...restMembers } =
+          currentState.members;
+        const { [conversationId]: _conv, ...restConversations } =
+          currentState.conversations;
+        const { [conversationId]: _typing, ...restTyping } =
+          currentState.typingUsers;
+
+        set({
+          messages: restMessages,
+          members: restMembers,
+          conversations: restConversations,
+          typingUsers: restTyping,
           _version: currentState._version + 1,
         });
       },

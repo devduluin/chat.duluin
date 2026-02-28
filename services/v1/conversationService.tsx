@@ -56,6 +56,20 @@ export async function getConversationById(
   }
 }
 
+export async function clearConversationHistory(
+  conversationId: string,
+  userId: string
+): Promise<any | null> {
+  try {
+    const response = await api.post(`/conversations/${conversationId}/clear`, null, {
+      params: { user_id: userId },
+    });
+    return response.data;
+  } catch (error: any) {
+    return error?.response?.data;
+  }
+}
+
 export async function addMemberToConversation(
   conversationId: string,
   userIds: string[],
