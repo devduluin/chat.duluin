@@ -10,8 +10,8 @@ import Link from "next/link";
 import { sendToNLP } from "@/services/nlpService";
 import {
   getOrCreateAIConversation,
-  saveAIMessage,
   getAIConversationMessages,
+  saveAIMessage,
   AIMessage,
 } from "@/services/aiConversationService";
 import { useAccountStore } from "@/store/useAccountStore";
@@ -19,6 +19,8 @@ import Cookies from "js-cookie";
 import { formatRelativeTime } from "@/utils/formatDate";
 import { toast } from "sonner";
 import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
+import { useWebSocketStore } from "@/store/useWebSocketStore";
+import { useChatStore } from "@/store/useChatStore";
 
 interface ChatMessage {
   id: string;
@@ -37,6 +39,7 @@ export default function AIChatbotPage() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { data: account } = useAccountStore();
   const { isOnline } = useOfflineQueueStore();
+  const { sendMessage, isConnected } = useWebSocketStore();
 
   const userIdFromCookies =
     typeof window !== "undefined" ? Cookies.get("user_id") || "" : "";
@@ -50,6 +53,119 @@ export default function AIChatbotPage() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Listen for incoming WebSocket messages
+  useEffect(() => {
+    const handleWebSocketMessage = (event: MessageEvent) => {
+      try {
+        // If the message is a Blob, we can't parse it synchronously here
+        // The global handler in useGlobalMessageSocket should have handled it
+        if (event.data instanceof Blob) return;
+
+        const response = JSON.parse(event.data);
+        
+        // Check if this is a message for our current conversation
+        if (
+          response.status && 
+          response.message === "New message" && 
+          response.data && 
+          response.data.conversation_id === conversationId
+        ) {
+          const msgData = response.data;
+          
+          // Determine role based on sender_id
+          // AI Bot ID: 1196e18b-c1dc-41aa-946a-0c55e9d64fe6
+          const isBot = msgData.sender_id === "1196e18b-c1dc-41aa-946a-0c55e9d64fe6";
+          const isMe = msgData.sender_id === userId;
+          
+          if (isBot) {
+            // It's a response from AI
+            const newMsg: ChatMessage = {
+              id: msgData.id,
+              role: "assistant",
+              content: msgData.content,
+              timestamp: msgData.created_at,
+            };
+            
+            setMessages(prev => {
+              // Avoid duplicates
+              if (prev.some(m => m.id === newMsg.id)) return prev;
+              const updated = [...prev, newMsg];
+              localStorage.setItem("ai-messages", JSON.stringify(updated));
+              return updated;
+            });
+            
+            setIsLoading(false); // Stop loading when AI responds
+          } else if (isMe) {
+            // It's my message confirmed by server (optional: update status)
+            // For now we just ensure it's in the list
+          }
+        }
+      } catch (error) {
+        console.error("Error parsing WS message:", error);
+      }
+    };
+
+    // We can't directly add event listener to the WebSocket instance here easily 
+    // because it's managed by useGlobalMessageSocket/useWebSocketStore.
+    // However, the global socket hook updates the store.
+    // 
+    // Ideally, we should use a custom event or a store subscription.
+    // For this implementation, we'll rely on the fact that useConversationsStore 
+    // or useChatStore might be updated by the global socket.
+    
+    // BUT, for a direct "listen" in this component without refactoring the whole socket architecture:
+    // We can add a window event listener that the global socket *could* dispatch, 
+    // OR we can poll/subscribe to the store.
+    
+    // Let's implement a custom event listener that useGlobalMessageSocket dispatches
+    // (We need to modify useGlobalMessageSocket to dispatch 'ai-message-received' or similar)
+    // OR: simpler approach for now -> we trust the store updates if we were using the chat store.
+    // Since this page manages its own state `messages`, we need to sync.
+    
+    // WORKAROUND: We'll add a listener to the WebSocket object if we can access it, 
+    // but it's hidden in closure.
+    // ALTERNATIVE: The Global Socket Logic handles the "onmessage".
+    
+    // Let's rely on `useChatStore` updates if possible, or add a listener to a custom event.
+    // Since we didn't modify GlobalSocket to dispatch custom events, we'll use a specific approach:
+    // We will assume the GlobalSocket updates the `useChatStore` or `useConversationsStore`.
+    // Let's check `useChatStore`.
+    
+    // Actually, looking at `useGlobalMessageSocket.ts`, it calls `addOrUpdateMessage` in `useChatStore`.
+    // So we can subscribe to `useChatStore` changes!
+  }, [conversationId, userId]);
+
+  // Subscribe to ChatStore updates to get real-time messages
+  const chatMessages = useChatStore((state) => conversationId ? state.messages[conversationId] : []);
+  
+  useEffect(() => {
+    if (conversationId && chatMessages && chatMessages.length > 0) {
+      // Convert store messages to local ChatMessage format
+      const mappedMessages: ChatMessage[] = chatMessages.map((msg: any) => ({
+        id: msg.id,
+        role: msg.sender_id === userId ? "user" : "assistant",
+        content: msg.content,
+        timestamp: msg.created_at,
+      }));
+      
+      // We only want to update if we have *new* messages to avoid overwriting optimistic updates or causing loops
+      // But since we are moving to WS, we should trust the store more.
+      
+      // Filter out messages we already have to prevent flicker, OR just replace.
+      // Let's replace for simplicity but keep "isLoading" logic separate.
+      
+      // Check if we received a new AI message to stop loading
+      const lastMsg = mappedMessages[mappedMessages.length - 1];
+      if (lastMsg && lastMsg.role === "assistant" && isLoading) {
+        setIsLoading(false);
+      }
+      
+      setMessages(mappedMessages);
+      localStorage.setItem("ai-messages", JSON.stringify(mappedMessages));
+    }
+  }, [chatMessages, conversationId, userId, isLoading]);
+
 
   // Initialize AI conversation
   useEffect(() => {
@@ -142,6 +258,7 @@ export default function AIChatbotPage() {
       timestamp: new Date().toISOString(),
     };
 
+    // Optimistic update
     const newMessages = [...messages, userMessage];
     setMessages(newMessages);
     const messageContent = inputText;
@@ -154,41 +271,63 @@ export default function AIChatbotPage() {
 
       // Only send to backend if online
       if (isOnline) {
-        // Save user message to database
-        await saveAIMessage(conversationId, userId, messageContent, "text");
+        if (isConnected && sendMessage) {
+          // 🚀 SEND VIA WEBSOCKET
+          console.log("🚀 Sending AI message via WebSocket...");
+          const success = sendMessage({
+            type: "ai_message",
+            conversation_id: conversationId,
+            content: messageContent
+          });
+          
+          if (!success) {
+             throw new Error("Failed to send via WebSocket");
+          }
+          
+          // Note: We don't manually add the response here anymore.
+          // We wait for the WebSocket broadcast to update the store -> update this component.
+          
+        } else {
+          // Fallback to HTTP if WS not connected
+          console.warn("⚠️ WebSocket not connected, falling back to HTTP...");
+          
+          // Save user message to database
+          await saveAIMessage(conversationId, userId, messageContent, "text");
 
-        // Get auth token if available
-        const token =
-          typeof window !== "undefined" ? Cookies.get("app_token") || "" : "";
-        const authorization = token ? `Bearer ${token}` : undefined;
+          // Get auth token if available
+          const token =
+            typeof window !== "undefined" ? Cookies.get("app_token") || "" : "";
+          const authorization = token ? `Bearer ${token}` : undefined;
 
-        // Send to NLP service
-        const response = await sendToNLP(messageContent, userId, authorization);
+          // Send to NLP service
+          const response = await sendToNLP(messageContent, userId, authorization);
 
-        const assistantMessage: ChatMessage = {
-          id: `assistant-${Date.now()}`,
-          role: "assistant",
-          content:
-            response.message ||
-            "Maaf, saya tidak bisa memproses permintaan Anda saat ini.",
-          timestamp: new Date().toISOString(),
-          intent: response.intent,
-        };
+          const assistantMessage: ChatMessage = {
+            id: `assistant-${Date.now()}`,
+            role: "assistant",
+            content:
+              response.message ||
+              "Maaf, saya tidak bisa memproses permintaan Anda saat ini.",
+            timestamp: new Date().toISOString(),
+            intent: response.intent,
+          };
 
-        const updatedMessages = [...newMessages, assistantMessage];
-        setMessages(updatedMessages);
-        localStorage.setItem("ai-messages", JSON.stringify(updatedMessages));
+          const updatedMessages = [...newMessages, assistantMessage];
+          setMessages(updatedMessages);
+          localStorage.setItem("ai-messages", JSON.stringify(updatedMessages));
+          setIsLoading(false);
 
-        // Get bot user ID from database seeder output
-        const botUserId = "1196e18b-c1dc-41aa-946a-0c55e9d64fe6"; // AI Assistant bot user ID
+          // Get bot user ID from database seeder output
+          const botUserId = "1196e18b-c1dc-41aa-946a-0c55e9d64fe6"; // AI Assistant bot user ID
 
-        // Save AI response to database
-        await saveAIMessage(
-          conversationId,
-          botUserId,
-          assistantMessage.content,
-          "text"
-        );
+          // Save AI response to database
+          await saveAIMessage(
+            conversationId,
+            botUserId,
+            assistantMessage.content,
+            "text"
+          );
+        }
       } else {
         // Offline mode - show message that it will be processed later
         const offlineMessage: ChatMessage = {
@@ -201,20 +340,20 @@ export default function AIChatbotPage() {
         const updatedMessages = [...newMessages, offlineMessage];
         setMessages(updatedMessages);
         localStorage.setItem("ai-messages", JSON.stringify(updatedMessages));
+        setIsLoading(false);
       }
     } catch (error) {
-      console.error("Failed to send message to NLP:", error);
+      console.error("Failed to send message:", error);
       const errorMessage: ChatMessage = {
         id: `error-${Date.now()}`,
         role: "assistant",
         content:
-          "Maaf, terjadi kesalahan saat menghubungi AI Assistant. Pastikan NLP Service sedang berjalan.",
+          "Maaf, terjadi kesalahan saat menghubungi AI Assistant.",
         timestamp: new Date().toISOString(),
       };
       const updatedMessages = [...messages, userMessage, errorMessage];
       setMessages(updatedMessages);
       localStorage.setItem("ai-messages", JSON.stringify(updatedMessages));
-    } finally {
       setIsLoading(false);
     }
   };

@@ -34,6 +34,7 @@ export async function sendToNLP(
       headers["Authorization"] = authorization;
     }
 
+    // Send message to AI Assistant process
     const response = await fetch(`${NLP_SERVICE_URL}/process`, {
       method: "POST",
       headers,
