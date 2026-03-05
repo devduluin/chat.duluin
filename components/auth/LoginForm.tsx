@@ -178,19 +178,19 @@ export function LoginForm() {
 
           // Sync contacts from HRIS asynchronously (non-blocking)
           // Pass appToken for session validation flow
-          syncContactsFromHRIS(appToken)
-            .then((syncResult) => {
-              if (syncResult?.success) {
-                console.log(
-                  `✅ Contacts synced: ${(syncResult as any).syncedUsers || 0} users, ${(syncResult as any).createdContacts || 0} contacts`,
-                );
-              } else {
-                console.warn("⚠️ Contact sync failed:", syncResult?.message);
-              }
-            })
-            .catch((error) => {
-              console.error("❌ Failed to sync contacts from HRIS:", error);
-            });
+          // syncContactsFromHRIS(appToken)
+          //   .then((syncResult) => {
+          //     if (syncResult?.success) {
+          //       console.log(
+          //         `✅ Contacts synced: ${(syncResult as any).syncedUsers || 0} users, ${(syncResult as any).createdContacts || 0} contacts`,
+          //       );
+          //     } else {
+          //       console.warn("⚠️ Contact sync failed:", syncResult?.message);
+          //     }
+          //   })
+          //   .catch((error) => {
+          //     console.error("❌ Failed to sync contacts from HRIS:", error);
+          //   });
 
           showSuccess(`Welcome back, ${user?.name || "User"}!`);
           Router.push(`/`);

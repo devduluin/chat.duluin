@@ -67,12 +67,12 @@ export async function updateUserStatus(
   }
 }
 
-export async function bulkSyncContacts(
+/* export async function bulkSyncContacts(
   requesterID: string,
   contacts: any[]
 ): Promise<any | null> {
   try {
-    const response = await apiClient.post("/users/bulk-sync-contacts", {
+    const response = await apiClient.post("/contacts/bulk-sync", {
       requester_id: requesterID,
       contacts: contacts,
     });
@@ -81,4 +81,4 @@ export async function bulkSyncContacts(
     console.error("Failed to bulk sync contacts:", error);
     return error?.response?.data;
   }
-}
+} */

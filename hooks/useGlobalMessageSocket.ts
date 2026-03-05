@@ -3,9 +3,11 @@ import { useEffect, useRef, useCallback } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useWebSocketStore } from "@/store/useWebSocketStore";
+import { useContactsStore } from "@/store/useContactStore";
 import { toast } from "sonner";
 import { getConversationById } from "@/services/v1/conversationService";
 import Cookies from "js-cookie";
+import Swal from "sweetalert2";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -32,6 +34,7 @@ export function useGlobalMessageSocket(userId: string) {
   const addNewConversation = useConversationsStore((s) => s.addNewConversation);
   const conversations = useConversationsStore((s) => s.conversations);
   const { setSendMessage, setConnected } = useWebSocketStore();
+  const setIsSyncing = useContactsStore((s) => s.setIsSyncing);
 
   // Send message function - stable reference, always uses current wsRef
   const sendMessageStable = useCallback(
@@ -181,6 +184,56 @@ export function useGlobalMessageSocket(userId: string) {
           }
 
           const response = JSON.parse(jsonData);
+
+          // Handle Custom Events (Contact Sync)
+          if (response.message === "contact_sync_started") {
+             console.log("🔄 Contact sync started");
+             setIsSyncing(true);
+             // toast.info("Syncing contacts from HRIS...", { id: "contact-sync" });
+             
+             Swal.fire({
+               title: 'Syncing Contacts',
+               text: 'Please wait while we sync your contacts from HRIS...',
+               icon: 'info',
+               allowOutsideClick: false,
+               allowEscapeKey: false,
+               didOpen: () => {
+                 Swal.showLoading();
+               }
+             });
+             return;
+          }
+
+          if (response.message === "contact_sync_completed") {
+             console.log("✅ Contact sync completed");
+             setIsSyncing(false);
+             // toast.success("Contacts synced successfully", { id: "contact-sync" });
+             
+             Swal.fire({
+               title: 'Sync Completed',
+               text: `Contacts have been synced successfully! (${response.data?.count || 0} contacts)`,
+               icon: 'success',
+               timer: 2000,
+               showConfirmButton: false
+             });
+             
+             // Optional: Trigger refetch contacts here if needed
+             // useContactsStore.getState().fetchContacts(); 
+             return;
+          }
+
+          if (response.message === "contact_sync_failed") {
+             console.log("❌ Contact sync failed");
+             setIsSyncing(false);
+             
+             Swal.fire({
+               title: 'Sync Failed',
+               text: response.data?.message || "Failed to sync contacts",
+               icon: 'error'
+             });
+             return;
+          }
+
           console.log("🌍📨 [PARSED] Full response:", {
             status: response.status,
             message: response.message,
