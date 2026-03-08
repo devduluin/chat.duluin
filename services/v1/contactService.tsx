@@ -40,9 +40,10 @@ export async function getContact(id: string): Promise<any | null> {
 export async function createContact(data: any): Promise<Response | null> {
   try {
     const response = await api.post(`/contacts`, data);
+    console.log(response);
     return response.data;
   } catch (error: any) {
-    return error?.response?.data;
+    throw error;
   }
 }
 
