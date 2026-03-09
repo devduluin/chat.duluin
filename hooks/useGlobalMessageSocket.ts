@@ -282,6 +282,8 @@ export function useGlobalMessageSocket(userId: string) {
               try {
                 if (typeof msg.content === 'string') {
                   conversationData = JSON.parse(msg.content);
+                  // Override content to show "Grup baru" instead of raw JSON in sidebar
+                  msg.content = "Grup baru";
                 } else {
                   conversationData = msg.content;
                 }
