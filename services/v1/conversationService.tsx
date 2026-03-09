@@ -76,20 +76,15 @@ export async function addMemberToConversation(
   tenantId: string
 ): Promise<any | null> {
   try {
-    // Add members one by one
-    const results = await Promise.all(
-      userIds.map(async (userId) => {
-        const response = await api.post(
-          `/conversations/${conversationId}/members`,
-          {
-            user_id: userId,
-            tenant_id: tenantId,
-          }
-        );
-        return response.data;
-      })
+    // Use the new bulk add endpoint
+    const response = await api.post(
+      `/conversations/${conversationId}/members`,
+      {
+        user_ids: userIds,
+        tenant_id: tenantId,
+      }
     );
-    return { status: true, data: results };
+    return response.data;
   } catch (error: any) {
     console.error("Failed to add members:", error);
     console.error("Error details:", error?.response?.data);

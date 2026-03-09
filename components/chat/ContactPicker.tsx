@@ -33,7 +33,16 @@ export function ContactPicker({
 }: ContactPickerProps) {
   const [search, setSearch] = useState("");
   const [selected, setSelected] = useState<ContactData[]>(selectedContacts);
-  // const [contacts, setContacts] = useState<ContactData[]>([]);
+  const [isOpen, setIsOpen] = useState(open); // Internal state for dialog visibility
+
+  // Sync internal state with prop
+  useEffect(() => {
+    setIsOpen(open);
+    if (open) {
+      // Reset selection when opening if needed, or keep previous selection
+      // setSelected(selectedContacts); 
+    }
+  }, [open, selectedContacts]);
 
   // get all contact using service useContactsList hook
   const { contacts, fetchContactsList } = useContactsList(userId, { page: 1, is_favorite: false });
@@ -50,20 +59,28 @@ export function ContactPicker({
   });
 
   const toggleContact = (contact: ContactData) => {
-    setSelected((prev) =>
-      prev.some((c) => c.id === contact.id)
-        ? prev.filter((c) => c.id !== contact.id)
-        : [...prev, contact]
-    );
+    setSelected((prev) => {
+      const isSelected = prev.some((c) => c.id === contact.id);
+      if (isSelected) {
+        return prev.filter((c) => c.id !== contact.id);
+      } else {
+        return [...prev, contact];
+      }
+    });
+  };
+
+  const handleClose = () => {
+    setIsOpen(false);
+    onClose();
   };
 
   const handleSubmit = () => {
     onSelect(selected);
-    onClose();
+    handleClose();
   };
 
   return (
-    <Dialog open={open} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="sm:max-w-[425px]">
         <DialogHeader>
           <DialogTitle>Add Group Members</DialogTitle>
