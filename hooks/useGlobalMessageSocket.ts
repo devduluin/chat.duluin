@@ -271,6 +271,71 @@ export function useGlobalMessageSocket(userId: string) {
             // Normalize message type
             const messageType =
               msg.message_type || (msg as any).MessageType || "";
+            
+            // --- 0. HANDLE NEW GROUP CREATION ---
+            // Explicitly handle "new_group" message type
+            if (messageType === "new_group") {
+              console.log("🆕👥 NEW GROUP EVENT DETECTED!", msg.conversation_id);
+              
+              // Parse the content to get conversation details
+              let conversationData: any = null;
+              try {
+                if (typeof msg.content === 'string') {
+                  conversationData = JSON.parse(msg.content);
+                } else {
+                  conversationData = msg.content;
+                }
+                console.log("📦 Group Data parsed:", conversationData);
+              } catch (e) {
+                console.error("Failed to parse new_group content:", e);
+              }
+
+              // Check if conversation already exists in the list
+              const conversationExists = useConversationsStore.getState().conversations.some(
+                (item: any) => item.Conversation.id === msg.conversation_id
+              );
+
+              if (!conversationExists && conversationData) {
+                 // Create RecentConversation object directly from payload
+                 // This matches the structure expected by addNewConversation
+                 const newConversation: RecentConversation = {
+                  Conversation: {
+                    id: conversationData.id,
+                    name: conversationData.name,
+                    avatar_url: conversationData.avatar_url,
+                    is_group: conversationData.is_group,
+                    is_cross_tenant: conversationData.is_cross_tenant,
+                    created_by: conversationData.created_by,
+                    created_at: conversationData.created_at,
+                    updated_at: conversationData.updated_at,
+                    members: conversationData.members || [],
+                    messages: [],
+                    // Display properties
+                    display_name: conversationData.name, 
+                    display_avatar: conversationData.avatar_url,
+                    unread_count: 0,
+                    is_user_member: true
+                  } as any,
+                  LastMessage: msg
+                };
+
+                console.log("➕ Adding NEW GROUP to sidebar directly:", newConversation);
+                addNewConversation(newConversation);
+                
+                // Show notification
+                toast.success("New Group Created", {
+                  description: `You were added to group "${conversationData.name}"`
+                });
+                
+                return; // Stop processing, we handled it
+              } else if (!conversationExists) {
+                // Fallback if parsing failed - let the generic "new conversation" logic handle it below
+                console.log("⚠️ Parsing failed or empty data, falling back to fetch logic");
+              } else {
+                console.log("ℹ️ Group already in sidebar, ignoring new_group event");
+                return;
+              }
+            }
 
             // --- 1. HANDLE MESSAGE DELETION ---
             if (messageType === "message_deleted") {
