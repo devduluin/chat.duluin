@@ -9,6 +9,7 @@ declare global {
     sender: User;
     content: string;
     message_type?: string;
+    is_system_message?: boolean;
     status?: "pending" | "sending" | "sent" | "failed";
     created_at?: string | Date;
     updated_at?: string | Date;

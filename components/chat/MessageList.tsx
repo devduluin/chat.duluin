@@ -16,24 +16,27 @@ function SystemMessageAlert({ content }: { content: string }) {
     content.includes("was removed from the group") ||
     content.includes("You were removed from the group");
 
-  if (!isMemberAdded && !isMemberRemoved) {
-    // For other system messages, render normally
-    return null;
-  }
-
   // Determine styling based on action type
   const bgColor = isMemberRemoved
     ? "bg-red-50 dark:bg-red-900/20"
-    : "bg-blue-50 dark:bg-blue-900/20";
+    : isMemberAdded
+      ? "bg-blue-50 dark:bg-blue-900/20"
+      : "bg-gray-50 dark:bg-gray-900/20";
   const borderColor = isMemberRemoved
     ? "border-red-200 dark:border-red-800"
-    : "border-blue-200 dark:border-blue-800";
+    : isMemberAdded
+      ? "border-blue-200 dark:border-blue-800"
+      : "border-gray-200 dark:border-gray-800";
   const iconColor = isMemberRemoved
     ? "text-red-600 dark:text-red-400"
-    : "text-blue-600 dark:text-blue-400";
+    : isMemberAdded
+      ? "text-blue-600 dark:text-blue-400"
+      : "text-gray-600 dark:text-gray-400";
   const textColor = isMemberRemoved
     ? "text-red-700 dark:text-red-300"
-    : "text-blue-700 dark:text-blue-300";
+    : isMemberAdded
+      ? "text-blue-700 dark:text-blue-300"
+      : "text-gray-700 dark:text-gray-300";
 
   return (
     <div className="flex items-center justify-center my-2">
@@ -42,6 +45,9 @@ function SystemMessageAlert({ content }: { content: string }) {
       >
         {isMemberAdded && <UserPlus className={`h-4 w-4 ${iconColor}`} />}
         {isMemberRemoved && <UserMinus className={`h-4 w-4 ${iconColor}`} />}
+        {!isMemberAdded && !isMemberRemoved && (
+          <Info className={`h-4 w-4 ${iconColor}`} />
+        )}
         <span className={`text-sm ${textColor}`}>{content}</span>
       </div>
     </div>
@@ -148,14 +154,7 @@ export function MessageList({
           const isSystemMessage =
             message.message_type === "system" ||
             (message as any).MessageType === "system";
-          const isMemberChangeMessage =
-            isSystemMessage &&
-            (message.content?.includes("was added to the group") ||
-              message.content?.includes("was removed from the group") ||
-              message.content?.includes("You were removed from the group"));
-
-          // Render as alert box for member changes
-          if (isMemberChangeMessage) {
+          if (isSystemMessage) {
             return (
               <SystemMessageAlert
                 key={message.id}
