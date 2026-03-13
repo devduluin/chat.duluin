@@ -52,7 +52,7 @@ export async function getEmployeeContacts(params: {
     });
     return response.data;
   } catch (error: any) {
-    console.error("Failed to fetch employee contacts:", error);
+    console.error("Failed to fetch employees contacts:", error);
     return error?.response?.data;
   }
 }
