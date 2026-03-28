@@ -85,6 +85,7 @@ export function ContactInfoModal({
     try {
       const response = await updateConversation(contact.id, {
         name: newGroupName,
+        user_id: localStorage.getItem("user_id") || "",
       });
       if (response?.status) {
         if (onGroupNameUpdate) {

@@ -6,7 +6,7 @@ import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { EmptyState } from "@/components/ui/emptyState";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useMessageSocket } from "@/hooks/useMessageSocket";
 import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { useAccountStore } from "@/store/useAccountStore";
@@ -79,6 +79,15 @@ export default function ConversationPage() {
     sender: { first_name: string; last_name: string };
   } | null>(null);
 
+  const messages = useChatStore((state) =>
+    conversationId ? state.messages[conversationId as string] || [] : [],
+  );
+  const lastReadReceiptSentMessageIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    lastReadReceiptSentMessageIdRef.current = null;
+  }, [conversationId, userId]);
+
   // Mark conversation as read when opened (only if authenticated and has userId)
   useEffect(() => {
     if (isAuthChecking) return; // Don't call API until auth is checked
@@ -92,30 +101,37 @@ export default function ConversationPage() {
         .catch((error) => {
           console.error("Failed to mark as read:", error);
         });
+    }
+  }, [conversationId, userId, updateConversation, isAuthChecking]);
 
-      // --- TRIGGER READ RECEIPT EVENT ---
-      // ONLY if WebSocket is connected to avoid errors
-      if (!isConnected) {
-        console.log("⏳ WebSocket not connected yet, skipping read receipt");
-        return;
-      }
+  useEffect(() => {
+    if (isAuthChecking) return;
+    if (!conversationId || !userId) return;
+    if (!isConnected) return;
+    if (!messages || messages.length === 0) return;
 
-      // Get the last message to mark as read
-      const messages = useChatStore.getState().messages[conversationId as string] || [];
-      if (messages.length > 0) {
-        const lastMessage = messages[messages.length - 1];
-
-        if (lastMessage && lastMessage.sender_id !== userId && !lastMessage.read_at) {
-          sendMessage({
-            type: "read",
-            conversation_id: conversationId,
-            message_id: lastMessage.id,
-            content: "read" // Required by backend validation
-          });
-        }
+    let lastInboundMessage: Message | null = null;
+    for (let i = messages.length - 1; i >= 0; i -= 1) {
+      const msg = messages[i];
+      if (msg?.sender_id && msg.sender_id !== userId) {
+        lastInboundMessage = msg;
+        break;
       }
     }
-  }, [conversationId, userId, updateConversation, isAuthChecking, sendMessage, isConnected]);
+
+    if (!lastInboundMessage?.id) return;
+    if (lastReadReceiptSentMessageIdRef.current === lastInboundMessage.id) return;
+
+    const sent = sendMessage({
+      type: "read",
+      conversation_id: conversationId,
+      message_id: lastInboundMessage.id,
+      content: "read",
+    });
+    if (sent) {
+      lastReadReceiptSentMessageIdRef.current = lastInboundMessage.id;
+    }
+  }, [conversationId, userId, isConnected, isAuthChecking, messages, sendMessage]);
 
   // Listen for navigate-home event (smooth redirect when removed from group)
   useEffect(() => {

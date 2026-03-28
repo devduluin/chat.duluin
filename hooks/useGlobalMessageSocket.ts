@@ -441,12 +441,21 @@ export function useGlobalMessageSocket(userId: string) {
                 const readData = JSON.parse(msg.content);
                 console.log("👁️ MESSAGE READ EVENT:", readData);
                 
-                // Update message status in store
-                useChatStore.getState().updateMessageReadStatus(
-                  readData.message_id,
-                  msg.conversation_id,
-                  readData.read_at || new Date()
-                );
+                const readAt = readData.read_at ? new Date(readData.read_at) : new Date();
+                if (readData.user_id && readData.user_id !== userId) {
+                  useChatStore.getState().updateMessagesReadUpToMessage(
+                    msg.conversation_id,
+                    userId,
+                    readData.message_id,
+                    readAt,
+                  );
+                } else {
+                  useChatStore.getState().updateMessageReadStatus(
+                    readData.message_id,
+                    msg.conversation_id,
+                    readAt,
+                  );
+                }
               } catch (e) {
                 console.error("Failed to parse message_read event", e);
               }
@@ -974,10 +983,6 @@ export function useGlobalMessageSocket(userId: string) {
               }
             }
 
-            // Also update the last message in conversations store
-            console.log("➡️ Calling setLastMessage from GlobalWebSocket");
-            setLastMessage(msg.conversation_id, msg);
-
             // Check if conversation exists in the list
             const conversationExists = conversations.some(
               (item) => item.Conversation.id === msg.conversation_id,
@@ -1063,7 +1068,7 @@ export function useGlobalMessageSocket(userId: string) {
                           display_avatar:
                             conversationData.display_avatar ||
                             conversationData.Conversation.avatar_url,
-                          unread_count: 1, // Set to 1 for the new message
+                          unread_count: msg.sender_id === userId ? 0 : 1,
                         } as any,
                         LastMessage: msg,
                       };

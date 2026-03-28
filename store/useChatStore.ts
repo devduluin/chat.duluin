@@ -33,6 +33,12 @@ interface ChatStore {
     conversationId: string,
     read_at: Date,
   ) => void;
+  updateMessagesReadUpToMessage: (
+    conversationId: string,
+    senderIdToMark: string,
+    upToMessageId: string,
+    read_at: Date,
+  ) => void;
   updateMessageContent: (
     conversationId: string,
     messageId: string,
@@ -217,6 +223,45 @@ export const useChatStore = create<ChatStore>()(
         const updated = (get().messages[conversationId] || []).map((m) =>
           m.id === id ? { ...m, read_at } : m,
         );
+        set({
+          messages: {
+            ...get().messages,
+            [conversationId]: updated,
+          },
+        });
+      },
+
+      updateMessagesReadUpToMessage: (
+        conversationId,
+        senderIdToMark,
+        upToMessageId,
+        read_at,
+      ) => {
+        const convMsgs = get().messages[conversationId] || [];
+        const upToMsg = convMsgs.find((m) => m.id === upToMessageId);
+        const upToCreatedAt = upToMsg?.created_at ? new Date(upToMsg.created_at) : null;
+        if (!upToCreatedAt || Number.isNaN(upToCreatedAt.getTime())) {
+          const updated = convMsgs.map((m) =>
+            m.id === upToMessageId ? { ...m, read_at } : m,
+          );
+          set({
+            messages: {
+              ...get().messages,
+              [conversationId]: updated,
+            },
+          });
+          return;
+        }
+
+        const updated = convMsgs.map((m) => {
+          if (m.sender_id !== senderIdToMark) return m;
+          const msgCreatedAt = m.created_at ? new Date(m.created_at) : null;
+          if (!msgCreatedAt || Number.isNaN(msgCreatedAt.getTime())) return m;
+          if (msgCreatedAt.getTime() > upToCreatedAt.getTime()) return m;
+          if (m.read_at) return m;
+          return { ...m, read_at };
+        });
+
         set({
           messages: {
             ...get().messages,

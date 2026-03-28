@@ -134,9 +134,12 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
 
           const updatedConversations = state.conversations.map((item) => {
             if (item.Conversation.id === conversationId) {
-              // Only increment unread count if message is from another user
+              const normalizedMessageType =
+                (newMessage as any).message_type || (newMessage as any).MessageType || "";
+              const shouldAffectUnread = normalizedMessageType === "text";
+              const canCompareSender = !!currentUserId;
               const isFromCurrentUser =
-                currentUserId && newMessage.sender_id === currentUserId;
+                canCompareSender && newMessage.sender_id === currentUserId;
               const currentUnread =
                 (item.Conversation as any).unread_count || 0;
 
@@ -145,16 +148,20 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                 oldLastMessage: item.LastMessage?.content,
                 newLastMessage: newMessage.content,
                 isFromCurrentUser,
+                normalizedMessageType,
               });
+
+              const nextUnread =
+                shouldAffectUnread && canCompareSender && !isFromCurrentUser
+                  ? currentUnread + 1
+                  : currentUnread;
 
               return {
                 ...item,
                 LastMessage: newMessage,
                 Conversation: {
                   ...item.Conversation,
-                  unread_count: isFromCurrentUser
-                    ? currentUnread
-                    : currentUnread + 1,
+                  unread_count: nextUnread,
                 } as any,
               };
             }
