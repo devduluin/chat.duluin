@@ -114,7 +114,12 @@ export function ContactInfoModal({
         "@/services/v1/conversationService"
       );
 
-      const result = await removeMemberFromConversation(contact.id, memberId);
+      const user_id = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("user_id="))
+          ?.split("=")[1] || "";
+
+      const result = await removeMemberFromConversation(contact.id, memberId, user_id);
 
       if (result?.status) {
         toast.success("Member removed", {

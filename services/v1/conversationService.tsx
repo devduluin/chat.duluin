@@ -98,11 +98,12 @@ export async function addMemberToConversation(
 
 export async function removeMemberFromConversation(
   conversationId: string,
-  userId: string
+  userId: string,
+  removerId: string
 ): Promise<any | null> {
   try {
     const response = await api.delete(
-      `/conversations/${conversationId}/members/${userId}`
+      `/conversations/${conversationId}/members/${userId}/remover/${removerId}`
     );
     return { status: true, data: response.data };
   } catch (error: any) {

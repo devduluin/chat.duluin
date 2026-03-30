@@ -733,6 +733,139 @@ export function useGlobalMessageSocket(userId: string) {
               return;
             }
 
+            const isMemberExitMessage = msg.content?.startsWith("member_exit:");
+            if (isSystemMessage && isMemberExitMessage) {
+              const parts = msg.content.split(":");
+              const exitedUserId = parts[1];
+              const exitedUserName = parts[2];
+              const groupName = parts[3];
+
+              const dedupeKey = `exit_${msg.conversation_id}_${exitedUserId}`;
+
+              const now = Date.now();
+              const lastProcessed = (processedMessageIds.current as any)[
+                dedupeKey
+              ];
+              if (lastProcessed && now - lastProcessed < 5000) {
+                console.log("⏭️ Skipping duplicate member_exit event:", {
+                  dedupeKey,
+                  timeSinceLastProcess: now - lastProcessed,
+                });
+                return;
+              }
+              (processedMessageIds.current as any)[dedupeKey] = now;
+
+              console.log("👥🚪 MEMBER EXIT EVENT DETECTED!", {
+                dedupeKey,
+                messageId: msg.id,
+                exitedUserId,
+                currentUserId: userId,
+                exitedUserName,
+                groupName,
+                conversationId: msg.conversation_id,
+                isCurrentUser: exitedUserId === userId,
+                userIdType: typeof userId,
+                exitedUserIdType: typeof exitedUserId,
+              });
+
+              if (exitedUserId === userId) {
+                const currentConversation =
+                  useChatStore.getState().conversations[msg.conversation_id];
+                if (currentConversation) {
+                  useChatStore.getState().setConversation(msg.conversation_id, {
+                    ...currentConversation,
+                    is_user_member: false,
+                  } as any);
+                }
+
+                const currentMembers =
+                  useChatStore.getState().members[msg.conversation_id] || [];
+                const updatedMembers = currentMembers.filter((m: any) => {
+                  const memberId =
+                    m.user_id || m.UserID || m.user?.id || m.User?.id;
+                  return memberId !== userId;
+                });
+                useChatStore
+                  .getState()
+                  .setMembers(msg.conversation_id, updatedMembers);
+
+                const conversationInList = conversations.find(
+                  (item) => item.Conversation.id === msg.conversation_id,
+                );
+                if (conversationInList) {
+                  useConversationsStore
+                    .getState()
+                    .updateConversation(msg.conversation_id, {
+                      ...conversationInList.Conversation,
+                      is_user_member: false,
+                    } as any);
+                }
+
+                useChatStore.setState((state) => ({
+                  _version: state._version + 1,
+                }));
+
+                toast.success(`Left group`, {
+                  description: `You left ${groupName}. You can still view the chat history.`,
+                });
+
+                addOrUpdateMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `You left the group`,
+                  message_type: "system",
+                  is_system_message: true,
+                  status: "sent",
+                });
+
+                setLastMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `You left the group`,
+                });
+              } else {
+                getConversationById(msg.conversation_id, userId)
+                  .then((response) => {
+                    if (response?.status && response?.data) {
+                      const conversationData = response.data;
+
+                      useChatStore
+                        .getState()
+                        .setMembers(
+                          msg.conversation_id,
+                          conversationData.Members || [],
+                        );
+
+                      if (conversationData.Conversation) {
+                        useChatStore
+                          .getState()
+                          .setConversation(msg.conversation_id, {
+                            ...conversationData.Conversation,
+                            members: conversationData.Members,
+                          });
+                      }
+                    }
+                  })
+                  .catch((error) => {
+                    console.error(
+                      "Failed to refresh conversation members:",
+                      error,
+                    );
+                  });
+
+                addOrUpdateMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `${exitedUserName} left the group`,
+                  status: "sent",
+                });
+
+                setLastMessage(msg.conversation_id, {
+                  ...msg,
+                  content: `${exitedUserName} left the group`,
+                });
+              }
+
+              return;
+            }
+
             // Handle member removed event
             const isMemberRemovedMessage =
               msg.content?.startsWith("member_removed:");
