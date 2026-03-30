@@ -6,7 +6,7 @@ import { ChatHeader } from "@/components/chat/ChatHeader";
 import { MessageList } from "@/components/chat/MessageList";
 import { MessageInput } from "@/components/chat/MessageInput";
 import { EmptyState } from "@/components/ui/emptyState";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useMessageSocket } from "@/hooks/useMessageSocket";
 import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { useAccountStore } from "@/store/useAccountStore";
@@ -17,13 +17,16 @@ import Cookies from "js-cookie";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { PinnedMessagesBar } from "@/components/chat/PinnedMessagesBar";
 
+const EMPTY_MESSAGES: Message[] = [];
+
 export default function ConversationPage() {
   const params = useParams();
   const router = useRouter();
   const conversationId = Array.isArray(params.id) ? params.id[0] : params.id;
   const { data: account } = useAccountStore();
-  const { updateConversation } = useConversationsStore();
-  const { isConnected } = useWebSocketStore(); // Get connection status
+  const updateConversation = useConversationsStore((s) => s.updateConversation);
+  const conversations = useConversationsStore((s) => s.conversations);
+  const isConnected = useWebSocketStore((s) => s.isConnected);
   const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Get userId from account store or fallback to cookies
@@ -45,12 +48,15 @@ export default function ConversationPage() {
   } = usePinnedMessages(conversationId as string);
 
   // Ref to store scrollToMessage function from MessageList
-  const [scrollToMessageFn, setScrollToMessageFn] = useState<
-    ((messageId: string) => void) | null
-  >(null);
+  const scrollToMessageRef = useRef<((messageId: string) => void) | null>(null);
+  const handleScrollToMessageReady = useCallback(
+    (fn: (messageId: string) => void) => {
+      scrollToMessageRef.current = fn;
+    },
+    [],
+  );
 
   // Check if conversation is group
-  const { conversations } = useConversationsStore();
   const currentConversation = conversations.find(
     (conv) => conv?.Conversation?.id === conversationId,
   );
@@ -80,9 +86,12 @@ export default function ConversationPage() {
   } | null>(null);
 
   const messages = useChatStore((state) =>
-    conversationId ? state.messages[conversationId as string] || [] : [],
+    conversationId
+      ? state.messages[conversationId as string] || EMPTY_MESSAGES
+      : EMPTY_MESSAGES,
   );
   const lastReadReceiptSentMessageIdRef = useRef<string | null>(null);
+  const markedReadConversationIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     lastReadReceiptSentMessageIdRef.current = null;
@@ -93,6 +102,8 @@ export default function ConversationPage() {
     if (isAuthChecking) return; // Don't call API until auth is checked
 
     if (conversationId && userId) {
+      if (markedReadConversationIdRef.current === conversationId) return;
+      markedReadConversationIdRef.current = conversationId;
       markConversationAsRead(conversationId, userId)
         .then(() => {
           // Update local store to reset unread count
@@ -113,7 +124,10 @@ export default function ConversationPage() {
     let lastInboundMessage: Message | null = null;
     for (let i = messages.length - 1; i >= 0; i -= 1) {
       const msg = messages[i];
-      if (msg?.sender_id && msg.sender_id !== userId) {
+      const messageType =
+        (msg as any)?.message_type || (msg as any)?.MessageType || "";
+      const isTextMessage = messageType === "text";
+      if (isTextMessage && msg?.sender_id && msg.sender_id !== userId) {
         lastInboundMessage = msg;
         break;
       }
@@ -183,9 +197,7 @@ export default function ConversationPage() {
           <PinnedMessagesBar
             pinnedMessages={pinnedMessages}
             onMessageClick={(messageId) => {
-              if (scrollToMessageFn) {
-                scrollToMessageFn(messageId);
-              }
+              scrollToMessageRef.current?.(messageId);
             }}
             onRefresh={refreshPinnedMessages}
           />
@@ -196,7 +208,7 @@ export default function ConversationPage() {
           userId={userId}
           pinnedMessages={pinnedMessages}
           onPinChange={refreshPinnedMessages}
-          onScrollToMessageReady={setScrollToMessageFn}
+          onScrollToMessageReady={handleScrollToMessageReady}
           isGroupConversation={isGroupConversation}
         />
         <MessageInput

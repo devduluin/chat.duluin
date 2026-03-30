@@ -30,9 +30,9 @@ export const usePinnedMessages = (conversationId: string) => {
     fetchPinnedMessages();
   }, [fetchPinnedMessages]);
 
-  const refreshPinnedMessages = () => {
+  const refreshPinnedMessages = useCallback(() => {
     fetchPinnedMessages();
-  };
+  }, [fetchPinnedMessages]);
 
   return {
     pinnedMessages,

@@ -85,7 +85,10 @@ export function ContactInfoModal({
     try {
       const response = await updateConversation(contact.id, {
         name: newGroupName,
-        user_id: localStorage.getItem("user_id") || "",
+        user_id: document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("user_id="))
+          ?.split("=")[1] || "",
       });
       if (response?.status) {
         if (onGroupNameUpdate) {

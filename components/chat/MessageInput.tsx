@@ -1,7 +1,7 @@
 // components/chat/MessageInput.tsx
 "use client";
 
-import { useState, useRef, useEffect, use } from "react";
+import { useState, useRef, useEffect } from "react";
 import { Button } from "../ui/button";
 import {
   Paperclip,
@@ -276,12 +276,12 @@ export function MessageInput({
   };
 
   useEffect(() => {
-    if (inputRef.current) {
-      setTimeout(() => {
-        inputRef.current?.focus();
-      }, 200);
-    }
-  }, [inputRef.current]);
+    if (!inputRef.current) return;
+    const t = setTimeout(() => {
+      inputRef.current?.focus();
+    }, 200);
+    return () => clearTimeout(t);
+  }, []);
 
   const handleInputClick = () => {
     if (inputRef.current) {
