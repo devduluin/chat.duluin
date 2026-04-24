@@ -3,7 +3,7 @@ name: Deploy to Development Server
 on:
   push:
     branches:
-      - staging # Trigger deployment on push to staging branch
+      - video_meeting # Trigger deployment on push to staging branch
   workflow_dispatch: # Allow manual trigger
 
 jobs:
