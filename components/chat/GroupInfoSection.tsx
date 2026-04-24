@@ -93,18 +93,20 @@ export function GroupInfoSection({ name, members, onRemoveMember }: GroupInfoSec
 
                 {selectedMember === member.id && member.role !== 'admin' && (
                   <div className="w-full grid grid-cols-2 gap-2 mt-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full border-gray-300 dark:border-gray-600"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        onRemoveMember(member.user.id);
-                      }}
-                    >
-                      <UserX className="h-4 w-4 mr-2" />
-                      Remove
-                    </Button>
+                    {member.role === 'admin' && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full border-gray-300 dark:border-gray-600"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onRemoveMember(member.user.id);
+                        }}
+                      >
+                        <UserX className="h-4 w-4 mr-2" />
+                        Remove
+                      </Button>
+                    )}
                     <Button
                       variant="outline"
                       size="sm"

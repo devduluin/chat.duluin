@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Users, ArrowLeft, ArrowRight } from "lucide-react";
+import { Search, Users, ArrowLeft, ArrowRight, Video } from "lucide-react";
 
 // Import your ShadCN UI components
 import { Input } from "@/components/ui/input";
@@ -129,6 +129,33 @@ export function NewChat({ userId }: { userId: string }) {
     } catch (error) {
       console.error("Error creating conversation:", error);
       toast.error("Failed to create conversation");
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  const handleCreateVideoMeeting = async () => {
+    setIsCreating(true);
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV || "http://localhost:9999/api/proxy/v1/chat";
+      const res = await fetch(`${baseUrl}/meeting/create`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          host_user_id: userId,
+        }),
+      });
+
+      const data = await res.json();
+      if (data.status && data.data?.meeting?.room_name) {
+        toast.success("Meeting room created");
+        router.push(`/meeting/${data.data.meeting.room_name}`);
+      } else {
+        toast.error("Failed to create meeting room: " + data.message);
+      }
+    } catch (error) {
+      console.error("Error creating meeting:", error);
+      toast.error("Error creating meeting room");
     } finally {
       setIsCreating(false);
     }
@@ -331,6 +358,20 @@ export function NewChat({ userId }: { userId: string }) {
         </div>
         <p className="text-sm font-medium text-gray-900 dark:text-white">
           New Group
+        </p>
+      </button>
+
+      {/* New Video Meeting Button */}
+      <button
+        className="w-full flex items-center p-2 rounded-lg hover:bg-gray-100 dark:hover:bg-gray-700 transition-colors mt-1"
+        onClick={handleCreateVideoMeeting}
+        disabled={isCreating}
+      >
+        <div className="p-2 rounded-full bg-blue-500 mr-3">
+          <Video className="h-5 w-5 text-white" />
+        </div>
+        <p className="text-sm font-medium text-gray-900 dark:text-white">
+          New Video Meeting
         </p>
       </button>
 
