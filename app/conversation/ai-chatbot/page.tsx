@@ -18,6 +18,7 @@ import { useAccountStore } from "@/store/useAccountStore";
 import Cookies from "js-cookie";
 import { formatRelativeTime } from "@/utils/formatDate";
 import { toast } from "sonner";
+import { linkifyText } from "@/utils/linkify";
 import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
 import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { useChatStore } from "@/store/useChatStore";
@@ -461,8 +462,8 @@ export default function AIChatbotPage() {
                         : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">
-                      {message.content}
+                    <p className="text-sm whitespace-pre-wrap break-words">
+                      {linkifyText(message.content)}
                     </p>
                   </div>
                   <div className="flex items-center gap-2 mt-1 px-2">
