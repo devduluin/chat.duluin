@@ -181,7 +181,7 @@ export const useChatStore = create<ChatStore>()(
 
       setTypingStatus: (conversationId, userId, isTyping, userName) => {
         const currentTyping = get().typingUsers[conversationId] || {};
-        
+
         if (isTyping) {
           // Add user to typing list
           set({
@@ -197,7 +197,7 @@ export const useChatStore = create<ChatStore>()(
           // Remove user from typing list
           const newTyping = { ...currentTyping };
           delete newTyping[userId];
-          
+
           set({
             typingUsers: {
               ...get().typingUsers,

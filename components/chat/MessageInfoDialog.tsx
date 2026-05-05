@@ -8,8 +8,17 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Avatar } from "@/components/ui/avatar";
-import { CheckCheck, Clock, Eye } from "lucide-react";
+import { CheckCheck, Clock, Eye, Users } from "lucide-react";
 import { formatRelativeTime } from "@/utils/formatDate";
+import { useEffect, useState } from "react";
+import { getMessageReaders } from "@/services/v1/messageService";
+
+interface MessageReader {
+  message_id: string;
+  user_id: string;
+  read_at: string;
+  user: User;
+}
 
 interface MessageInfoDialogProps {
   open: boolean;
@@ -22,6 +31,31 @@ export function MessageInfoDialog({
   onClose,
   message,
 }: MessageInfoDialogProps) {
+  const [readers, setReaders] = useState<MessageReader[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (open && message?.id) {
+      const fetchReaders = async () => {
+        setLoading(true);
+        try {
+          const res = await getMessageReaders(message.id);
+          if (res?.status && res?.data) {
+            setReaders(res.data);
+          }
+        } catch (error) {
+          console.error("Failed to fetch readers:", error);
+        } finally {
+          setLoading(false);
+        }
+      };
+
+      fetchReaders();
+    } else {
+      setReaders([]);
+    }
+  }, [open, message?.id]);
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[400px]">
@@ -72,16 +106,13 @@ export function MessageInfoDialog({
 
             {/* Read Status */}
             <div className="flex items-center space-x-3">
-              {message.read_at ? (
+              {message.is_read ? (
                 <>
                   <CheckCheck className="h-4 w-4 text-blue-500" />
                   <div>
                     <p className="text-sm font-medium">Read</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      {new Date(message.read_at).toLocaleString("en-US", {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      })}
+                      Read by everyone
                     </p>
                   </div>
                 </>
@@ -91,7 +122,7 @@ export function MessageInfoDialog({
                   <div>
                     <p className="text-sm font-medium">Delivered</p>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                      Not read yet
+                      Not read by everyone yet
                     </p>
                   </div>
                 </>
@@ -137,6 +168,54 @@ export function MessageInfoDialog({
                 {message.content}
               </p>
             </div>
+          </div>
+
+          {/* Readers List */}
+          <div className="pt-3 border-t dark:border-gray-700">
+            <div className="flex items-center space-x-2 mb-2">
+              <Users className="h-4 w-4 text-gray-500" />
+              <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400">
+                Read by {readers.length > 0 ? `(${readers.length})` : ""}
+              </h3>
+            </div>
+            
+            {loading ? (
+              <p className="text-xs text-gray-500">Loading readers...</p>
+            ) : readers.length > 0 ? (
+              <div className="h-32 rounded-md border border-gray-100 dark:border-gray-800 overflow-y-auto">
+                <div className="p-2 space-y-3">
+                  {readers.map((reader) => (
+                    <div key={reader.user_id} className="flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <Avatar
+                          src={reader.user?.avatar_url || ""}
+                          name={`${reader.user?.first_name} ${reader.user?.last_name}`}
+                          size="sm"
+                          className="h-6 w-6"
+                        />
+                        <div>
+                          <p className="text-xs font-medium">
+                            {reader.user?.first_name} {reader.user?.last_name}
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400">
+                        {reader.read_at
+                          ? new Date(reader.read_at).toLocaleString("en-US", {
+                              dateStyle: "short",
+                              timeStyle: "short",
+                            })
+                          : ""}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                No one has read this message yet.
+              </p>
+            )}
           </div>
         </div>
       </DialogContent>

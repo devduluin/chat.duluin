@@ -122,3 +122,16 @@ export async function deleteMessage(
     return error?.response?.data;
   }
 }
+
+/**
+ * Get users who read a message
+ */
+export async function getMessageReaders(messageId: string): Promise<any | null> {
+  try {
+    const response = await api.get(`/messages/${messageId}/readers`);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error getting message readers:", error);
+    return error?.response?.data;
+  }
+}

@@ -34,9 +34,9 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
           conversations: state.conversations.map((item) =>
             item.Conversation.id === conversationId
               ? {
-                  ...item,
-                  Conversation: { ...item.Conversation, ...newDetails },
-                }
+                ...item,
+                Conversation: { ...item.Conversation, ...newDetails },
+              }
               : item
           ),
         })),

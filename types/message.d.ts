@@ -14,9 +14,9 @@ declare global {
     created_at?: string | Date;
     updated_at?: string | Date;
     read_at?: string | Date | null;
-    parent_message_id?: string | null;
     attachments?: Attachment[];
     reactions?: Reaction[];
+    is_read?: boolean;
   }
 }
 

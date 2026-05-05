@@ -645,7 +645,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                           </button>
                         ) : message.status === "pending" || message.status === "sending" ? (
                           <Clock className="h-3 w-3 text-gray-400" />
-                        ) : message.read_at ? (
+                        ) : message.is_read ? (
                           <CheckCheck className="h-3 w-3 text-blue-500" />
                         ) : (
                           <CheckCheck className="h-3 w-3 text-gray-400" />
@@ -658,8 +658,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                           ? "Failed to send. Click to retry"
                           : message.status === "pending"
                           ? "Sending..."
-                          : message.read_at
-                          ? `Read at ${new Date(message.read_at).toLocaleTimeString()}`
+                          : message.is_read
+                          ? "Read"
                           : "Delivered"}
                       </p>
                     </TooltipContent>
