@@ -5,8 +5,10 @@ import ToastProvider from "@components/alert/ToastProvider";
 import { Toaster } from "@/components/ui/sonner";
 import { GuideProvider } from "@/components/ui/GuideComponent";
 import { SessionMonitor } from "@/components/SessionMonitor";
+import { SSOAutoLogin } from "@/components/SSOAutoLogin";
 import { OfflineManager } from "@/components/OfflineManager";
 import { WebSocketManager } from "@/components/WebSocketManager";
+import { Suspense } from "react";
 
 export const metadata = {
   title: "Duluin Workspace",
@@ -31,6 +33,9 @@ export default function RootLayout({
         <title>TeamChat - Collaboration App</title>
       </head>
       <body className={`${inter.className} bg-gray-100 dark:bg-gray-900`}>
+        <Suspense fallback={null}>
+          <SSOAutoLogin />
+        </Suspense>
         <SessionMonitor />
         <OfflineManager />
         <WebSocketManager />
