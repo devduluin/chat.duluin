@@ -151,6 +151,22 @@ export function LoginForm() {
 
         if (result?.success) {
           const user = result.user ?? {};
+          const accounts = user.accounts ?? {};
+          const hasHrisEmployee = !!accounts.hris_employee;
+          const hasHrisCompany = !!accounts.hris_company || !!accounts.hris_companies;
+          const isAccountsEmpty = Object.keys(accounts).length === 0;
+
+          if (isAccountsEmpty || !hasHrisEmployee || !hasHrisCompany) {
+            showError("Akses ditolak: Akun Anda harus terasosiasi dengan data karyawan dan perusahaan HRIS aktif.");
+            clearData();
+            setAppToken(null);
+            Cookies.remove("user_id");
+            Cookies.remove("tenant_id");
+            Cookies.remove("app_token");
+            setIsValidating(false);
+            return;
+          }
+
           const role = result.user.roles?.[0]?.name ?? "pro"; // fallback if roles missing
           setData({
             companyId: user.secondary_id ?? user.id,
@@ -175,22 +191,6 @@ export function LoginForm() {
           // Store user info in cookies for contact sync
           Cookies.set("user_id", user.id);
           Cookies.set("tenant_id", user.secondary_id ?? user.id);
-
-          // Sync contacts from HRIS asynchronously (non-blocking)
-          // Pass appToken for session validation flow
-          // syncContactsFromHRIS(appToken)
-          //   .then((syncResult) => {
-          //     if (syncResult?.success) {
-          //       console.log(
-          //         `✅ Contacts synced: ${(syncResult as any).syncedUsers || 0} users, ${(syncResult as any).createdContacts || 0} contacts`,
-          //       );
-          //     } else {
-          //       console.warn("⚠️ Contact sync failed:", syncResult?.message);
-          //     }
-          //   })
-          //   .catch((error) => {
-          //     console.error("❌ Failed to sync contacts from HRIS:", error);
-          //   });
 
           showSuccess(`Welcome back, ${user?.name || "User"}!`);
           Router.push(`/`);
