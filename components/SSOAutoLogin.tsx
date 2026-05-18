@@ -13,23 +13,57 @@ export function SSOAutoLogin() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  const { setAppToken } = useAppCookies();
-  const { setData } = useAccountStore();
+  const { appToken, setAppToken } = useAppCookies();
+  const { data: accountData, setData } = useAccountStore();
   const isProcessingRef = useRef(false);
 
   useEffect(() => {
-    const appToken = searchParams.get("app_token");
-    if (!appToken || isProcessingRef.current) return;
+    const urlAppToken = searchParams.get("app_token");
+    const urlSsoUserId = searchParams.get("sso_user_id");
 
+    const hasUrlParams = !!urlAppToken || !!urlSsoUserId;
+    const isStoreEmpty = !accountData || !accountData.email;
+    const tokenToUse = urlAppToken || appToken;
+
+    if (!tokenToUse) {
+      // If we don't have a token, but we have URL parameters (like sso_user_id),
+      // we clean the URL to prevent it from getting stuck on launchpad redirect params
+      if (hasUrlParams && !isProcessingRef.current) {
+        console.log("🧹 [SSOAutoLogin] No token found but URL parameters present, cleaning URL...");
+        const cleanUrl = new URL(window.location.href);
+        cleanUrl.searchParams.delete("app_token");
+        cleanUrl.searchParams.delete("sso_user_id");
+        cleanUrl.searchParams.delete("account_type");
+        cleanUrl.searchParams.delete("redirect");
+        router.replace(cleanUrl.pathname + cleanUrl.search);
+      }
+      return;
+    }
+
+    // Only proceed to validate if:
+    // 1. We have new URL parameters to process
+    // 2. Or we have a token but our local Zustand store is completely empty
+    if (!hasUrlParams && !isStoreEmpty) {
+      return;
+    }
+
+    if (isProcessingRef.current) return;
     isProcessingRef.current = true;
-    console.log("🔑 [SSOAutoLogin] Found app_token in URL query parameters, initiating authentication...");
 
-    // Save token to cookie immediately
-    setAppToken(appToken);
+    console.log("🔑 [SSOAutoLogin] Initiating token validation...", {
+      source: urlAppToken ? "URL" : "Cookie",
+      hasUrlParams,
+      isStoreEmpty,
+    });
+
+    // Save token to cookie immediately if it came from URL
+    if (urlAppToken) {
+      setAppToken(urlAppToken);
+    }
 
     const validate = async () => {
       try {
-        const result = await validationToken(appToken);
+        const result = await validationToken(tokenToUse);
 
         if (result?.success) {
           const user = result.user ?? {};
@@ -61,7 +95,7 @@ export function SSOAutoLogin() {
 
           showSuccess(`Welcome back, ${user?.name || "User"}!`);
 
-          // Clean the query parameters from URL without losing path
+          // Clean the query parameters from URL
           const cleanUrl = new URL(window.location.href);
           const redirectPath = cleanUrl.searchParams.get("redirect") || "/";
 
@@ -88,7 +122,7 @@ export function SSOAutoLogin() {
     };
 
     validate();
-  }, [searchParams, setAppToken, setData, router, pathname]);
+  }, [searchParams, appToken, setAppToken, accountData, setData, router, pathname]);
 
   return null;
 }
