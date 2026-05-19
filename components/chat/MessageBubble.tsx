@@ -489,7 +489,12 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                           </p>
                           {!isCurrentUser && (
                             <button
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
                               onClick={(e) => {
+                                e.preventDefault();
                                 e.stopPropagation();
                                 const btn = document.getElementById("header-phone-button");
                                 if (btn) {

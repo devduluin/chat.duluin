@@ -190,7 +190,17 @@ export function MessageList({
   return (
     <div className="flex-1 p-4 overflow-y-auto">
       <div className="space-y-4">
-        {messages.map((message) => {
+        {(() => {
+          const uniqueMessages: Message[] = [];
+          const seenIds = new Set<string>();
+          messages.forEach((msg) => {
+            if (msg && msg.id && !seenIds.has(msg.id)) {
+              seenIds.add(msg.id);
+              uniqueMessages.push(msg);
+            }
+          });
+          return uniqueMessages;
+        })().map((message) => {
           // Check if it's a system message for member added/removed
           const isSystemMessage =
             message.message_type === "system" ||

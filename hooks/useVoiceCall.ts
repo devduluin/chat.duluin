@@ -71,7 +71,16 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-        setParticipants((prev) => prev.filter((p) => p.sid !== participant.sid));
+        setParticipants((prev) => {
+          const remaining = prev.filter((p) => p.sid !== participant.sid);
+          if (remaining.length === 0) {
+            toast.info("Lawan bicara telah menutup panggilan.");
+            setTimeout(() => {
+              leaveCall();
+            }, 1000);
+          }
+          return remaining;
+        });
         toast.info(`${participant.name || participant.identity} left the call`);
         
         // Clean up audio elements for this participant
