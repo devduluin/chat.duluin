@@ -28,6 +28,7 @@ import {
   AlertCircle,
   Loader2,
   RefreshCw,
+  Phone,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -474,9 +475,41 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                   )}
                   {message.content && (
                     <div>
-                      <p className="break-words whitespace-pre-wrap">
-                        {linkifyText(message.content)}
-                      </p>
+                      {message.content.startsWith("📞 Panggilan suara aktif") ? (
+                        <div className="flex flex-col space-y-3 p-1">
+                          <div className="flex items-center space-x-3 text-emerald-600 dark:text-emerald-400 font-semibold">
+                            <div className="relative flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500"></span>
+                            </div>
+                            <span className="text-sm">Panggilan Suara Aktif</span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 break-words whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                          {!isCurrentUser && (
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const btn = document.getElementById("header-phone-button");
+                                if (btn) {
+                                  btn.click();
+                                } else {
+                                  toast.error("Tidak dapat menemukan tombol telepon di header.");
+                                }
+                              }}
+                              className="w-full mt-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-xl bg-emerald-500 hover:bg-emerald-600 active:bg-emerald-700 text-white font-medium text-sm transition-all duration-200 shadow-md shadow-emerald-500/20 hover:shadow-emerald-500/35 hover:-translate-y-0.5"
+                            >
+                              <Phone className="h-4 w-4 fill-current animate-pulse" />
+                              <span>Gabung Panggilan</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : (
+                        <p className="break-words whitespace-pre-wrap">
+                          {linkifyText(message.content)}
+                        </p>
+                      )}
                       {/* Pinned indicator */}
                       {isPinned && (
                         <div className="flex items-center mt-2 text-xs opacity-70">

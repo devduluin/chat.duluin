@@ -308,7 +308,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon" onClick={startCall}>
+          <Button id="header-phone-button" variant="ghost" size="icon" onClick={startCall}>
             <Phone className="h-5 w-5" />
           </Button>
           {/* <Button variant="ghost" size="icon">
