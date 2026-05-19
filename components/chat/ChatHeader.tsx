@@ -19,6 +19,7 @@ import { ContactPicker } from "./ContactPicker";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
+import { useAccountStore } from "@/store/useAccountStore";
 
 import {
   DropdownMenu,
@@ -54,9 +55,11 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const removeConversation = useConversationsStore((state) => state.removeConversation);
   const clearConversationData = useChatStore((state) => state.clearConversationData);
 
-  const currentUserName = Cookies.get("first_name")
-    ? `${Cookies.get("first_name")} ${Cookies.get("last_name") || ""}`.trim()
-    : "Chat User";
+  const accountData = useAccountStore((state) => state.data);
+  const currentUserName = accountData?.name || 
+    (accountData?.first_name ? `${accountData.first_name} ${accountData.last_name || ""}`.trim() : "") ||
+    (Cookies.get("first_name") ? `${Cookies.get("first_name")} ${Cookies.get("last_name") || ""}`.trim() : "") ||
+    "Chat User";
 
   const {
     isCalling,
