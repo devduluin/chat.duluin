@@ -4,39 +4,78 @@
 import { MessageBubble } from "./MessageBubble";
 import { useMessages } from "@/hooks/useMessages";
 import { useEffect, useRef, useCallback, useState } from "react";
-import { UserPlus, UserMinus, Info } from "lucide-react";
+import { UserPlus, UserMinus, Info, Shield, ShieldOff } from "lucide-react";
 
 import { useChatStore } from "@/store/useChatStore";
 
 // System message alert component
 function SystemMessageAlert({ content }: { content: string }) {
-  // Check if it's a member added/removed message
-  const isMemberAdded = content.includes("was added to the group");
-  const isMemberRemoved =
+  // Parse system message content if it is in structured format
+  let displayContent = content;
+  let isMemberAdded = content.includes("was added to the group") || content.startsWith("member_added:");
+  let isMemberRemoved =
     content.includes("was removed from the group") ||
-    content.includes("You were removed from the group");
+    content.includes("You were removed from the group") ||
+    content.startsWith("member_removed:") ||
+    content.startsWith("member_exit:");
+
+  let isPromoted = content.startsWith("member_promoted:");
+  let isDemoted = content.startsWith("member_demoted:");
+
+  if (content.startsWith("member_added:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    displayContent = `${userName} was added to the group`;
+  } else if (content.startsWith("member_removed:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    displayContent = `${userName} was removed from the group`;
+  } else if (content.startsWith("member_exit:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    displayContent = `${userName} left the group`;
+  } else if (content.startsWith("member_promoted:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    displayContent = `${userName} was promoted to Admin`;
+  } else if (content.startsWith("member_demoted:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    displayContent = `${userName} was demoted to User`;
+  } else if (content.startsWith("conversation_updated:")) {
+    const text = content.replace("conversation_updated:", "");
+    displayContent = `Conversation name ${text}`;
+  }
 
   // Determine styling based on action type
   const bgColor = isMemberRemoved
     ? "bg-red-50 dark:bg-red-900/20"
-    : isMemberAdded
+    : (isMemberAdded || isPromoted)
       ? "bg-blue-50 dark:bg-blue-900/20"
-      : "bg-gray-50 dark:bg-gray-900/20";
+      : isDemoted
+        ? "bg-amber-50 dark:bg-amber-900/20"
+        : "bg-gray-50 dark:bg-gray-900/20";
   const borderColor = isMemberRemoved
     ? "border-red-200 dark:border-red-800"
-    : isMemberAdded
+    : (isMemberAdded || isPromoted)
       ? "border-blue-200 dark:border-blue-800"
-      : "border-gray-200 dark:border-gray-800";
+      : isDemoted
+        ? "border-amber-200 dark:border-amber-800"
+        : "border-gray-200 dark:border-gray-800";
   const iconColor = isMemberRemoved
     ? "text-red-600 dark:text-red-400"
-    : isMemberAdded
+    : (isMemberAdded || isPromoted)
       ? "text-blue-600 dark:text-blue-400"
-      : "text-gray-600 dark:text-gray-400";
+      : isDemoted
+        ? "text-amber-600 dark:text-amber-400"
+        : "text-gray-600 dark:text-gray-400";
   const textColor = isMemberRemoved
     ? "text-red-700 dark:text-red-300"
-    : isMemberAdded
+    : (isMemberAdded || isPromoted)
       ? "text-blue-700 dark:text-blue-300"
-      : "text-gray-700 dark:text-gray-300";
+      : isDemoted
+        ? "text-amber-700 dark:text-amber-300"
+        : "text-gray-700 dark:text-gray-300";
 
   return (
     <div className="flex items-center justify-center my-2">
@@ -45,10 +84,12 @@ function SystemMessageAlert({ content }: { content: string }) {
       >
         {isMemberAdded && <UserPlus className={`h-4 w-4 ${iconColor}`} />}
         {isMemberRemoved && <UserMinus className={`h-4 w-4 ${iconColor}`} />}
-        {!isMemberAdded && !isMemberRemoved && (
+        {isPromoted && <Shield className={`h-4 w-4 ${iconColor}`} />}
+        {isDemoted && <ShieldOff className={`h-4 w-4 ${iconColor}`} />}
+        {!isMemberAdded && !isMemberRemoved && !isPromoted && !isDemoted && (
           <Info className={`h-4 w-4 ${iconColor}`} />
         )}
-        <span className={`text-sm ${textColor}`}>{content}</span>
+        <span className={`text-sm ${textColor}`}>{displayContent}</span>
       </div>
     </div>
   );
