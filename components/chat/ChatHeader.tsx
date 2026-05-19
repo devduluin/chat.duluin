@@ -28,6 +28,9 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 import { toast } from "sonner";
+import { useVoiceCall } from "@/hooks/useVoiceCall";
+import { VoiceCallOverlay } from "./VoiceCallOverlay";
+import Cookies from "js-cookie";
 
 interface ChatHeaderProps {
   conversationId: string;
@@ -50,6 +53,21 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const isOnline = useOfflineQueueStore((state) => state.isOnline);
   const removeConversation = useConversationsStore((state) => state.removeConversation);
   const clearConversationData = useChatStore((state) => state.clearConversationData);
+
+  const currentUserName = Cookies.get("first_name")
+    ? `${Cookies.get("first_name")} ${Cookies.get("last_name") || ""}`.trim()
+    : "Chat User";
+
+  const {
+    isCalling,
+    isConnecting,
+    isMuted,
+    participants,
+    activeSpeakers,
+    startCall,
+    leaveCall,
+    toggleMute,
+  } = useVoiceCall(conversationId, userId, currentUserName);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
@@ -274,7 +292,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button variant="ghost" size="icon">
+          <Button variant="ghost" size="icon" onClick={startCall}>
             <Phone className="h-5 w-5" />
           </Button>
           {/* <Button variant="ghost" size="icon">
@@ -312,6 +330,17 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
           </DropdownMenu>
         </div>
       </div>
+
+      <VoiceCallOverlay
+        isCalling={isCalling}
+        isConnecting={isConnecting}
+        isMuted={isMuted}
+        participants={participants}
+        activeSpeakers={activeSpeakers}
+        displayName={displayName}
+        onHangUp={leaveCall}
+        onToggleMute={toggleMute}
+      />
     </>
   );
 }
