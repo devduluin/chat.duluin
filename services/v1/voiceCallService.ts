@@ -22,7 +22,7 @@ export interface VoiceCallTokenResp {
 
 export const voiceCallService = {
   getLiveKitToken: async (data: VoiceCallTokenReq): Promise<VoiceCallTokenResp> => {
-    const response = await api.post("/api/v1/voice-call/token", data);
+    const response = await api.post("/voice-call/token", data);
     return response.data.data;
   },
 };
