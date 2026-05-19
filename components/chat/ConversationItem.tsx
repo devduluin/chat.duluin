@@ -23,7 +23,7 @@ export function ConversationItem({
   const displayAvatar =
     (conversation as any).display_avatar ||
     conversation.avatar_url ||
-    lastMessage?.sender?.avatar_url;
+    "";
 
   const unreadCount = (conversation as any).unread_count || 0;
 
