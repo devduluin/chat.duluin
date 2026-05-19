@@ -28,6 +28,7 @@ import { useState } from "react";
 import { updateConversation } from "@services/v1/conversationService";
 import { GroupInfoSection } from "./GroupInfoSection";
 import { PersonalContactActions } from "./PersonalContactActions";
+import { useChatStore } from "@/store/useChatStore";
 
 interface ContactInfoModalProps {
   open: boolean;
@@ -160,6 +161,21 @@ export function ContactInfoModal({
         toast.success("Member promoted", {
           description: "Member has been promoted to Admin",
         });
+
+        // Optimistically update membership role in Zustand store instantly
+        const chatStore = useChatStore.getState();
+        const currentMembers = chatStore.members[contact.id] || [];
+        const updatedMembers = currentMembers.map((m) => {
+          const mId = (m as any).user_id || (m as any).UserID || (m as any).user?.id || (m as any).User?.id;
+          if (mId === memberId) {
+            return { ...m, role: "admin" };
+          }
+          return m;
+        });
+        chatStore.setMembers(contact.id, updatedMembers);
+
+        // Force increment version to trigger immediate UI re-render
+        useChatStore.setState((state) => ({ _version: state._version + 1 }));
       } else {
         const errorMsg = result?.message || "Please try again";
         const errorDetails = result?.errors?.join(", ") || "";
@@ -192,6 +208,21 @@ export function ContactInfoModal({
         toast.success("Member demoted", {
           description: "Member has been demoted to User",
         });
+
+        // Optimistically update membership role in Zustand store instantly
+        const chatStore = useChatStore.getState();
+        const currentMembers = chatStore.members[contact.id] || [];
+        const updatedMembers = currentMembers.map((m) => {
+          const mId = (m as any).user_id || (m as any).UserID || (m as any).user?.id || (m as any).User?.id;
+          if (mId === memberId) {
+            return { ...m, role: "member" };
+          }
+          return m;
+        });
+        chatStore.setMembers(contact.id, updatedMembers);
+
+        // Force increment version to trigger immediate UI re-render
+        useChatStore.setState((state) => ({ _version: state._version + 1 }));
       } else {
         const errorMsg = result?.message || "Please try again";
         const errorDetails = result?.errors?.join(", ") || "";

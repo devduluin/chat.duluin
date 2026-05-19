@@ -1042,6 +1042,76 @@ export function useGlobalMessageSocket(userId: string) {
               return;
             }
 
+            // Handle member promoted or demoted event
+            const isMemberPromotedMessage = msg.content?.startsWith("member_promoted:");
+            const isMemberDemotedMessage = msg.content?.startsWith("member_demoted:");
+            if (isSystemMessage && (isMemberPromotedMessage || isMemberDemotedMessage)) {
+              const parts = msg.content.split(":");
+              const targetUserId = parts[1];
+              const targetUserName = parts[2];
+              const newRole = isMemberPromotedMessage ? "admin" : "member";
+
+              console.log(`👥🔄 MEMBER ${isMemberPromotedMessage ? "PROMOTED" : "DEMOTED"} EVENT DETECTED!`, {
+                conversationId: msg.conversation_id,
+                targetUserId,
+                targetUserName,
+                newRole,
+              });
+
+              // Optimistically update the members list in Zustand store
+              const chatStore = useChatStore.getState();
+              const currentMembers = chatStore.members[msg.conversation_id] || [];
+              const updatedMembers = currentMembers.map((m) => {
+                const mId = (m as any).user_id || (m as any).UserID || (m as any).user?.id || (m as any).User?.id;
+                if (mId === targetUserId) {
+                  return { ...m, role: newRole };
+                }
+                return m;
+              });
+
+              chatStore.setMembers(msg.conversation_id, updatedMembers);
+
+              // Also refresh from API to ensure complete accuracy
+              getConversationById(msg.conversation_id, userId)
+                .then((response) => {
+                  if (response?.status && response?.data) {
+                    const conversationData = response.data;
+                    chatStore.setMembers(msg.conversation_id, conversationData.Members || []);
+                    if (conversationData.Conversation) {
+                      chatStore.setConversation(msg.conversation_id, {
+                        ...conversationData.Conversation,
+                        members: conversationData.Members,
+                      });
+                    }
+                    console.log("✅ Members list updated from API after promote/demote");
+                  }
+                })
+                .catch((error) => {
+                  console.error("Failed to refresh conversation members:", error);
+                });
+
+              // Force increment version to trigger re-render
+              useChatStore.setState((state) => ({
+                _version: state._version + 1,
+              }));
+
+              // Add the message to chat
+              const formattedContent = `${targetUserName} was ${isMemberPromotedMessage ? "promoted to Admin" : "demoted to User"}`;
+              addOrUpdateMessage(msg.conversation_id, {
+                ...msg,
+                content: formattedContent,
+                status: "sent",
+              });
+
+              // Update last message in sidebar
+              setLastMessage(msg.conversation_id, {
+                ...msg,
+                content: formattedContent,
+              });
+
+              return;
+            }
+
             // Check if user is still a member of this conversation (for removed users)
             const chatStoreConversation =
               useChatStore.getState().conversations[msg.conversation_id];
