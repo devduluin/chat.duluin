@@ -6,6 +6,8 @@ export interface SyncUserRequest {
   email: string;
   name: string;
   phone: string;
+  employee_id?: string;
+  token?: string;
 }
 
 export interface SyncUserResponse {

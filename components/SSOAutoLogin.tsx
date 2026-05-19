@@ -68,33 +68,6 @@ export function SSOAutoLogin() {
         if (result?.success) {
           const user = result.user ?? {};
           const accounts = user.accounts ?? {};
-          const hasHrisEmployee = !!accounts.hris_employee;
-          const hasHrisCompany = !!accounts.hris_company || !!accounts.hris_companies;
-          const isAccountsEmpty = Object.keys(accounts).length === 0;
-
-          if (isAccountsEmpty || !hasHrisEmployee || !hasHrisCompany) {
-            console.error("❌ [SSOAutoLogin] Blocked login: Missing HRIS employee or company association.");
-            showError("Akses ditolak: Akun Anda harus terasosiasi dengan data karyawan dan perusahaan HRIS aktif.");
-            
-            // Clear credentials
-            setAppToken(null);
-            setData(null);
-            Cookies.remove("user_id");
-            Cookies.remove("tenant_id");
-            Cookies.remove("app_token");
-            
-            isProcessingRef.current = false;
-            
-            // Clean the query parameters from URL and redirect to login page
-            const cleanUrl = new URL(window.location.href);
-            cleanUrl.searchParams.delete("app_token");
-            cleanUrl.searchParams.delete("sso_user_id");
-            cleanUrl.searchParams.delete("account_type");
-            cleanUrl.searchParams.delete("redirect");
-            router.replace("/auth/signin");
-            return;
-          }
-
           const role = result.user.roles?.[0]?.name ?? "pro";
 
           setData({
@@ -109,12 +82,22 @@ export function SSOAutoLogin() {
           Cookies.set("tenant_id", user.secondary_id ?? user.id);
 
           // Sync user to chat backend
-          const syncData = {
+          /* const syncData = {
             id: user.id,
             secondary_id: user.secondary_id ?? user.id,
             email: user.email,
             name: user.name,
             phone: user.phone || "",
+          }; */
+
+          const syncData = {
+            id: user.id,
+            secondary_id: accounts.hris_company?.secondary_id || user.secondary_id || user.id,
+            employee_id: accounts.hris_employee?.secondary_id || "",
+            email: user.email,
+            name: user.name,
+            phone: user.phone || "",
+            token: tokenToUse,
           };
 
           syncUserToChatBackend(syncData).catch((error) => {

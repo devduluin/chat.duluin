@@ -176,12 +176,22 @@ export function LoginForm() {
           });
 
           // Sync user to chat backend on session validation
-          const syncData = {
+          /* const syncData = {
             id: user.id,
             secondary_id: user.secondary_id ?? user.id,
             email: user.email,
             name: user.name,
             phone: user.phone || "",
+          }; */
+
+          const syncData = {
+            id: user.id,
+            secondary_id: accounts.hris_company?.secondary_id || user.secondary_id || user.id,
+            employee_id: accounts.hris_employee?.secondary_id || "",
+            email: user.email,
+            name: user.name,
+            phone: user.phone || "",
+            token: appToken,
           };
 
           syncUserToChatBackend(syncData).catch((error) => {
