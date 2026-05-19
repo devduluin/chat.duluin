@@ -30,6 +30,8 @@ interface ChatMessage {
   intent?: string;
 }
 
+const EMPTY_MESSAGES: any[] = [];
+
 export default function AIChatbotPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -137,7 +139,11 @@ export default function AIChatbotPage() {
   }, [conversationId, userId]);
 
   // Subscribe to ChatStore updates to get real-time messages
-  const chatMessages = useChatStore((state) => conversationId ? state.messages[conversationId] : []);
+  const chatMessages = useChatStore((state) =>
+    conversationId
+      ? state.messages[conversationId] || EMPTY_MESSAGES
+      : EMPTY_MESSAGES
+  );
   
   useEffect(() => {
     if (conversationId && chatMessages && chatMessages.length > 0) {
