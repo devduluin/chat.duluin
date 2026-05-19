@@ -116,3 +116,47 @@ export async function removeMemberFromConversation(
     };
   }
 }
+
+export async function promoteMemberToAdmin(
+  conversationId: string,
+  userId: string,
+  actorId: string
+): Promise<any | null> {
+  try {
+    const response = await api.post(
+      `/conversations/${conversationId}/promote`,
+      { member_ids: [userId] },
+      { params: { user_id: actorId } }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to promote member:", error);
+    return {
+      status: false,
+      message: error?.response?.data?.message || "Failed to promote member",
+      errors: error?.response?.data?.errors || [error.message],
+    };
+  }
+}
+
+export async function demoteMemberToUser(
+  conversationId: string,
+  userId: string,
+  actorId: string
+): Promise<any | null> {
+  try {
+    const response = await api.post(
+      `/conversations/${conversationId}/demote`,
+      { member_ids: [userId] },
+      { params: { user_id: actorId } }
+    );
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to demote member:", error);
+    return {
+      status: false,
+      message: error?.response?.data?.message || "Failed to demote member",
+      errors: error?.response?.data?.errors || [error.message],
+    };
+  }
+}

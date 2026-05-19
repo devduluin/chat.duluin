@@ -143,6 +143,70 @@ export function ContactInfoModal({
     }
   };
 
+  const handlePromoteMember = async (memberId: string) => {
+    try {
+      const { promoteMemberToAdmin } = await import(
+        "@/services/v1/conversationService"
+      );
+
+      const user_id = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("user_id="))
+          ?.split("=")[1] || "";
+
+      const result = await promoteMemberToAdmin(contact.id, memberId, user_id);
+
+      if (result?.status) {
+        toast.success("Member promoted", {
+          description: "Member has been promoted to Admin",
+        });
+      } else {
+        const errorMsg = result?.message || "Please try again";
+        const errorDetails = result?.errors?.join(", ") || "";
+        toast.error("Failed to promote member", {
+          description: errorDetails || errorMsg,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error promoting member:", error);
+      toast.error("Failed to promote member", {
+        description: error?.message || "An error occurred",
+      });
+    }
+  };
+
+  const handleDemoteMember = async (memberId: string) => {
+    try {
+      const { demoteMemberToUser } = await import(
+        "@/services/v1/conversationService"
+      );
+
+      const user_id = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("user_id="))
+          ?.split("=")[1] || "";
+
+      const result = await demoteMemberToUser(contact.id, memberId, user_id);
+
+      if (result?.status) {
+        toast.success("Member demoted", {
+          description: "Member has been demoted to User",
+        });
+      } else {
+        const errorMsg = result?.message || "Please try again";
+        const errorDetails = result?.errors?.join(", ") || "";
+        toast.error("Failed to demote member", {
+          description: errorDetails || errorMsg,
+        });
+      }
+    } catch (error: any) {
+      console.error("Error demoting member:", error);
+      toast.error("Failed to demote member", {
+        description: error?.message || "An error occurred",
+      });
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -252,6 +316,16 @@ export function ContactInfoModal({
               name={contact.name}
               members={members}
               onRemoveMember={handleRemoveMember}
+              onPromoteMember={handlePromoteMember}
+              onDemoteMember={handleDemoteMember}
+              currentUserId={
+                typeof window !== "undefined"
+                  ? document.cookie
+                      .split("; ")
+                      .find((row) => row.startsWith("user_id="))
+                      ?.split("=")[1] || ""
+                  : ""
+              }
             />
           ) : (
             <PersonalContactActions name={contact.name} onClose={onClose} />
