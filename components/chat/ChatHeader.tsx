@@ -13,13 +13,14 @@ import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { ContactPicker } from "./ContactPicker";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
 import { useAccountStore } from "@/store/useAccountStore";
+import { useSendMessage } from "@/hooks/useSendMessage";
 
 import {
   DropdownMenu,
@@ -61,6 +62,18 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     (Cookies.get("first_name") ? `${Cookies.get("first_name")} ${Cookies.get("last_name") || ""}`.trim() : "") ||
     "Chat User";
 
+  const { sendMessage } = useSendMessage();
+
+  const handleCallConnected = useCallback(() => {
+    const tenantId = Cookies.get("tenant_id") || userId;
+    sendMessage({
+      conversationId,
+      content: "📞 Panggilan suara aktif. Buka chat ini dan klik ikon telepon di kanan atas untuk bergabung.",
+      senderId: userId,
+      tenantId: tenantId,
+    }).catch((err) => console.error("Failed to send call notification message:", err));
+  }, [conversationId, userId, sendMessage]);
+
   const {
     isCalling,
     isConnecting,
@@ -70,7 +83,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     startCall,
     leaveCall,
     toggleMute,
-  } = useVoiceCall(conversationId, userId, currentUserName);
+  } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)

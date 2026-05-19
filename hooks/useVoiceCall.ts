@@ -3,7 +3,7 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { voiceCallService } from "@/services/v1/voiceCallService";
 import { toast } from "sonner";
 
-export const useVoiceCall = (conversationId: string, userId: string, userName: string) => {
+export const useVoiceCall = (conversationId: string, userId: string, userName: string, onCallConnected?: () => void) => {
   const [isCalling, setIsCalling] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -123,13 +123,17 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
       setIsConnecting(false);
       setParticipants(Array.from(room.remoteParticipants.values()));
       toast.success("Voice call connected!");
+      
+      if (onCallConnected) {
+        onCallConnected();
+      }
     } catch (error: any) {
       console.error("Failed to start voice call:", error);
       toast.error(error?.response?.data?.message || "Failed to connect to voice call");
       setIsConnecting(false);
       leaveCall();
     }
-  }, [conversationId, userId, userName, isCalling, isConnecting, leaveCall]);
+  }, [conversationId, userId, userName, isCalling, isConnecting, leaveCall, onCallConnected]);
 
   const toggleMute = useCallback(async () => {
     if (!roomRef.current) return;
