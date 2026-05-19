@@ -144,6 +144,18 @@ export default function AIChatbotPage() {
       ? state.messages[conversationId] || EMPTY_MESSAGES
       : EMPTY_MESSAGES
   );
+
+  // Subscribe to typing users to show "AI sedang berpikir" in real-time
+  const typingUsersMap = useChatStore((state) => state.typingUsers);
+  const typingUsers = conversationId ? typingUsersMap?.[conversationId] || {} : {};
+  const isAITyping = Object.keys(typingUsers).includes("1196e18b-c1dc-41aa-946a-0c55e9d64fe6");
+
+  // Scroll to bottom when AI starts thinking/typing
+  useEffect(() => {
+    if (isAITyping) {
+      scrollToBottom();
+    }
+  }, [isAITyping]);
   
   useEffect(() => {
     if (conversationId && chatMessages && chatMessages.length > 0) {
@@ -486,7 +498,7 @@ export default function AIChatbotPage() {
             </div>
           ))}
 
-          {isLoading && (
+          {(isLoading || isAITyping) && (
             <div className="flex justify-start">
               <div className="flex items-start space-x-2 max-w-[70%]">
                 <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
