@@ -3,6 +3,95 @@ import { Room, RoomEvent, Track } from "livekit-client";
 import { voiceCallService } from "@/services/v1/voiceCallService";
 import { toast } from "sonner";
 
+class RingtonePlayer {
+  private audioCtx: AudioContext | null = null;
+  private intervalId: any = null;
+  private oscillators: OscillatorNode[] = [];
+  private gainNode: GainNode | null = null;
+
+  start() {
+    if (this.audioCtx) return;
+    
+    const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+    if (!AudioContextClass) return;
+
+    this.audioCtx = new AudioContextClass();
+    
+    const playRing = () => {
+      if (!this.audioCtx) return;
+      
+      // Create pleasant dual-tone frequency pair for a digital telephone ringback
+      const osc1 = this.audioCtx.createOscillator();
+      const osc2 = this.audioCtx.createOscillator();
+      const gainNode = this.audioCtx.createGain();
+      
+      osc1.frequency.setValueAtTime(400, this.audioCtx.currentTime);
+      osc2.frequency.setValueAtTime(450, this.audioCtx.currentTime);
+      
+      osc1.type = "sine";
+      osc2.type = "sine";
+      
+      // Soft, non-intrusive calling volume
+      gainNode.gain.setValueAtTime(0.0, this.audioCtx.currentTime);
+      gainNode.gain.linearRampToValueAtTime(0.08, this.audioCtx.currentTime + 0.1);
+      gainNode.gain.setValueAtTime(0.08, this.audioCtx.currentTime + 1.5);
+      gainNode.gain.linearRampToValueAtTime(0.0, this.audioCtx.currentTime + 1.6);
+      
+      osc1.connect(gainNode);
+      osc2.connect(gainNode);
+      gainNode.connect(this.audioCtx.destination);
+      
+      osc1.start();
+      osc2.start();
+      
+      this.oscillators = [osc1, osc2];
+      this.gainNode = gainNode;
+      
+      setTimeout(() => {
+        try {
+          osc1.stop();
+          osc2.stop();
+          osc1.disconnect();
+          osc2.disconnect();
+          gainNode.disconnect();
+        } catch (e) {}
+      }, 1800);
+    };
+
+    playRing();
+    this.intervalId = setInterval(playRing, 4000);
+  }
+
+  stop() {
+    if (this.intervalId) {
+      clearInterval(this.intervalId);
+      this.intervalId = null;
+    }
+    
+    this.oscillators.forEach((osc) => {
+      try {
+        osc.stop();
+        osc.disconnect();
+      } catch (e) {}
+    });
+    this.oscillators = [];
+    
+    if (this.gainNode) {
+      try {
+        this.gainNode.disconnect();
+      } catch (e) {}
+      this.gainNode = null;
+    }
+    
+    if (this.audioCtx) {
+      try {
+        this.audioCtx.close();
+      } catch (e) {}
+      this.audioCtx = null;
+    }
+  }
+}
+
 export const useVoiceCall = (conversationId: string, userId: string, userName: string, onCallConnected?: () => void) => {
   const [isCalling, setIsCalling] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -13,6 +102,14 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
 
   const roomRef = useRef<Room | null>(null);
   const audioElementsRef = useRef<Record<string, HTMLAudioElement>>({});
+  const ringtonePlayerRef = useRef<RingtonePlayer | null>(null);
+
+  useEffect(() => {
+    ringtonePlayerRef.current = new RingtonePlayer();
+    return () => {
+      ringtonePlayerRef.current?.stop();
+    };
+  }, []);
 
   const leaveCall = useCallback(async () => {
     if (roomRef.current) {
@@ -23,6 +120,10 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
       }
       roomRef.current = null;
     }
+    
+    // Stop outgoing ringtone
+    ringtonePlayerRef.current?.stop();
+
     // Clean up audio elements from DOM
     Object.values(audioElementsRef.current).forEach((el) => {
       try {
@@ -45,6 +146,9 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
     if (isCalling || isConnecting) return;
     setIsConnecting(true);
 
+    // Start playing outgoing ringtone
+    ringtonePlayerRef.current?.start();
+
     try {
       // 1. Get LiveKit token from backend
       const data = await voiceCallService.getLiveKitToken({
@@ -63,6 +167,9 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
 
       // 3. Register Event Listeners
       room.on(RoomEvent.ParticipantConnected, (participant) => {
+        // Stop outgoing ringtone when someone connects
+        ringtonePlayerRef.current?.stop();
+
         setParticipants((prev) => {
           if (prev.some((p) => p.sid === participant.sid)) return prev;
           return [...prev, participant];
@@ -124,6 +231,11 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
 
       // 4. Connect to Room
       await room.connect(data.livekit_url, data.token);
+
+      // Stop outgoing ringtone if other participants are already connected in the room
+      if (room.remoteParticipants.size > 0) {
+        ringtonePlayerRef.current?.stop();
+      }
       
       // 5. Publish local Audio Track
       await room.localParticipant.setMicrophoneEnabled(true);
