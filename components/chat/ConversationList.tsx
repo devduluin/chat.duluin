@@ -9,7 +9,7 @@ import Link from "next/link";
 import { Avatar } from "../ui/avatar";
 import { Bot, WifiOff } from "lucide-react";
 
-export function ConversationList({ userId }: { userId: string }) {
+export function ConversationList({ userId, searchQuery = "" }: { userId: string; searchQuery?: string }) {
   // Get user ID from account store
   // const { data: account, setData } = useAccountStore();
   // const userId = "02a7eb2c-3c71-4c7f-8dc8-716ddbd3f24f";
@@ -41,6 +41,21 @@ export function ConversationList({ userId }: { userId: string }) {
     );
   }
 
+  // Filter AI bot and regular conversations locally based on search query
+  const query = searchQuery.toLowerCase().trim();
+  
+  const showAIBot = !query || 
+    "ai assistant".includes(query) || 
+    "bot".includes(query) || 
+    "tanya apa saja kepada asisten ai".includes(query);
+
+  const filteredConversations = [...recent_conversations]
+    .filter((item) => {
+      const displayName = ((item as any).display_name || (item.Conversation as any).display_name || item.Conversation.name || "").toLowerCase();
+      const lastMessageText = (item.LastMessage?.content || "").toLowerCase();
+      return displayName.includes(query) || lastMessageText.includes(query);
+    });
+
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
       {/* Offline Banner */}
@@ -56,35 +71,37 @@ export function ConversationList({ userId }: { userId: string }) {
       )}
 
       {/* AI Chatbot Entry */}
-      <Link
-        href="/conversation/ai-chatbot"
-        className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b-2 border-blue-200 dark:border-blue-800"
-      >
-        <div className="flex items-center space-x-3">
-          <div className="relative">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
-              <Bot className="h-6 w-6 text-white" />
+      {showAIBot && (
+        <Link
+          href="/conversation/ai-chatbot"
+          className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-b-2 border-blue-200 dark:border-blue-800"
+        >
+          <div className="flex items-center space-x-3">
+            <div className="relative">
+              <div className="w-12 h-12 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center">
+                <Bot className="h-6 w-6 text-white" />
+              </div>
+              <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
             </div>
-            <div className="absolute bottom-0 right-0 w-3 h-3 bg-green-500 border-2 border-white dark:border-gray-900 rounded-full"></div>
-          </div>
-          <div className="flex-1 min-w-0">
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
-                AI Assistant
-                <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
-                  Bot
-                </span>
-              </h3>
+            <div className="flex-1 min-w-0">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
+                  AI Assistant
+                  <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
+                    Bot
+                  </span>
+                </h3>
+              </div>
+              <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
+                Tanya apa saja kepada asisten AI
+              </p>
             </div>
-            <p className="text-sm text-gray-600 dark:text-gray-400 truncate mt-1">
-              Tanya apa saja kepada asisten AI
-            </p>
           </div>
-        </div>
-      </Link>
+        </Link>
+      )}
 
       {/* Regular Conversations */}
-      {[...recent_conversations]
+      {filteredConversations
         .sort((a, b) => {
           if (a.Conversation.name === "Personal Assistant AI") return -1;
           if (b.Conversation.name === "Personal Assistant AI") return 1;

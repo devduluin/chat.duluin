@@ -34,7 +34,7 @@ import { useContactsList } from "@/hooks/useContacts"
 //   }
 // ]
 
-export function ContactList({ userId }: { userId: string }) {
+export function ContactList({ userId, searchQuery = "" }: { userId: string; searchQuery?: string }) {
   const { contacts, fetchContactsList } = useContactsList(userId, { page: 1, is_favorite: false });
 
   useEffect(() => {
@@ -50,12 +50,23 @@ export function ContactList({ userId }: { userId: string }) {
           ))}
         </div>
       </div>
-    )
+    );
   }
+
+  // Filter contacts locally based on search query
+  const filteredContacts = contacts.filter((contact) => {
+    const firstName = contact.target?.first_name || "";
+    const lastName = contact.target?.last_name || "";
+    const email = contact.target?.email || "";
+    const fullName = `${firstName} ${lastName}`.toLowerCase();
+    const query = searchQuery.toLowerCase().trim();
+
+    return fullName.includes(query) || email.toLowerCase().includes(query);
+  });
 
   return (
     <div className="divide-y divide-gray-200 dark:divide-gray-700">
-      {contacts.map((contact) => (
+      {filteredContacts.map((contact) => (
         <Link
           key={contact.id}
           href={`/contact/${contact.id}`}
@@ -79,5 +90,5 @@ export function ContactList({ userId }: { userId: string }) {
         </Link>
       ))}
     </div>
-  )
+  );
 }

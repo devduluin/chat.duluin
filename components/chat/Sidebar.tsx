@@ -24,6 +24,7 @@ import { useGlobalMessageSocket } from "@/hooks/useGlobalMessageSocket";
 export function Sidebar() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"chats" | "contacts">("chats");
+  const [searchQuery, setSearchQuery] = useState("");
   const { data: account } = useAccountStore();
   const userId = account?.id || "";
   const [showNewContact, setShowNewContact] = useState(false);
@@ -50,6 +51,11 @@ export function Sidebar() {
       window.removeEventListener("navigate-home", handleNavigateHome);
     };
   }, [router]);
+
+  const handleTabChange = (tab: "chats" | "contacts") => {
+    setActiveTab(tab);
+    setSearchQuery("");
+  };
 
   return (
     <div className="w-full md:w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col relative">
@@ -80,7 +86,11 @@ export function Sidebar() {
         </div>
 
         {/* Search Bar */}
-        <SearchBar />
+        <SearchBar 
+          placeholder={activeTab === "chats" ? "Search conversations..." : "Search contacts..."}
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
 
         {/* Tab Buttons */}
         <div className="flex mt-4 rounded-lg bg-gray-100 dark:bg-gray-800 p-1">
@@ -91,7 +101,7 @@ export function Sidebar() {
               activeTab === "chats" &&
                 "bg-white dark:bg-gray-700 text-blue-600 dark:text-white"
             )}
-            onClick={() => setActiveTab("chats")}
+            onClick={() => handleTabChange("chats")}
           >
             <MessageSquare className="h-4 w-4 mr-2" />
             Chats
@@ -103,7 +113,7 @@ export function Sidebar() {
               activeTab === "contacts" &&
                 "bg-white dark:bg-gray-700 text-blue-600 dark:text-white"
             )}
-            onClick={() => setActiveTab("contacts")}
+            onClick={() => handleTabChange("contacts")}
           >
             <Users className="h-4 w-4 mr-2" />
             Contacts
@@ -114,9 +124,9 @@ export function Sidebar() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
         {activeTab === "chats" ? (
-          <ConversationList userId={userId} />
+          <ConversationList userId={userId} searchQuery={searchQuery} />
         ) : (
-          <ContactList userId={userId} />
+          <ContactList userId={userId} searchQuery={searchQuery} />
         )}
       </div>
 
