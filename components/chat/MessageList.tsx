@@ -204,7 +204,13 @@ export function MessageList({
           // Check if it's a system message for member added/removed
           const isSystemMessage =
             message.message_type === "system" ||
-            (message as any).MessageType === "system";
+            (message as any).MessageType === "system" ||
+            message.content?.startsWith("member_added:") ||
+            message.content?.startsWith("member_removed:") ||
+            message.content?.startsWith("member_exit:") ||
+            message.content?.startsWith("member_promoted:") ||
+            message.content?.startsWith("member_demoted:") ||
+            message.content?.startsWith("conversation_updated:");
           if (isSystemMessage) {
             return (
               <SystemMessageAlert

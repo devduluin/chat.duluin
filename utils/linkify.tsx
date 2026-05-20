@@ -74,6 +74,47 @@ export function linkifyText(text: string): React.ReactNode[] {
   return parts.length > 0 ? parts : [text];
 }
 
+export function parseSystemMessage(content: string): string {
+  if (!content) return "";
+  
+  if (content.startsWith("member_added:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    return `${userName} was added to the group`;
+  }
+  
+  if (content.startsWith("member_removed:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    return `${userName} was removed from the group`;
+  }
+  
+  if (content.startsWith("member_exit:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    return `${userName} left the group`;
+  }
+  
+  if (content.startsWith("member_promoted:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    return `${userName} was promoted to Admin`;
+  }
+  
+  if (content.startsWith("member_demoted:")) {
+    const parts = content.split(":");
+    const userName = parts[2] || "A member";
+    return `${userName} was demoted to User`;
+  }
+  
+  if (content.startsWith("conversation_updated:")) {
+    const text = content.replace("conversation_updated:", "");
+    return `Conversation name ${text}`;
+  }
+  
+  return content;
+}
+
 // Alternative function that returns HTML string (for sidebar preview)
 export function linkifyTextToPlainPreview(
   text: string,
@@ -81,8 +122,11 @@ export function linkifyTextToPlainPreview(
 ): string {
   if (!text) return "";
 
+  // Parse system message if any
+  let cleanText = parseSystemMessage(text);
+
   // Remove Bold markers for preview
-  let cleanText = text.replace(BOLD_REGEX, "$1");
+  cleanText = cleanText.replace(BOLD_REGEX, "$1");
 
   // Remove URLs and replace with placeholder for sidebar
   cleanText = cleanText.replace(URL_REGEX, "🔗 Link");
