@@ -80,12 +80,12 @@ function getContactName(userId: string, fallbackName: string): string {
   try {
     const { contacts } = useContactsStore.getState();
     const found = contacts?.find((c) => {
-      const targetId = c.target?.id || c.target_id || c.TargetID;
+      const targetId = c.target?.id || (c as any).target_id || (c as any).TargetID;
       return targetId && targetId === userId;
     });
     if (found) {
-      const firstName = found.first_name || found.FirstName || found.target?.first_name || "";
-      const lastName = found.last_name || found.LastName || found.target?.last_name || "";
+      const firstName = (found as any).first_name || (found as any).FirstName || found.target?.first_name || "";
+      const lastName = (found as any).last_name || (found as any).LastName || found.target?.last_name || "";
       if (firstName || lastName) {
         return `${firstName} ${lastName}`.trim();
       }
