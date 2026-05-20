@@ -30,7 +30,7 @@ export async function handleLogout() {
       deleteCookie('app_token');
       deleteCookie('company_id');
       localStorage.removeItem('account-store');
-      window.location.href = '/';
+      window.location.href = process.env.NEXT_PUBLIC_APP_URL_WORKSPACE || '/';
     }
   }
 

@@ -6,7 +6,7 @@ export default function Home() {
   return (
     <>
       <Sidebar />
-      <div className="flex-1 flex flex-col h-screen">
+      <div className="hidden md:flex flex-1 flex-col h-screen">
         <EmptyState 
           title="Select a conversation"
           description="Choose an existing chat or start a new one"

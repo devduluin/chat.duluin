@@ -386,8 +386,10 @@ export default function AIChatbotPage() {
   if (isInitializing) {
     return (
       <>
-        <Sidebar />
-        <div className="flex-1 flex items-center justify-center h-screen">
+        <div className="hidden md:block">
+          <Sidebar />
+        </div>
+        <div className="flex-1 flex items-center justify-center h-screen w-full">
           <div className="text-center">
             <Loader2 className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
             <p className="text-gray-600 dark:text-gray-400">
@@ -401,8 +403,10 @@ export default function AIChatbotPage() {
 
   return (
     <>
-      <Sidebar />
-      <div className="flex-1 flex flex-col h-screen">
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col h-screen w-full">
         {/* Header */}
         <div className="border-b border-gray-200 dark:border-gray-700 p-4 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20">
           <div className="flex items-center justify-between">

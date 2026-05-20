@@ -65,12 +65,20 @@ export default function LogoutHandler() {
         // Small delay to ensure everything is cleared
         await new Promise((resolve) => setTimeout(resolve, 300));
 
-        // Redirect to signin page
-        router.push("/auth/signin");
+        // Redirect to workspace launcher
+        if (typeof window !== "undefined") {
+          window.location.href = process.env.NEXT_PUBLIC_APP_URL_WORKSPACE || "/auth/signin";
+        } else {
+          router.push("/auth/signin");
+        }
       } catch (error) {
         console.error("Logout error:", error);
         // Still redirect even if there's an error
-        router.push("/auth/signin");
+        if (typeof window !== "undefined") {
+          window.location.href = process.env.NEXT_PUBLIC_APP_URL_WORKSPACE || "/auth/signin";
+        } else {
+          router.push("/auth/signin");
+        }
       }
     };
 

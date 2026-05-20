@@ -1,0 +1,36 @@
+services:
+  duluin-chat-fe:
+    build:
+      context: .
+      dockerfile: Dockerfile.local
+      network: host
+      args:
+        NEXT_PUBLIC_NODE_ENV: ${NEXT_PUBLIC_NODE_ENV}
+        NEXT_PUBLIC_API_BASE_URL: ${NEXT_PUBLIC_API_BASE_URL}
+        NEXT_PUBLIC_APP_NAME: ${NEXT_PUBLIC_APP_NAME}
+        NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: ${NEXT_PUBLIC_GOOGLE_MAPS_API_KEY}
+        NEXT_PUBLIC_AUTH_API_URL: ${NEXT_PUBLIC_AUTH_API_URL}
+        NEXT_PUBLIC_GATEWAY_API_URL: ${NEXT_PUBLIC_GATEWAY_API_URL}
+        NEXT_PUBLIC_GATEWAY_API_URL_PROD: ${NEXT_PUBLIC_GATEWAY_API_URL_PROD}
+        NEXT_PUBLIC_GATEWAY_API_URL_DEV: ${NEXT_PUBLIC_GATEWAY_API_URL_DEV}
+        NEXT_PUBLIC_WS_GATEWAY_URL: ${NEXT_PUBLIC_WS_GATEWAY_URL}
+        NEXT_PUBLIC_NLP_GATEWAY_URL: ${NEXT_PUBLIC_NLP_GATEWAY_URL}
+        NEXT_PUBLIC_NLP_SERVICE_URL: ${NEXT_PUBLIC_NLP_SERVICE_URL}
+        NEXT_PUBLIC_WORKSPACE_URL: ${NEXT_PUBLIC_WORKSPACE_URL}
+        NEXT_PUBLIC_EMPLOYEE_API_URL: ${NEXT_PUBLIC_EMPLOYEE_API_URL}
+        NEXT_PUBLIC_LIVEKIT_URL: ${NEXT_PUBLIC_LIVEKIT_URL}
+    container_name: localhost.chat-fe
+    env_file:
+      - .env
+    ports:
+      - "8085:8085"
+    environment:
+      - NODE_ENV=production
+      - PORT=8085
+    restart: unless-stopped
+    networks:
+      - base_dev_tools_default
+
+networks:
+  base_dev_tools_default:
+    external: true

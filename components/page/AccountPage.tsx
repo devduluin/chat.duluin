@@ -27,7 +27,11 @@ export default function AccountPage() {
     await handleLogout({
       clearData,
       onSuccess: () => {
-        router.push("/");
+        if (typeof window !== "undefined") {
+          window.location.href = process.env.NEXT_PUBLIC_APP_URL_WORKSPACE || "/";
+        } else {
+          router.push("/");
+        }
       },
     });
   };

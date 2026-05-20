@@ -34,8 +34,10 @@ function NewConversationContent() {
   }
   return (
     <>
-      <Sidebar />
-      <div className="flex-1 flex flex-col h-screen">
+      <div className="hidden md:block">
+        <Sidebar />
+      </div>
+      <div className="flex-1 flex flex-col h-screen w-full">
         <ChatHeader conversationId={conversationId} userId={userId} />
         <MessageList conversationId={conversationId} userId={userId} />
         <MessageInput conversationId={conversationId} userId={userId} />
