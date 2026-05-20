@@ -89,6 +89,14 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
       (m) => m.content?.startsWith("📞 Panggilan suara aktif")
     );
 
+    // Hanya inisiator/pengirim pesan yang diperbolehkan mengedit pesan ini untuk menghindari 403 Forbidden
+    const isSender = callMsg ? callMsg.sender_id === userId : true;
+
+    if (!isSender) {
+      console.log("ℹ️ Not the call message sender. Skipping edit to avoid 403 Forbidden.");
+      return;
+    }
+
     const targetMessageId = callMsg?.id || callMessageId;
 
     if (targetMessageId) {
