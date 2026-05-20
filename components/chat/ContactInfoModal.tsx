@@ -85,7 +85,7 @@ export function ContactInfoModal({
       const fetchDetails = async () => {
         setLoadingDetails(true);
         try {
-          const res = await getContacts(currentUserId);
+          const res = await getContacts(currentUserId, { page: 1, is_favorite: false });
           if (res && res.data) {
             const found = res.data.find((c: any) => {
               const targetId = c.target?.id || c.target_id || c.TargetID;
