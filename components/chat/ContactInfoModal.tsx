@@ -101,8 +101,8 @@ export function ContactInfoModal({
           if (otherMember?.user) {
             setResolvedContact({
               target: otherMember.user,
-              email: otherMember.user.email,
-              phone: otherMember.user.phone
+              email: (otherMember.user as any).email,
+              phone: (otherMember.user as any).phone
             });
           }
         } catch (err) {
