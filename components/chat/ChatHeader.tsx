@@ -12,8 +12,8 @@ import {
 import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState, useCallback } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { useState, useCallback, useEffect } from "react";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { ContactPicker } from "./ContactPicker";
 import { useConversationsStore } from "@/store/useConversationsStore";
@@ -41,6 +41,8 @@ interface ChatHeaderProps {
 
 export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const shouldStartCall = searchParams?.get("start_call") === "true";
   const conversation = useChatStore(
     (state) => state.conversations[conversationId],
   );
@@ -123,6 +125,17 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     leaveCall,
     toggleMute,
   } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected, handleCallEnded);
+
+  useEffect(() => {
+    if (shouldStartCall && startCall && !isCalling && !isConnecting) {
+      console.log("🚀 Automatically initiating call from query param!");
+      startCall();
+
+      // Clean up the URL query parameter
+      const newUrl = window.location.pathname;
+      window.history.replaceState({ ...window.history.state }, "", newUrl);
+    }
+  }, [shouldStartCall, startCall, isCalling, isConnecting]);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
