@@ -28,6 +28,7 @@ export function useGlobalMessageSocket(userId: string) {
   const shouldReconnect = useRef(true);
   const fetchingConversations = useRef<Set<string>>(new Set());
   const processedMessageIds = useRef<Record<string, number>>({}); // Track processed events with timestamps
+  const isRingActive = useRef(false);
 
   const addOrUpdateMessage = useChatStore((s) => s.addOrUpdateMessage);
   const setLastMessage = useConversationsStore((s) => s.setMessage);
@@ -35,6 +36,194 @@ export function useGlobalMessageSocket(userId: string) {
   const conversations = useConversationsStore((s) => s.conversations);
   const { setSendMessage, setConnected } = useWebSocketStore();
   const setIsSyncing = useContactsStore((s) => s.setIsSyncing);
+
+  // Play a premium high-fidelity synthesized notification chime (G5 and C6 double-tone)
+  const playNotificationSound = useCallback(() => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      
+      const osc1 = audioCtx.createOscillator();
+      const gain1 = audioCtx.createGain();
+      osc1.type = "sine";
+      osc1.frequency.setValueAtTime(783.99, now); // G5
+      gain1.gain.setValueAtTime(0.15, now);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.3);
+      
+      osc1.connect(gain1);
+      gain1.connect(audioCtx.destination);
+      osc1.start(now);
+      osc1.stop(now + 0.3);
+
+      const osc2 = audioCtx.createOscillator();
+      const gain2 = audioCtx.createGain();
+      osc2.type = "sine";
+      osc2.frequency.setValueAtTime(1046.50, now + 0.1); // C6
+      gain2.gain.setValueAtTime(0.15, now + 0.1);
+      gain2.gain.exponentialRampToValueAtTime(0.001, now + 0.4);
+      
+      osc2.connect(gain2);
+      gain2.connect(audioCtx.destination);
+      osc2.start(now + 0.1);
+      osc2.stop(now + 0.4);
+    } catch (e) {
+      console.error("Audio Context failed to play chime:", e);
+    }
+  }, []);
+
+  // Play a premium dual-tone VoIP telephone ring twice (A4 + 480Hz classic ring)
+  const playIncomingCallSound = useCallback(() => {
+    if (isRingActive.current) return;
+    isRingActive.current = true;
+    
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const now = audioCtx.currentTime;
+      
+      const playRing = (startOffset: number) => {
+        const osc1 = audioCtx.createOscillator();
+        const osc2 = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        
+        osc1.type = "sine";
+        osc1.frequency.setValueAtTime(440, now + startOffset); // A4
+        osc2.type = "sine";
+        osc2.frequency.setValueAtTime(480, now + startOffset); // Dissonant pair
+        
+        gainNode.gain.setValueAtTime(0, now + startOffset);
+        gainNode.gain.linearRampToValueAtTime(0.15, now + startOffset + 0.05);
+        gainNode.gain.setValueAtTime(0.15, now + startOffset + 1.2);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, now + startOffset + 1.5);
+        
+        osc1.connect(gainNode);
+        osc2.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        osc1.start(now + startOffset);
+        osc2.start(now + startOffset);
+        
+        osc1.stop(now + startOffset + 1.5);
+        osc2.stop(now + startOffset + 1.5);
+      };
+
+      playRing(0);
+      playRing(2);
+      
+      setTimeout(() => {
+        isRingActive.current = false;
+      }, 4000);
+    } catch (e) {
+      console.error("Audio Context failed to play ring:", e);
+      isRingActive.current = false;
+    }
+  }, []);
+
+  // Native OS desktop notification window
+  const showDesktopNotification = useCallback((title: string, body: string, iconUrl?: string) => {
+    if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "granted") {
+      try {
+        const notification = new Notification(title, {
+          body,
+          icon: iconUrl || "/favicon.ico",
+          silent: true
+        });
+        notification.onclick = () => {
+          window.focus();
+        };
+      } catch (e) {
+        console.error("Desktop notification failed:", e);
+      }
+    }
+  }, []);
+
+  // Main notification trigger (in-app toast, synthesized sound, and floating desktop notification)
+  const triggerNotification = useCallback((msg: any) => {
+    if (!msg || msg.sender_id === userId) return;
+
+    const isSystem = msg.message_type === "system" || msg.is_system_message;
+    const content = typeof msg.content === "string" ? msg.content : "";
+    const isCall = content.startsWith("📞 Panggilan suara aktif");
+    const isCallEnd = content.startsWith("📞 Suara panggilan berakhir") || content.startsWith("📞 Panggilan suara berakhir");
+
+    // 1. Play synthesized sounds
+    if (isCall) {
+      playIncomingCallSound();
+    } else if (!isCallEnd) {
+      playNotificationSound();
+    }
+
+    // 2. Resolve sender name prioritizing contacts list nickname
+    let senderName = "Seseorang";
+    if (msg.sender) {
+      try {
+        const { contacts } = useContactsStore.getState();
+        const found = contacts?.find((c) => {
+          const targetId = c.target?.id || (c as any).target_id || (c as any).TargetID;
+          return targetId && targetId === msg.sender_id;
+        });
+        if (found) {
+          const firstName = (found as any).first_name || (found as any).FirstName || found.target?.first_name || "";
+          const lastName = (found as any).last_name || (found as any).LastName || found.target?.last_name || "";
+          if (firstName || lastName) {
+            senderName = `${firstName} ${lastName}`.trim();
+          }
+        }
+      } catch (err) {}
+      if (senderName === "Seseorang") {
+        senderName = `${msg.sender.first_name || ""} ${msg.sender.last_name || ""}`.trim() || "Seseorang";
+      }
+    }
+
+    let notificationTitle = `Pesan Baru`;
+    let notificationBody = content;
+
+    if (isCall) {
+      notificationTitle = `📞 Panggilan Suara Masuk`;
+      notificationBody = `Panggilan suara aktif dari ${senderName}. Klik untuk bergabung!`;
+    } else if (isSystem) {
+      notificationTitle = `Notifikasi Grup`;
+      if (content.startsWith("member_added:")) {
+        const parts = content.split(":");
+        notificationBody = `${parts[2] || "Seseorang"} bergabung ke grup`;
+      } else if (content.startsWith("member_exit:")) {
+        const parts = content.split(":");
+        notificationBody = `${parts[2] || "Seseorang"} keluar dari grup`;
+      } else {
+        notificationBody = content;
+      }
+    } else {
+      notificationTitle = `Pesan dari ${senderName}`;
+    }
+
+    // 3. Float Native OS Notification (WhatsApp-like popup)
+    showDesktopNotification(notificationTitle, notificationBody, msg.sender?.avatar_url);
+
+    // 4. In-App toast message popup with action
+    if (isCall) {
+      toast.info(notificationTitle, {
+        description: notificationBody,
+        action: {
+          label: "Gabung",
+          onClick: () => {
+            window.location.href = `/conversation/${msg.conversation_id}?start_call=true`;
+          }
+        },
+        duration: 15000,
+        position: "top-center"
+      });
+    } else {
+      toast(notificationTitle, {
+        description: notificationBody,
+        action: {
+          label: "Buka",
+          onClick: () => {
+            window.location.href = `/conversation/${msg.conversation_id}`;
+          }
+        },
+        duration: 5000
+      });
+    }
+  }, [userId, playIncomingCallSound, playNotificationSound, showDesktopNotification]);
 
   // Send message function - stable reference, always uses current wsRef
   const sendMessageStable = useCallback(
@@ -717,17 +906,17 @@ export function useGlobalMessageSocket(userId: string) {
               }
 
               // Add system message to chat
-              addOrUpdateMessage(msg.conversation_id, {
+              const formattedMsg = {
                 ...msg,
                 content: `${addedUserName} was added to the group`,
-                status: "sent",
-              });
+                status: "sent" as const,
+              };
+              addOrUpdateMessage(msg.conversation_id, formattedMsg);
 
               // Update last message in sidebar
-              setLastMessage(msg.conversation_id, {
-                ...msg,
-                content: `${addedUserName} was added to the group`,
-              });
+              setLastMessage(msg.conversation_id, formattedMsg);
+
+              triggerNotification(formattedMsg);
 
               // Don't process further for member added events
               return;
@@ -814,7 +1003,7 @@ export function useGlobalMessageSocket(userId: string) {
                   content: `You left the group`,
                   message_type: "system",
                   is_system_message: true,
-                  status: "sent",
+                  status: "sent" as const,
                 });
 
                 setLastMessage(msg.conversation_id, {
@@ -851,16 +1040,16 @@ export function useGlobalMessageSocket(userId: string) {
                     );
                   });
 
-                addOrUpdateMessage(msg.conversation_id, {
+                const formattedMsg = {
                   ...msg,
                   content: `${exitedUserName} left the group`,
-                  status: "sent",
-                });
+                  status: "sent" as const,
+                };
+                addOrUpdateMessage(msg.conversation_id, formattedMsg);
 
-                setLastMessage(msg.conversation_id, {
-                  ...msg,
-                  content: `${exitedUserName} left the group`,
-                });
+                setLastMessage(msg.conversation_id, formattedMsg);
+
+                triggerNotification(formattedMsg);
               }
 
               return;
@@ -980,7 +1169,7 @@ export function useGlobalMessageSocket(userId: string) {
                   content: `You were removed from the group`,
                   message_type: "system",
                   is_system_message: true,
-                  status: "sent",
+                  status: "sent" as const,
                 });
               } else {
                 // Another user was removed - refresh the member list
@@ -1025,17 +1214,17 @@ export function useGlobalMessageSocket(userId: string) {
                   });
 
                 // Add system message to chat
-                addOrUpdateMessage(msg.conversation_id, {
+                const formattedMsg = {
                   ...msg,
                   content: `${removedUserName} was removed from the group`,
-                  status: "sent",
-                });
+                  status: "sent" as const,
+                };
+                addOrUpdateMessage(msg.conversation_id, formattedMsg);
 
                 // Update last message in sidebar
-                setLastMessage(msg.conversation_id, {
-                  ...msg,
-                  content: `${removedUserName} was removed from the group`,
-                });
+                setLastMessage(msg.conversation_id, formattedMsg);
+
+                triggerNotification(formattedMsg);
               }
 
               // Don't process further for member removed events
@@ -1097,17 +1286,17 @@ export function useGlobalMessageSocket(userId: string) {
 
               // Add the message to chat
               const formattedContent = `${targetUserName} was ${isMemberPromotedMessage ? "promoted to Admin" : "demoted to User"}`;
-              addOrUpdateMessage(msg.conversation_id, {
+              const formattedMsg = {
                 ...msg,
                 content: formattedContent,
-                status: "sent",
-              });
+                status: "sent" as const,
+              };
+              addOrUpdateMessage(msg.conversation_id, formattedMsg);
 
               // Update last message in sidebar
-              setLastMessage(msg.conversation_id, {
-                ...msg,
-                content: formattedContent,
-              });
+              setLastMessage(msg.conversation_id, formattedMsg);
+
+              triggerNotification(formattedMsg);
 
               return;
             }
@@ -1140,7 +1329,7 @@ export function useGlobalMessageSocket(userId: string) {
               console.log("🔄 Message already exists, updating:", msg.id);
               addOrUpdateMessage(msg.conversation_id, {
                 ...msg,
-                status: "sent",
+                status: "sent" as const,
               });
             } else {
               // New message, check if there's an optimistic message to replace
@@ -1181,7 +1370,7 @@ export function useGlobalMessageSocket(userId: string) {
                 });
                 addOrUpdateMessage(msg.conversation_id, {
                   ...msg,
-                  status: "sent",
+                  status: "sent" as const,
                 });
               }
             }
@@ -1333,6 +1522,9 @@ export function useGlobalMessageSocket(userId: string) {
 
               // Conversation exists, update last message and unread count
               setLastMessage(msg.conversation_id, msg, userId);
+
+              // Trigger notification for incoming messages from others
+              triggerNotification(msg);
             }
           }
         } catch (err) {
@@ -1414,6 +1606,15 @@ export function useGlobalMessageSocket(userId: string) {
     shouldReconnect.current = true;
     isMounted.current = true;
     
+    // Request native OS notification permissions (floating windows) on mount
+    if (typeof window !== "undefined" && "Notification" in window) {
+      if (Notification.permission === "default") {
+        Notification.requestPermission().then((perm) => {
+          console.log("🔔 Floating notification permission status:", perm);
+        });
+      }
+    }
+
     // Only connect if not already connected/connecting
     if (!wsRef.current || wsRef.current.readyState === WebSocket.CLOSED) {
       connectWebSocket();
