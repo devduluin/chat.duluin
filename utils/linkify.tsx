@@ -1,6 +1,7 @@
 // utils/linkify.tsx
 import React from "react";
 import { ExternalLink } from "lucide-react";
+import { useContactsStore } from "@/store/useContactStore";
 
 // Regular expression to detect URLs
 const URL_REGEX =
@@ -74,36 +75,62 @@ export function linkifyText(text: string): React.ReactNode[] {
   return parts.length > 0 ? parts : [text];
 }
 
+function getContactName(userId: string, fallbackName: string): string {
+  if (!userId) return fallbackName;
+  try {
+    const { contacts } = useContactsStore.getState();
+    const found = contacts?.find((c) => {
+      const targetId = c.target?.id || c.target_id || c.TargetID;
+      return targetId && targetId === userId;
+    });
+    if (found) {
+      const firstName = found.first_name || found.FirstName || found.target?.first_name || "";
+      const lastName = found.last_name || found.LastName || found.target?.last_name || "";
+      if (firstName || lastName) {
+        return `${firstName} ${lastName}`.trim();
+      }
+    }
+  } catch (err) {
+    // Fail silently
+  }
+  return fallbackName;
+}
+
 export function parseSystemMessage(content: string): string {
   if (!content) return "";
   
   if (content.startsWith("member_added:")) {
     const parts = content.split(":");
-    const userName = parts[2] || "A member";
+    const userId = parts[1] || "";
+    const userName = getContactName(userId, parts[2] || "A member");
     return `${userName} was added to the group`;
   }
   
   if (content.startsWith("member_removed:")) {
     const parts = content.split(":");
-    const userName = parts[2] || "A member";
+    const userId = parts[1] || "";
+    const userName = getContactName(userId, parts[2] || "A member");
     return `${userName} was removed from the group`;
   }
   
   if (content.startsWith("member_exit:")) {
     const parts = content.split(":");
-    const userName = parts[2] || "A member";
+    const userId = parts[1] || "";
+    const userName = getContactName(userId, parts[2] || "A member");
     return `${userName} left the group`;
   }
   
   if (content.startsWith("member_promoted:")) {
     const parts = content.split(":");
-    const userName = parts[2] || "A member";
+    const userId = parts[1] || "";
+    const userName = getContactName(userId, parts[2] || "A member");
     return `${userName} was promoted to Admin`;
   }
   
   if (content.startsWith("member_demoted:")) {
     const parts = content.split(":");
-    const userName = parts[2] || "A member";
+    const userId = parts[1] || "";
+    const userName = getContactName(userId, parts[2] || "A member");
     return `${userName} was demoted to User`;
   }
   

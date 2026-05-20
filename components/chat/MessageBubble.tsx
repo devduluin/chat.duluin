@@ -51,6 +51,7 @@ import {
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useRetryMessage } from "@/hooks/useRetryMessage";
+import { useContactsStore } from "@/store/useContactStore";
 
 interface Reaction {
   emoji: string;
@@ -108,6 +109,23 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       (s) => s.updateMessageContent,
     );
     const { retry } = useRetryMessage();
+    const { contacts } = useContactsStore();
+
+    const getSenderName = (sender: any) => {
+      if (!sender) return "User";
+      const found = contacts?.find((c) => {
+        const targetId = c.target?.id || c.target_id || c.TargetID;
+        return targetId && targetId === sender.id;
+      });
+      if (found) {
+        const firstName = found.first_name || found.FirstName || found.target?.first_name || "";
+        const lastName = found.last_name || found.LastName || found.target?.last_name || "";
+        if (firstName || lastName) {
+          return `${firstName} ${lastName}`.trim();
+        }
+      }
+      return `${sender.first_name || ""} ${sender.last_name || ""}`.trim() || "User";
+    };
 
     const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
@@ -298,9 +316,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           <div className="flex-shrink-0 mr-2 self-start">
             <Avatar
               src={message.sender?.avatar_url || ""}
-              name={`${message.sender?.first_name || "User"} ${
-                message.sender?.last_name || ""
-              }`}
+              name={getSenderName(message.sender)}
               size="sm"
             />
           </div>
@@ -320,7 +336,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
               className="flex items-center mb-1 hover:underline cursor-pointer"
             >
               <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
-                {message.sender.first_name} {message.sender.last_name}
+                {getSenderName(message.sender)}
               </span>
               <ChevronDown className="h-3 w-3 ml-1 text-gray-500" />
             </Link>
@@ -342,8 +358,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             >
               <div className="flex items-center text-xs font-medium mb-1">
                 <CornerUpLeft className="h-3 w-3 mr-1" />
-                Replying to {parentMessage.sender.first_name}{" "}
-                {parentMessage.sender.last_name}
+                Replying to {getSenderName(parentMessage.sender)}
               </div>
               <div className="truncate text-sm">
                 {parentMessage.content || "Message deleted"}
