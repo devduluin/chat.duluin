@@ -93,45 +93,8 @@ export function NewChat({ userId }: { userId: string }) {
       return;
     }
 
-    // Create a new conversation
-    setIsCreating(true);
-    try {
-      const tenantId = Cookies.get("tenant_id") || dummyUser.tenant_id;
-
-      // get targetUserId data
-      const targetContact = contacts.find(
-        (contact) => contact.target.id === targetUserId,
-      );
-
-      const response = await createConversation({
-        name: targetContact
-          ? targetContact.target.first_name +
-            " " +
-            targetContact.target.last_name
-          : "Direct Chat",
-        // name: "", // Empty for direct chat (backend will use member names)
-        user_id: userId,
-        tenant_id: tenantId,
-        is_group: false,
-        member_ids: [userId, targetUserId], // Current user and target user
-      });
-
-      if (response.status && response.data) {
-        if (response.message === "Conversation already exists") {
-          toast.info("Redirecting to existing conversation");
-        } else {
-          toast.success("Conversation created");
-        }
-        router.push(`/conversation/${response.data.id}`);
-      } else {
-        toast.error("Failed to create conversation");
-      }
-    } catch (error) {
-      console.error("Error creating conversation:", error);
-      toast.error("Failed to create conversation");
-    } finally {
-      setIsCreating(false);
-    }
+    // Redirect to the new conversation draft screen
+    router.push(`/conversation/new?contact=${targetUserId}`);
   };
 
   const handleToggleContactSelection = (contactId: string) => {

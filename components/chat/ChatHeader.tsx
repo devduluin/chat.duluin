@@ -64,6 +64,8 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
 
   const { sendMessage } = useSendMessage();
 
+  const [callMessageId, setCallMessageId] = useState<string | null>(null);
+
   const handleCallConnected = useCallback(() => {
     const tenantId = Cookies.get("tenant_id") || userId;
     sendMessage({
@@ -71,8 +73,37 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
       content: "📞 Panggilan suara aktif. Buka chat ini dan klik ikon telepon di kanan atas untuk bergabung.",
       senderId: userId,
       tenantId: tenantId,
-    }).catch((err) => console.error("Failed to send call notification message:", err));
+    })
+      .then((res: any) => {
+        if (res && res.messageId) {
+          setCallMessageId(res.messageId);
+        }
+      })
+      .catch((err) => console.error("Failed to send call notification message:", err));
   }, [conversationId, userId, sendMessage]);
+
+  const handleCallEnded = useCallback(() => {
+    // Cari pesan notifikasi panggilan suara aktif dari store untuk mendapatkan ID database aslinya
+    const messages = useChatStore.getState().messages[conversationId] || [];
+    const callMsg = [...messages].reverse().find(
+      (m) => m.content?.startsWith("📞 Panggilan suara aktif")
+    );
+
+    const targetMessageId = callMsg?.id || callMessageId;
+
+    if (targetMessageId) {
+      import("@/services/v1/messageService").then(({ editMessage }) => {
+        editMessage(targetMessageId, userId, "📞 Suara panggilan berakhir")
+          .then((res) => {
+            console.log("Call message updated to ended successfully:", res);
+            setCallMessageId(null);
+          })
+          .catch((err) => console.error("Failed to update call message to ended:", err));
+      });
+    } else {
+      console.warn("⚠️ Could not find call message ID to update for conversation:", conversationId);
+    }
+  }, [conversationId, userId, callMessageId]);
 
   const {
     isCalling,
@@ -83,7 +114,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     startCall,
     leaveCall,
     toggleMute,
-  } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected);
+  } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected, handleCallEnded);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)

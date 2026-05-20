@@ -1,6 +1,7 @@
 // components/chat/ConversationList.tsx
 "use client";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { useConversations } from "@/hooks/useConversationsList";
 import { ConversationItem } from "./ConversationItem";
 import { useAccountStore } from "@/store/useAccountStore";
@@ -8,11 +9,13 @@ import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
 import Link from "next/link";
 import { Avatar } from "../ui/avatar";
 import { Bot, WifiOff } from "lucide-react";
+import { getUserById } from "@/services/chatUserService";
 
 export function ConversationList({ userId, searchQuery = "" }: { userId: string; searchQuery?: string }) {
-  // Get user ID from account store
-  // const { data: account, setData } = useAccountStore();
-  // const userId = "02a7eb2c-3c71-4c7f-8dc8-716ddbd3f24f";
+  const searchParams = useSearchParams();
+  const contactId = searchParams.get("contact");
+  const [draftUser, setDraftUser] = useState<any | null>(null);
+
   const {
     conversations: recent_conversations,
     loadingOverlay: loading,
@@ -25,6 +28,37 @@ export function ConversationList({ userId, searchQuery = "" }: { userId: string;
   useEffect(() => {
     if (userId) fetchConversations();
   }, [userId, fetchConversations]);
+
+  // Fetch draft user if we are on a pending conversation page
+  useEffect(() => {
+    if (!contactId) {
+      setDraftUser(null);
+      return;
+    }
+
+    // Check if we already have an active conversation with this user in the list
+    const hasActiveConv = recent_conversations.some(
+      (item: any) => (item as any).other_user_id === contactId
+    );
+
+    if (hasActiveConv) {
+      setDraftUser(null);
+      return;
+    }
+
+    const fetchDraftUser = async () => {
+      try {
+        const res = await getUserById(contactId);
+        if (res && res.status && res.data) {
+          setDraftUser(res.data);
+        }
+      } catch (err) {
+        console.error("Failed to load draft user for sidebar:", err);
+      }
+    };
+
+    fetchDraftUser();
+  }, [contactId, recent_conversations]);
 
   if (loading) {
     return (
@@ -49,7 +83,28 @@ export function ConversationList({ userId, searchQuery = "" }: { userId: string;
     "bot".includes(query) || 
     "tanya apa saja kepada asisten ai".includes(query);
 
-  const filteredConversations = [...recent_conversations]
+  // Construct synthetic conversation item for the draft chat
+  const draftConversationItem = draftUser ? {
+    Conversation: {
+      id: `new?contact=${draftUser.id}`,
+      name: `${draftUser.first_name || ""} ${draftUser.last_name || ""}`.trim(),
+      is_group: false,
+      avatar_url: draftUser.avatar_url,
+      display_name: `${draftUser.first_name || ""} ${draftUser.last_name || ""}`.trim(),
+      display_avatar: draftUser.avatar_url,
+    },
+    LastMessage: {
+      content: "Draft - Kirim pesan untuk memulai",
+      created_at: new Date().toISOString(),
+    }
+  } : null;
+
+  let baseConversations = [...recent_conversations];
+  if (draftConversationItem) {
+    baseConversations = [draftConversationItem as any, ...baseConversations];
+  }
+
+  const filteredConversations = baseConversations
     .filter((item) => {
       const displayName = ((item as any).display_name || (item.Conversation as any).display_name || item.Conversation.name || "").toLowerCase();
       const lastMessageText = (item.LastMessage?.content || "").toLowerCase();

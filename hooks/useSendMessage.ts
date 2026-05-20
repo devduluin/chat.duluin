@@ -15,6 +15,7 @@ interface SendMessageParams {
   parentMessageId?: string;
   attachmentIds?: string[];
   sendViaWebSocket?: (payload: any) => boolean;
+  recipientId?: string;
 }
 
 export const useSendMessage = () => {
@@ -31,7 +32,34 @@ export const useSendMessage = () => {
       parentMessageId,
       attachmentIds,
       sendViaWebSocket,
+      recipientId,
     }: SendMessageParams) => {
+      // Handle new direct conversation creation on first message send
+      if (conversationId === "new" && recipientId) {
+        try {
+          const { sendDirectMessage } = await import("@/services/v1/messageService");
+          const response = await sendDirectMessage({
+            recipient_id: recipientId,
+            sender_id: senderId,
+            tenant_id: tenantId,
+            content,
+            message_type: "text",
+          });
+
+          if (response && response.status && response.data) {
+            const newMsg = response.data;
+            const newConversationId = newMsg.conversation_id;
+            return { success: true, messageId: newMsg.id, conversationId: newConversationId };
+          } else {
+            toast.error(response?.message || "Failed to start direct conversation");
+            return { success: false };
+          }
+        } catch (error: any) {
+          toast.error(error?.message || "Error starting conversation");
+          return { success: false };
+        }
+      }
+
       const messageId = uuidv4();
       const now = new Date();
 

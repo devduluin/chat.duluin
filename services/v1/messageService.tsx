@@ -23,6 +23,25 @@ export async function sendMessage(payload: {
 }
 
 /**
+ * Send a direct message to a recipient, creating the conversation if it doesn't exist yet
+ */
+export async function sendDirectMessage(payload: {
+  recipient_id: string;
+  sender_id: string;
+  tenant_id: string;
+  content: string;
+  message_type?: string;
+}): Promise<any | null> {
+  try {
+    const response = await api.post(`/messages/direct`, payload);
+    return response.data;
+  } catch (error: any) {
+    console.error("Error sending direct message:", error);
+    throw error;
+  }
+}
+
+/**
  * Forward a message to multiple conversations
  */
 export async function forwardMessage(

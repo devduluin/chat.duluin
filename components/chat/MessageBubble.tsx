@@ -510,6 +510,16 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                             </button>
                           )}
                         </div>
+                      ) : message.content.startsWith("📞 Suara panggilan berakhir") || message.content.startsWith("📞 Panggilan suara berakhir") ? (
+                        <div className="flex flex-col space-y-2 p-1">
+                          <div className="flex items-center space-x-3 text-gray-500 dark:text-gray-400 font-semibold">
+                            <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                            <span className="text-sm">Suara Panggilan Berakhir</span>
+                          </div>
+                          <p className="text-sm text-gray-500 dark:text-gray-400 break-words whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                        </div>
                       ) : (
                         <p className="break-words whitespace-pre-wrap">
                           {linkifyText(message.content)}

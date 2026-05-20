@@ -1,7 +1,7 @@
 // components/chat/Sidebar.tsx
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import { ConversationList } from "./ConversationList";
 import { ContactList } from "@/components/chat/ContactList";
@@ -58,7 +58,7 @@ export function Sidebar() {
   };
 
   return (
-    <div className="w-full md:w-80 border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col relative">
+    <div className="w-full md:w-80 h-screen border-r border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 flex flex-col relative">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 dark:border-gray-700">
         <div className="flex justify-between items-center mb-4">
@@ -71,18 +71,6 @@ export function Sidebar() {
             <h1 className="text-xl font-bold">Team Chat</h1>
           </div>
 
-          {/* <div className="flex items-center space-x-2">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-9 w-9">
-                  <PenBoxIcon className="h-5 w-5" />
-                </Button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="p-0">
-                <NewChat userId={userId} />
-              </DropdownMenuContent>
-            </DropdownMenu>
-          </div> */}
         </div>
 
         {/* Search Bar */}
@@ -124,7 +112,17 @@ export function Sidebar() {
       {/* Content */}
       <div className="flex-1 overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 dark:scrollbar-thumb-gray-600">
         {activeTab === "chats" ? (
-          <ConversationList userId={userId} searchQuery={searchQuery} />
+          <Suspense fallback={
+            <div className="p-4">
+              <div className="animate-pulse space-y-4">
+                {[...Array(3)].map((_, i) => (
+                  <div key={i} className="h-16 bg-gray-200 dark:bg-gray-700 rounded"></div>
+                ))}
+              </div>
+            </div>
+          }>
+            <ConversationList userId={userId} searchQuery={searchQuery} />
+          </Suspense>
         ) : (
           <ContactList userId={userId} searchQuery={searchQuery} />
         )}

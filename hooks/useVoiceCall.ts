@@ -92,7 +92,13 @@ class RingtonePlayer {
   }
 }
 
-export const useVoiceCall = (conversationId: string, userId: string, userName: string, onCallConnected?: () => void) => {
+export const useVoiceCall = (
+  conversationId: string,
+  userId: string,
+  userName: string,
+  onCallConnected?: () => void,
+  onCallEnded?: () => void
+) => {
   const [isCalling, setIsCalling] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
@@ -140,7 +146,11 @@ export const useVoiceCall = (conversationId: string, userId: string, userName: s
     setParticipants([]);
     setActiveSpeakers([]);
     setIsMuted(false);
-  }, []);
+
+    if (onCallEnded) {
+      onCallEnded();
+    }
+  }, [onCallEnded]);
 
   const startCall = useCallback(async () => {
     if (isCalling || isConnecting) return;
