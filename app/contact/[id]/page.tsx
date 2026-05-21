@@ -12,16 +12,81 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { getContact } from "@/services/v1/contactService";
+import { getContact, updateContact, deleteContact } from "@/services/v1/contactService";
 import { createConversation } from "@/services/conversationService";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
+import { ShareContactDialog } from "@/components/chat/ShareContactDialog";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 export default function ContactPage() {
   const params = useParams();
   const router = useRouter();
   const [contact, setContact] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+
+  const [editFirstName, setEditFirstName] = useState("");
+  const [editLastName, setEditLastName] = useState("");
+
+  useEffect(() => {
+    if (contact) {
+      setEditFirstName(contact.first_name || contact.target?.first_name || "");
+      setEditLastName(contact.last_name || contact.target?.last_name || "");
+    }
+  }, [contact]);
+
+  const handleUpdateContact = async () => {
+    try {
+      toast.loading("Updating contact...", { id: "update-contact" });
+      const userId = Cookies.get("user_id") || "";
+      const response = await updateContact(params.id as string, {
+        user_id: userId,
+        first_name: editFirstName,
+        last_name: editLastName,
+      });
+
+      toast.dismiss("update-contact");
+      if (response && response.status) {
+        toast.success("Contact updated successfully");
+        setContact(response.data);
+        setShowEditModal(false);
+      } else {
+        toast.error(response?.message || "Failed to update contact");
+      }
+    } catch (err) {
+      console.error("Failed to update contact:", err);
+      toast.error("Failed to update contact");
+    }
+  };
+
+  const handleDeleteContact = async () => {
+    try {
+      toast.loading("Deleting contact...", { id: "delete-contact" });
+      const response = await deleteContact(params.id as string);
+      toast.dismiss("delete-contact");
+
+      if (response && response.status) {
+        toast.success("Contact deleted successfully");
+        setShowDeleteModal(false);
+        router.push("/");
+      } else {
+        toast.error(response?.message || "Failed to delete contact");
+      }
+    } catch (err) {
+      console.error("Failed to delete contact:", err);
+      toast.error("Failed to delete contact");
+    }
+  };
 
   useEffect(() => {
     const fetchContact = async () => {
@@ -97,7 +162,9 @@ export default function ContactPage() {
   }
 
   // Safe computed fields supporting both wrapper schemas
-  const contactName = contact.name || (contact.target ? `${contact.target.first_name || ""} ${contact.target.last_name || ""}`.trim() : "") || "Unknown Contact";
+  const contactName = contact.name || 
+    `${contact.first_name || contact.target?.first_name || ""} ${contact.last_name || contact.target?.last_name || ""}`.trim() || 
+    "Unknown Contact";
   const contactEmail = contact.email || contact.target?.email || "-";
   const contactPhone = contact.phone || contact.target?.phone || "-";
   const contactAvatar = contact.avatar_url || contact.target?.avatar_url || "";
@@ -123,9 +190,9 @@ export default function ContactPage() {
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end" className="dark:bg-gray-800">
-            <DropdownMenuItem className="cursor-pointer dark:hover:bg-gray-700">Edit Contact</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer dark:hover:bg-gray-700">Share Contact</DropdownMenuItem>
-            <DropdownMenuItem className="cursor-pointer dark:hover:bg-gray-700 text-red-600 dark:text-red-400">Delete Contact</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowEditModal(true)} className="cursor-pointer dark:hover:bg-gray-700">Edit Contact</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowShareModal(true)} className="cursor-pointer dark:hover:bg-gray-700">Share Contact</DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowDeleteModal(true)} className="cursor-pointer dark:hover:bg-gray-700 text-red-600 dark:text-red-400">Delete Contact</DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       </div>
@@ -234,6 +301,76 @@ export default function ContactPage() {
           </div>
         </div>
       </div>
+
+      {/* Edit Contact Dialog */}
+      <Dialog open={showEditModal} onOpenChange={setShowEditModal}>
+        <DialogContent className="sm:max-w-[425px] rounded-2xl dark:bg-gray-850 dark:border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">Edit Contact</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-1">
+              <label htmlFor="first_name" className="text-xs font-semibold text-gray-550 dark:text-gray-400 uppercase tracking-wider">First Name</label>
+              <input
+                id="first_name"
+                type="text"
+                value={editFirstName}
+                onChange={(e) => setEditFirstName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-sm"
+              />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="last_name" className="text-xs font-semibold text-gray-550 dark:text-gray-400 uppercase tracking-wider">Last Name</label>
+              <input
+                id="last_name"
+                type="text"
+                value={editLastName}
+                onChange={(e) => setEditLastName(e.target.value)}
+                className="w-full px-4 py-2.5 border border-gray-200 dark:border-gray-700 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 dark:bg-gray-800 dark:text-white text-sm"
+              />
+            </div>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 border-t border-gray-100 dark:border-gray-800/80 pt-4">
+            <Button variant="ghost" onClick={() => setShowEditModal(false)} className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateContact} className="bg-blue-600 hover:bg-blue-700 text-white rounded-xl">
+              Save Changes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete Contact Confirmation Dialog */}
+      <Dialog open={showDeleteModal} onOpenChange={setShowDeleteModal}>
+        <DialogContent className="sm:max-w-[400px] rounded-2xl dark:bg-gray-850 dark:border-gray-800">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold text-gray-900 dark:text-white">Delete Contact</DialogTitle>
+          </DialogHeader>
+          <div className="py-4">
+            <p className="text-sm text-gray-600 dark:text-gray-400 leading-relaxed">
+              Are you sure you want to delete <span className="font-semibold text-gray-900 dark:text-white">{contactName}</span> from your contacts? This action cannot be undone.
+            </p>
+          </div>
+          <DialogFooter className="gap-2 sm:gap-0 border-t border-gray-100 dark:border-gray-800/80 pt-4">
+            <Button variant="ghost" onClick={() => setShowDeleteModal(false)} className="rounded-xl hover:bg-gray-100 dark:hover:bg-gray-800">
+              Cancel
+            </Button>
+            <Button onClick={handleDeleteContact} className="bg-red-600 hover:bg-red-700 text-white rounded-xl">
+              Delete
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Share Contact Dialog */}
+      <ShareContactDialog
+        open={showShareModal}
+        onClose={() => setShowShareModal(false)}
+        contactToShare={contact}
+        userId={Cookies.get("user_id") || ""}
+        tenantId={Cookies.get("tenant_id") || ""}
+      />
     </div>
   );
 }

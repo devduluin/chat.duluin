@@ -120,7 +120,7 @@ export function ContactInfoModal({
   const displayName = isGroup
     ? contact.name
     : (resolvedContact
-        ? (resolvedContact.name || (resolvedContact.target ? `${resolvedContact.target.first_name || ""} ${resolvedContact.target.last_name || ""}`.trim() : ""))
+        ? (resolvedContact.name || `${resolvedContact.first_name || resolvedContact.target?.first_name || ""} ${resolvedContact.last_name || resolvedContact.target?.last_name || ""}`.trim())
         : contact.name) || "Chat";
 
   const displayEmail = isGroup

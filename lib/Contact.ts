@@ -12,6 +12,8 @@ interface ContactData {
   target: Contact;
   updated_at: string;
   conversation_id: string; // Added for conversation ID
+  first_name?: string;
+  last_name?: string;
 }
 
 interface Contact {
