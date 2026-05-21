@@ -182,20 +182,28 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             return;
           }
 
-          const { createConversation } = await import("@/services/conversationService");
-          const convResult = await createConversation({
-            name: "",
-            user_id: userId,
-            tenant_id: tenantId || userId,
-            is_group: false,
-            member_ids: [targetUserId],
+          const { useConversationsStore } = await import("@/store/useConversationsStore");
+          const { conversations } = useConversationsStore.getState();
+          const existingConv = conversations.find((conv: any) => {
+            if (conv.Conversation?.is_group) return false;
+
+            const members = conv.Conversation?.members || [];
+            if (conv.other_user_id === targetUserId) return true;
+
+            if (members.length === 2) {
+              const hasCurrentUser = members.some((m: any) => m.user_id === userId);
+              const hasTargetUser = members.some((m: any) => m.user_id === targetUserId);
+              return hasCurrentUser && hasTargetUser;
+            }
+            return false;
           });
 
-          if (convResult && convResult.status && convResult.data) {
+          if (existingConv) {
             toast.success("Membuka obrolan...");
-            router.push(`/conversation/${convResult.data.id}`);
+            router.push(`/conversation/${existingConv.Conversation.id}`);
           } else {
-            toast.error("Gagal memulai obrolan dengan kontak ini.");
+            toast.success("Membuka halaman obrolan baru...");
+            router.push(`/conversation/new?contact=${targetUserId}`);
           }
         } else {
           toast.error("Kontak tidak terdaftar di platform duluin.");
