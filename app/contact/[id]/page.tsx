@@ -72,7 +72,8 @@ export default function ContactPage() {
   const handleDeleteContact = async () => {
     try {
       toast.loading("Deleting contact...", { id: "delete-contact" });
-      const response = await deleteContact(params.id as string);
+      const userId = Cookies.get("user_id") || "";
+      const response = await deleteContact(params.id as string, userId);
       toast.dismiss("delete-contact");
 
       if (response && response.status) {
