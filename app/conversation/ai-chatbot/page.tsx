@@ -32,6 +32,44 @@ interface ChatMessage {
 
 const EMPTY_MESSAGES: any[] = [];
 
+// Secure and lightweight Markdown-to-React parser to render bold, strikethrough, and italic correctly
+const renderFormattedMessage = (content: string) => {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+
+  return lines.map((line, lineIndex) => {
+    // Regex for bold (**), strikethrough (~~), double underscore italic (__), single underscore italic (_), single asterisk italic (*)
+    const regex = /(\*\*.*?\*\*|~~.*?~~|__.*?__|_[^_]+?_|\*[^*]+?\*)/g;
+    const parts = line.split(regex);
+
+    const renderedLine = parts.map((part, partIndex) => {
+      if (part.startsWith('**') && part.endsWith('**')) {
+        return <strong key={partIndex} className="font-bold">{part.slice(2, -2)}</strong>;
+      }
+      if (part.startsWith('~~') && part.endsWith('~~')) {
+        return <del key={partIndex} className="line-through opacity-80">{part.slice(2, -2)}</del>;
+      }
+      if (part.startsWith('__') && part.endsWith('__')) {
+        return <em key={partIndex} className="italic">{part.slice(2, -2)}</em>;
+      }
+      if (part.startsWith('_') && part.endsWith('_')) {
+        return <em key={partIndex} className="italic">{part.slice(1, -1)}</em>;
+      }
+      if (part.startsWith('*') && part.endsWith('*')) {
+        return <em key={partIndex} className="italic">{part.slice(1, -1)}</em>;
+      }
+      return part;
+    });
+
+    return (
+      <div key={lineIndex} className="min-h-[1.25rem]">
+        {renderedLine}
+      </div>
+    );
+  });
+};
+
 export default function AIChatbotPage() {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [inputText, setInputText] = useState("");
@@ -600,9 +638,9 @@ export default function AIChatbotPage() {
                         : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700"
                     }`}
                   >
-                    <p className="text-sm whitespace-pre-wrap">
-                      {message.content}
-                    </p>
+                    <div className="text-sm whitespace-pre-wrap leading-relaxed">
+                      {renderFormattedMessage(message.content)}
+                    </div>
                   </div>
                   <div className="flex items-center gap-2 mt-1 px-2">
                     <span className="text-xs text-gray-500 dark:text-gray-400">
