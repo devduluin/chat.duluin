@@ -5,7 +5,7 @@ import { Sidebar } from "@/components/chat/Sidebar";
 import { useState, useEffect, useRef } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Bot, ArrowLeft, Send, Loader2 } from "lucide-react";
+import { Bot, ArrowLeft, Send, Loader2, ChevronDown } from "lucide-react";
 import Link from "next/link";
 import { sendToNLP } from "@/services/nlpService";
 import {
@@ -38,7 +38,8 @@ export default function AIChatbotPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
-  const [agentRole, setAgentRole] = useState<"employee" | "company">("employee");
+  const [agentRole, setAgentRole] = useState<"employee" | "company" | "accounting">("employee");
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { data: account } = useAccountStore();
   const { isOnline } = useOfflineQueueStore();
@@ -49,6 +50,47 @@ export default function AIChatbotPage() {
   const userId = userIdFromCookies;
   const hrisCompany = account?.accounts?.hris_company || account?.account?.hris_company || account?.hris_company;
   const hrisEmployee = account?.accounts?.hris_employee || account?.account?.hris_employee || account?.hris_employee;
+  const hrisAccounting = account?.accounts?.duluin_accounting || account?.account?.duluin_accounting || account?.duluin_accounting;
+
+  // Role Configurations (Highly Scalable for 3+ apps in the future)
+  const rolesConfig = [
+    {
+      id: "employee" as const,
+      label: "Tanya sebagai Karyawan",
+      icon: "👤",
+      description: "Absensi, slip gaji, & cuti pribadi Anda",
+      dotClass: "bg-blue-500",
+      activeText: "text-blue-600 dark:text-blue-400",
+      activeBg: "bg-blue-50 dark:bg-blue-950/40 border-blue-100 dark:border-blue-900/50"
+    },
+    {
+      id: "company" as const,
+      label: "Tanya sebagai Perusahaan (HRD)",
+      icon: "🏢",
+      description: "Analisis performa & kehadiran karyawan",
+      dotClass: "bg-purple-500",
+      activeText: "text-purple-600 dark:text-purple-400",
+      activeBg: "bg-purple-50 dark:bg-purple-950/40 border-purple-100 dark:border-purple-900/50"
+    },
+    {
+      id: "accounting" as const,
+      label: "Tanya sebagai Akuntan (Accounting)",
+      icon: "📊",
+      description: "Analisis laporan & keuangan perusahaan",
+      dotClass: "bg-emerald-500",
+      activeText: "text-emerald-600 dark:text-emerald-400",
+      activeBg: "bg-emerald-50 dark:bg-emerald-950/40 border-emerald-100 dark:border-emerald-900/50"
+    }
+  ];
+
+  const allowedRoles = rolesConfig.filter(role => {
+    if (role.id === "employee") return true;
+    if (role.id === "company") return (hrisCompany && hrisEmployee) || account?.email === "agus.setiawan@duluin.com" || userId === "1910db6e-39d7-499c-a128-dde4c25b66f7";
+    if (role.id === "accounting") return hrisAccounting || account?.email === "agus.setiawan@duluin.com" || userId === "1910db6e-39d7-499c-a128-dde4c25b66f7";
+    return false;
+  });
+
+  const activeRoleConfig = rolesConfig.find(r => r.id === agentRole) || rolesConfig[0];
 
   // Auto scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -441,36 +483,73 @@ export default function AIChatbotPage() {
           </div>
         </div>
 
-        {/* Premium Role Switcher */}
-        {(hrisCompany && hrisEmployee || account?.email === "agus.setiawan@duluin.com" || userId === "1910db6e-39d7-499c-a128-dde4c25b66f7") && (
-          <div className="flex justify-center items-center py-2 px-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 transition-all duration-300">
-            <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-900 rounded-full border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`rounded-full px-4 py-1 text-xs font-medium transition-all duration-300 flex items-center gap-1.5 ${
-                  agentRole === "employee"
-                    ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }`}
-                onClick={() => setAgentRole("employee")}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
-                👤 Tanya sebagai Karyawan
-              </Button>
-              <Button
-                variant="ghost"
-                size="sm"
-                className={`rounded-full px-4 py-1 text-xs font-medium transition-all duration-300 flex items-center gap-1.5 ${
-                  agentRole === "company"
-                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm font-semibold"
-                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
-                }`}
-                onClick={() => setAgentRole("company")}
-              >
-                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
-                🏢 Tanya sebagai Perusahaan (HRD)
-              </Button>
+        {/* Premium Role Selector Dropdown (Supports 3+ apps seamlessly) */}
+        {allowedRoles.length > 1 && (
+          <div className="flex justify-between items-center py-2.5 px-4 sm:px-6 bg-white/70 dark:bg-gray-900/70 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800/80 transition-all duration-300">
+            <div className="flex items-center gap-2 flex-1 sm:flex-initial">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500 whitespace-nowrap flex-shrink-0">
+                Mode Obrolan:
+              </span>
+              <div className="relative">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={`rounded-full px-3 sm:px-4 py-1.5 text-xs font-semibold transition-all duration-300 flex items-center gap-2 border shadow-sm ${activeRoleConfig.activeBg} ${activeRoleConfig.activeText}`}
+                  onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+                >
+                  <span className={`w-1.5 h-1.5 rounded-full ${activeRoleConfig.dotClass} animate-pulse flex-shrink-0`}></span>
+                  <span className="whitespace-nowrap">{activeRoleConfig.icon} {activeRoleConfig.label}</span>
+                  <ChevronDown className={`w-3.5 h-3.5 ml-0.5 transition-transform duration-300 flex-shrink-0 ${isDropdownOpen ? "rotate-180" : ""}`} />
+                </Button>
+
+                {/* Dropdown Menu */}
+                {isDropdownOpen && (
+                  <>
+                    <div 
+                      className="fixed inset-0 z-30" 
+                      onClick={() => setIsDropdownOpen(false)}
+                    />
+                    <div className="absolute left-0 mt-2 w-64 sm:w-72 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800/80 rounded-2xl shadow-xl z-40 py-2 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
+                      <div className="px-4 py-2 border-b border-gray-100 dark:border-gray-800/60 mb-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400 dark:text-gray-500">
+                          Pilih Sudut Pandang AI
+                        </span>
+                      </div>
+                      {allowedRoles.map((role) => {
+                        const isActive = role.id === agentRole;
+                        return (
+                          <button
+                            key={role.id}
+                            className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 flex items-start gap-3 transition-colors duration-200 ${
+                              isActive ? "bg-gray-50 dark:bg-gray-800/50" : ""
+                            }`}
+                            onClick={() => {
+                              setAgentRole(role.id);
+                              setIsDropdownOpen(false);
+                            }}
+                          >
+                            <span className="text-lg mt-0.5">{role.icon}</span>
+                            <div className="flex flex-col gap-0.5">
+                              <span className={`text-xs font-semibold ${isActive ? role.activeText : "text-gray-700 dark:text-gray-300"}`}>
+                                {role.label}
+                              </span>
+                              <span className="text-[10px] text-gray-400 dark:text-gray-500 font-normal leading-normal">
+                                {role.description}
+                              </span>
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+
+            {/* Premium Indicator Badge - Hidden on small mobile screens to prevent cramming */}
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1 rounded-full bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[10px] font-semibold shadow-sm whitespace-nowrap flex-shrink-0">
+              <span className="w-1 h-1 rounded-full bg-amber-500 animate-ping"></span>
+              ✨ AI Multi-App Hub
             </div>
           </div>
         )}
