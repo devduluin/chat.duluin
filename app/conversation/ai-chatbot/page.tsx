@@ -122,13 +122,26 @@ export default function AIChatbotPage() {
   ];
 
   const allowedRoles = rolesConfig.filter(role => {
-    if (role.id === "employee") return true;
-    if (role.id === "company") return (hrisCompany && hrisEmployee) || account?.email === "agus.setiawan@duluin.com" || userId === "1910db6e-39d7-499c-a128-dde4c25b66f7";
-    if (role.id === "accounting") return hrisAccounting || account?.email === "agus.setiawan@duluin.com" || userId === "1910db6e-39d7-499c-a128-dde4c25b66f7";
+    if (role.id === "employee") {
+      return hrisEmployee && hrisEmployee.secondary_id && hrisEmployee.secondary_id.trim() !== "" && hrisEmployee.is_active === true;
+    }
+    if (role.id === "company") {
+      return hrisCompany && hrisCompany.secondary_id && hrisCompany.secondary_id.trim() !== "" && hrisCompany.is_active === true;
+    }
+    if (role.id === "accounting") {
+      return hrisAccounting && hrisAccounting.secondary_id && hrisAccounting.secondary_id.trim() !== "" && hrisAccounting.is_active === true;
+    }
     return false;
   });
 
   const activeRoleConfig = rolesConfig.find(r => r.id === agentRole) || rolesConfig[0];
+
+  // Dynamic fallback: set agentRole to the first allowed role if current role is not allowed
+  useEffect(() => {
+    if (allowedRoles.length > 0 && !allowedRoles.some(r => r.id === agentRole)) {
+      setAgentRole(allowedRoles[0].id);
+    }
+  }, [allowedRoles, agentRole]);
 
   // Auto scroll to bottom when new messages arrive
   const scrollToBottom = () => {
