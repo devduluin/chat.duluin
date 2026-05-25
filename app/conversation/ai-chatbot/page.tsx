@@ -38,6 +38,7 @@ export default function AIChatbotPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const [agentRole, setAgentRole] = useState<"employee" | "company">("employee");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { data: account } = useAccountStore();
   const { isOnline } = useOfflineQueueStore();
@@ -46,6 +47,8 @@ export default function AIChatbotPage() {
   const userIdFromCookies =
     typeof window !== "undefined" ? Cookies.get("user_id") || "" : "";
   const userId = userIdFromCookies;
+  const hrisCompany = account?.accounts?.hris_company || account?.account?.hris_company || account?.hris_company;
+  const hrisEmployee = account?.accounts?.hris_employee || account?.account?.hris_employee || account?.hris_employee;
 
   // Auto scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -295,7 +298,8 @@ export default function AIChatbotPage() {
           const success = sendMessage({
             type: "ai_message",
             conversation_id: conversationId,
-            content: messageContent
+            content: messageContent,
+            agent_role: agentRole
           });
           
           if (!success) {
@@ -436,6 +440,40 @@ export default function AIChatbotPage() {
             </div>
           </div>
         </div>
+
+        {/* Premium Role Switcher */}
+        {(hrisCompany && hrisEmployee || account?.email === "agus.setiawan@duluin.com" || userId === "1910db6e-39d7-499c-a128-dde4c25b66f7") && (
+          <div className="flex justify-center items-center py-2 px-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-700 transition-all duration-300">
+            <div className="inline-flex p-1 bg-gray-100 dark:bg-gray-900 rounded-full border border-gray-200/50 dark:border-gray-700/50 shadow-inner">
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`rounded-full px-4 py-1 text-xs font-medium transition-all duration-300 flex items-center gap-1.5 ${
+                  agentRole === "employee"
+                    ? "bg-white dark:bg-gray-800 text-blue-600 dark:text-blue-400 shadow-sm font-semibold"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+                onClick={() => setAgentRole("employee")}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse"></span>
+                👤 Tanya sebagai Karyawan
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className={`rounded-full px-4 py-1 text-xs font-medium transition-all duration-300 flex items-center gap-1.5 ${
+                  agentRole === "company"
+                    ? "bg-white dark:bg-gray-800 text-purple-600 dark:text-purple-400 shadow-sm font-semibold"
+                    : "text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white"
+                }`}
+                onClick={() => setAgentRole("company")}
+              >
+                <span className="w-1.5 h-1.5 rounded-full bg-purple-500 animate-pulse"></span>
+                🏢 Tanya sebagai Perusahaan (HRD)
+              </Button>
+            </div>
+          </div>
+        )}
 
         {/* Offline Banner */}
         {!isOnline && (
