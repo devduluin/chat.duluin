@@ -39,14 +39,30 @@ export function VoiceCallOverlay({
           
           {/* Header Status */}
           <div className="flex flex-col items-center space-y-2 mt-4 text-center">
-            <span className="px-3 py-1 text-xs font-semibold text-emerald-400 bg-emerald-950/40 border border-emerald-900 rounded-full flex items-center space-x-1 animate-pulse">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400"></span>
-              <span>{isConnecting ? "Connecting..." : "On Call"}</span>
+            <span className={`px-3 py-1 text-xs font-semibold border rounded-full flex items-center space-x-1 animate-pulse ${
+              isConnecting
+                ? "text-blue-400 bg-blue-950/40 border-blue-900"
+                : participants.length === 0
+                ? "text-amber-400 bg-amber-950/40 border-amber-900"
+                : "text-emerald-400 bg-emerald-950/40 border-emerald-900"
+            }`}>
+              <span className={`w-1.5 h-1.5 rounded-full ${
+                isConnecting ? "bg-blue-400" : participants.length === 0 ? "bg-amber-400" : "bg-emerald-400"
+              }`}></span>
+              <span>
+                {isConnecting
+                  ? "Connecting..."
+                  : participants.length === 0
+                  ? "Ringing..."
+                  : "On Call"}
+              </span>
             </span>
             <h3 className="text-2xl font-bold text-white tracking-wide">{displayName}</h3>
             <p className="text-sm text-gray-400">
               {isConnecting
                 ? "Connecting WebRTC Tunnel..."
+                : participants.length === 0
+                ? "Waiting for answer..."
                 : `${participants.length + 1} participant(s) in call`}
             </p>
           </div>

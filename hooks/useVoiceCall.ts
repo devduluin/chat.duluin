@@ -186,7 +186,7 @@ export const useVoiceCall = (
           if (prev.some((p) => p.sid === participant.sid)) return prev;
           return [...prev, participant];
         });
-        toast.info(`${participant.name || participant.identity} joined the call`);
+        toast.success(`${participant.name || participant.identity} answered the call!`);
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
@@ -255,7 +255,10 @@ export const useVoiceCall = (
       setIsCalling(true);
       setIsConnecting(false);
       setParticipants(Array.from(room.remoteParticipants.values()));
-      toast.success("Voice call connected!");
+      
+      if (room.remoteParticipants.size > 0) {
+        toast.success("Voice call connected!");
+      }
       
       if (onCallConnected) {
         onCallConnected();
