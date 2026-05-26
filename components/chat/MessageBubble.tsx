@@ -29,6 +29,8 @@ import {
   Loader2,
   RefreshCw,
   Phone,
+  User,
+  Mail,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -52,6 +54,9 @@ import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useRetryMessage } from "@/hooks/useRetryMessage";
 import { useContactsStore } from "@/store/useContactStore";
+import { Button } from "../ui/button";
+import { useRouter } from "next/navigation";
+import Cookies from "js-cookie";
 
 interface Reaction {
   emoji: string;
@@ -86,6 +91,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     ref,
   ) => {
     const isCurrentUser = message.sender?.id === userId;
+    const router = useRouter();
+    const [loadingContactChat, setLoadingContactChat] = useState(false);
     const isVoiceCallMessage =
       message.content?.startsWith("📞 Panggilan suara aktif") ||
       message.content?.startsWith("📞 Suara panggilan berakhir") ||
@@ -125,6 +132,88 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         }
       }
       return `${sender.first_name || ""} ${sender.last_name || ""}`.trim() || "User";
+    };
+
+    const parseContactCard = (content: string) => {
+      const lines = content.split("\n");
+      let name = "";
+      let phone = "";
+      let email = "";
+
+      for (const line of lines) {
+        if (line.startsWith("Nama:")) {
+          name = line.replace("Nama:", "").trim();
+        } else if (line.startsWith("Telepon:")) {
+          phone = line.replace("Telepon:", "").trim();
+        } else if (line.startsWith("Email:")) {
+          email = line.replace("Email:", "").trim();
+        }
+      }
+
+      return { name, phone, email };
+    };
+
+    const handleContactMessageClick = async (phone: string) => {
+      if (!phone || phone === "-") {
+        toast.error("Nomor telepon tidak valid.");
+        return;
+      }
+
+      setLoadingContactChat(true);
+      try {
+        const { searchContact } = await import("@/services/v1/contactService");
+        const result = await searchContact(phone);
+        if (result && result.status && result.data) {
+          const targetUser = result.data;
+          const targetUserId = targetUser.id;
+
+          const userId = Cookies.get("user_id") || "";
+          const tenantId = Cookies.get("tenant_id") || "";
+
+          if (!userId) {
+            toast.error("Sesi Anda telah berakhir. Silakan login kembali.");
+            setLoadingContactChat(false);
+            return;
+          }
+
+          if (targetUserId === userId) {
+            toast.error("Anda tidak bisa memulai chat dengan diri Anda sendiri.");
+            setLoadingContactChat(false);
+            return;
+          }
+
+          const { useConversationsStore } = await import("@/store/useConversationsStore");
+          const { conversations } = useConversationsStore.getState();
+          const existingConv = conversations.find((conv: any) => {
+            if (conv.Conversation?.is_group) return false;
+
+            const members = conv.Conversation?.members || [];
+            if (conv.other_user_id === targetUserId) return true;
+
+            if (members.length === 2) {
+              const hasCurrentUser = members.some((m: any) => m.user_id === userId);
+              const hasTargetUser = members.some((m: any) => m.user_id === targetUserId);
+              return hasCurrentUser && hasTargetUser;
+            }
+            return false;
+          });
+
+          if (existingConv) {
+            toast.success("Membuka obrolan...");
+            router.push(`/conversation/${existingConv.Conversation.id}`);
+          } else {
+            toast.success("Membuka halaman obrolan baru...");
+            router.push(`/conversation/new?contact=${targetUserId}`);
+          }
+        } else {
+          toast.error("Kontak tidak terdaftar di platform duluin.");
+        }
+      } catch (err: any) {
+        console.error("Failed to start conversation from contact card:", err);
+        toast.error(err?.message || "Terjadi kesalahan saat menghubungi kontak.");
+      } finally {
+        setLoadingContactChat(false);
+      }
     };
 
     const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
@@ -535,6 +624,79 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                         <div className="flex items-center space-x-3 p-1 text-gray-500 dark:text-gray-400 font-semibold">
                           <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                           <span className="text-sm">Suara Panggilan Berakhir</span>
+                        </div>
+                      ) : message.content.includes("KARTU KONTAK") ? (
+                        <div className="flex flex-col space-y-3 p-1">
+                          <div className={cn(
+                            "flex items-center space-x-2 font-semibold",
+                            isCurrentUser ? "text-white" : "text-blue-600 dark:text-blue-400"
+                          )}>
+                            <div className={cn(
+                              "p-1 rounded",
+                              isCurrentUser ? "bg-white/20 text-white" : "bg-blue-50 dark:bg-blue-950/40 text-blue-600 dark:text-blue-400"
+                            )}>
+                              <User className="h-4 w-4" />
+                            </div>
+                            <span className="text-sm font-semibold tracking-wide uppercase">Kartu Kontak</span>
+                          </div>
+                          <div className="space-y-1.5 text-sm">
+                            <p className={cn(
+                              "font-semibold text-base",
+                              isCurrentUser ? "text-white" : "text-gray-900 dark:text-white"
+                            )}>
+                              {(() => {
+                                const parsed = parseContactCard(message.content);
+                                return parsed.name;
+                              })()}
+                            </p>
+                            {(() => {
+                              const parsed = parseContactCard(message.content);
+                              return (
+                                <div className={cn(
+                                  "space-y-1 text-xs",
+                                  isCurrentUser ? "text-blue-100/90" : "text-gray-600 dark:text-gray-300"
+                                )}>
+                                  {parsed.phone && parsed.phone !== "-" && (
+                                    <p className="flex items-center gap-1.5">
+                                      <Phone className="h-3.5 w-3.5 opacity-80" />
+                                      <span>{parsed.phone}</span>
+                                    </p>
+                                  )}
+                                  {parsed.email && parsed.email !== "-" && (
+                                    <p className="flex items-center gap-1.5">
+                                      <Mail className="h-3.5 w-3.5 opacity-80" />
+                                      <span>{parsed.email}</span>
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })()}
+                          </div>
+                          {!isCurrentUser && (
+                            <Button
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const parsed = parseContactCard(message.content);
+                                handleContactMessageClick(parsed.phone);
+                              }}
+                              disabled={loadingContactChat}
+                              className="w-full mt-2 flex items-center justify-center space-x-2 py-1.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all duration-200 shadow-md border border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-blue-500/10 dark:shadow-none"
+                            >
+                              {loadingContactChat ? (
+                                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                              ) : (
+                                <>
+                                  <CornerUpLeft className="h-3.5 w-3.5 transform scale-x-[-1] fill-current" />
+                                  <span>Kirim Pesan</span>
+                                </>
+                              )}
+                            </Button>
+                          )}
                         </div>
                       ) : (
                         <p className="break-words whitespace-pre-wrap">

@@ -59,9 +59,11 @@ export async function updateContact(
   }
 }
 
-export async function deleteContact(id: string): Promise<any | null> {
+export async function deleteContact(id: string, userId?: string): Promise<any | null> {
   try {
-    const response = await api.delete(`/contacts/${id}`);
+    const response = await api.delete(`/contacts/${id}`, {
+      params: userId ? { user_id: userId } : undefined,
+    });
     return response.data;
   } catch (error: any) {
     return error?.response?.data;

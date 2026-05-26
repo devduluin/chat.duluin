@@ -355,10 +355,24 @@ export function MessageInput({
       <ContactPicker
         open={showContactPicker}
         onClose={() => setShowContactPicker(false)}
+        userId={userId}
         onSelect={(contact) => {
-          toast("Contact attached!", {
-            description: `${contact.name}`,
+          const target = contact.target || {};
+          const contactName = `${target.first_name || ""} ${target.last_name || ""}`.trim() || contact.name || "Unknown Contact";
+          const contactPhone = target.phone || contact.phone || "-";
+          const contactEmail = target.email || contact.email || "-";
+
+          const contactCardContent = `👤 KARTU KONTAK\nNama: ${contactName}\nTelepon: ${contactPhone}\nEmail: ${contactEmail}`;
+
+          sendMessageOffline({
+            conversationId,
+            content: contactCardContent,
+            senderId: userId,
+            tenantId,
+            sendViaWebSocket: sendMessageViaWebSocket,
           });
+
+          toast.success(`Berhasil membagikan kontak ${contactName}`);
         }}
       />
 

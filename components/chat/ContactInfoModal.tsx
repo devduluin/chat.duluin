@@ -29,7 +29,7 @@ import { updateConversation } from "@services/v1/conversationService";
 import { GroupInfoSection } from "./GroupInfoSection";
 import { PersonalContactActions } from "./PersonalContactActions";
 import { useChatStore } from "@/store/useChatStore";
-import { getContacts } from "@/services/v1/contactService";
+import { getContacts, createContact } from "@/services/v1/contactService";
 
 interface ContactInfoModalProps {
   open: boolean;
@@ -64,6 +64,7 @@ export function ContactInfoModal({
 
   const [resolvedContact, setResolvedContact] = useState<any | null>(null);
   const [loadingDetails, setLoadingDetails] = useState(false);
+  const [isContact, setIsContact] = useState(false);
 
   const currentUserId = typeof window !== "undefined"
     ? document.cookie
@@ -93,6 +94,7 @@ export function ContactInfoModal({
             });
             if (found) {
               setResolvedContact(found);
+              setIsContact(true);
               return;
             }
           }
@@ -104,9 +106,11 @@ export function ContactInfoModal({
               email: (otherMember.user as any).email,
               phone: (otherMember.user as any).phone
             });
+            setIsContact(false);
           }
         } catch (err) {
           console.error("Failed to load contact details in modal:", err);
+          setIsContact(false);
         } finally {
           setLoadingDetails(false);
         }
@@ -114,13 +118,14 @@ export function ContactInfoModal({
       fetchDetails();
     } else {
       setResolvedContact(null);
+      setIsContact(false);
     }
   }, [open, isGroup, currentUserId, otherUserId]);
 
   const displayName = isGroup
     ? contact.name
     : (resolvedContact
-        ? (resolvedContact.name || (resolvedContact.target ? `${resolvedContact.target.first_name || ""} ${resolvedContact.target.last_name || ""}`.trim() : ""))
+        ? (resolvedContact.name || `${resolvedContact.first_name || resolvedContact.target?.first_name || ""} ${resolvedContact.last_name || resolvedContact.target?.last_name || ""}`.trim())
         : contact.name) || "Chat";
 
   const displayEmail = isGroup
@@ -316,6 +321,36 @@ export function ContactInfoModal({
     }
   };
 
+  const handleAddContact = async () => {
+    if (!currentUserId || !otherUserId || !resolvedContact?.target) return;
+    setIsLoading(true);
+    try {
+      const response = (await createContact({
+        userId: currentUserId,
+        firstName: resolvedContact.target.first_name || "",
+        lastName: resolvedContact.target.last_name || "",
+        phone: resolvedContact.target.phone || "",
+        email: resolvedContact.target.email || "",
+        uid: otherUserId,
+      })) as any;
+
+      if (response && response.status) {
+        toast.success("Contact added successfully");
+        setIsContact(true);
+        if (response.data) {
+          setResolvedContact(response.data);
+        }
+      } else {
+        toast.error((response as any)?.message || "Failed to add contact");
+      }
+    } catch (err) {
+      console.error("Failed to add contact:", err);
+      toast.error("Failed to add contact");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[500px]">
@@ -362,9 +397,20 @@ export function ContactInfoModal({
                 </div>
               )}
               {!isGroup && displayStatus && (
-                <Badge variant={displayStatus.toLowerCase() === "online" ? "default" : "outline"} className={`mt-2 px-2.5 py-0.5 text-xs font-semibold capitalize tracking-wide rounded-full ${displayStatus.toLowerCase() === "online" ? "bg-green-500 hover:bg-green-600 text-white" : "text-gray-500"}`}>
-                  {displayStatus}
-                </Badge>
+                <div className="flex flex-col items-center gap-2 mt-2">
+                  <Badge variant={displayStatus.toLowerCase() === "online" ? "default" : "outline"} className={`px-2.5 py-0.5 text-xs font-semibold capitalize tracking-wide rounded-full ${displayStatus.toLowerCase() === "online" ? "bg-green-500 hover:bg-green-600 text-white" : "text-gray-500"}`}>
+                    {displayStatus}
+                  </Badge>
+                  {!isContact && (
+                    <Button
+                      onClick={handleAddContact}
+                      disabled={isLoading}
+                      className="mt-2 bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-4 py-1.5 rounded-full"
+                    >
+                      {isLoading ? "Adding..." : "Add to Contacts"}
+                    </Button>
+                  )}
+                </div>
               )}
             </div>
           </div>

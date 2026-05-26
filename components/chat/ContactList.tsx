@@ -1,38 +1,9 @@
 // components/chat/ContactList.tsx
 "use client"
-import React, { useEffect, useState } from 'react'
+import React, { useEffect } from 'react'
 import { Avatar } from '../ui/avatar'
 import Link from 'next/link'
 import { useContactsList } from "@/hooks/useContacts"
-
-
-
-// const dummyContacts: Contact[] = [
-//   {
-//     id: "1",
-//     name: "John Doe",
-//     avatar_url: "https://randomuser.me/api/portraits/men/32.jpg",
-//     email: "john.doe@example.com",
-//     status: "Available",
-//     is_online: true
-//   },
-//   {
-//     id: "2",
-//     name: "Jane Smith",
-//     avatar_url: "https://randomuser.me/api/portraits/women/44.jpg",
-//     email: "jane.smith@example.com",
-//     status: "In a meeting",
-//     is_online: true
-//   },
-//   {
-//     id: "3",
-//     name: "Robert Johnson",
-//     avatar_url: "https://randomuser.me/api/portraits/men/22.jpg",
-//     email: "robert.j@example.com",
-//     status: "Offline",
-//     is_online: false
-//   }
-// ]
 
 export function ContactList({ userId, searchQuery = "" }: { userId: string; searchQuery?: string }) {
   const { contacts, fetchContactsList } = useContactsList(userId, { page: 1, is_favorite: false });
@@ -55,8 +26,8 @@ export function ContactList({ userId, searchQuery = "" }: { userId: string; sear
 
   // Filter contacts locally based on search query
   const filteredContacts = contacts.filter((contact) => {
-    const firstName = contact.target?.first_name || "";
-    const lastName = contact.target?.last_name || "";
+    const firstName = contact.first_name || contact.target?.first_name || "";
+    const lastName = contact.last_name || contact.target?.last_name || "";
     const email = contact.target?.email || "";
     const fullName = `${firstName} ${lastName}`.toLowerCase();
     const query = searchQuery.toLowerCase().trim();
@@ -74,16 +45,16 @@ export function ContactList({ userId, searchQuery = "" }: { userId: string; sear
         >
           <div className="flex items-center space-x-3">
             <Avatar 
-              src={contact.target.avatar_url || ''} 
-              name={contact.target.first_name + " " + contact.target.last_name} 
+              src={contact.target?.avatar_url || ''} 
+              name={(contact.first_name || contact.target?.first_name || "") + " " + (contact.last_name || contact.target?.last_name || "")} 
               isOnline={contact.target?.is_online}
             />
             <div className="flex-1 min-w-0">
               <h3 className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                {contact.target.first_name} {contact.target.last_name}
+                {contact.first_name || contact.target?.first_name} {contact.last_name || contact.target?.last_name}
               </h3>
               <p className="text-sm text-gray-500 dark:text-gray-400 truncate">
-                {contact.target.email}
+                {contact.target?.email}
               </p>
             </div>
           </div>
