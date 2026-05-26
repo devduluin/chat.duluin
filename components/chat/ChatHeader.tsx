@@ -134,11 +134,10 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
       hasInitiatedAutoCall.current = true;
       startCall();
 
-      // Clean up the URL query parameter
-      const newUrl = window.location.pathname;
-      window.history.replaceState({ ...window.history.state }, "", newUrl);
+      // Clean up the URL query parameter using Next.js router to clear searchParams state
+      router.replace(window.location.pathname, { scroll: false });
     }
-  }, [shouldStartCall, startCall, isCalling, isConnecting]);
+  }, [shouldStartCall, startCall, isCalling, isConnecting, router]);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
