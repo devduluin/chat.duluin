@@ -170,7 +170,8 @@ export default function ContactPage() {
   const contactPhone = contact.phone || contact.target?.phone || "-";
   const contactAvatar = contact.avatar_url || contact.target?.avatar_url || "";
   const contactOnline = contact.is_online || contact.target?.is_online || false;
-  const contactStatus = contact.status || contact.target?.status || (contactOnline ? "Available" : "Offline");
+  const contactStatusRaw = contact.status || contact.target?.status || (contactOnline ? "online" : "offline");
+  const contactStatus = contactStatusRaw === "online" ? "Available" : contactStatusRaw === "away" ? "Away" : "Offline";
 
   return (
     <div className="flex flex-col h-full w-full bg-gray-50 dark:bg-gray-900">
@@ -208,6 +209,7 @@ export default function ContactPage() {
               src={contactAvatar}
               name={contactName}
               size="lg"
+              status={contactStatusRaw}
               isOnline={contactOnline}
               className="h-28 w-28 text-3xl shadow-md border-2 border-white dark:border-gray-800"
             />
@@ -216,7 +218,7 @@ export default function ContactPage() {
           <div className="text-center space-y-1">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{contactName}</h2>
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span className={`h-2.5 w-2.5 rounded-full ${contactOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}></span>
+              <span className={`h-2.5 w-2.5 rounded-full ${contactStatusRaw === "online" ? "bg-green-500 animate-pulse" : contactStatusRaw === "away" ? "bg-amber-500 animate-pulse" : "bg-gray-400"}`}></span>
               <span>{contactStatus}</span>
             </div>
           </div>

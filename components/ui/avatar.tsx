@@ -5,6 +5,7 @@ interface AvatarProps {
   name?: string;
   size?: "sm" | "md" | "lg";
   isOnline?: boolean;
+  status?: string;
   className?: string;
 }
 
@@ -23,6 +24,7 @@ export function Avatar({
   name = "",
   size = "md",
   isOnline,
+  status,
   className,
 }: AvatarProps) {
   const initials = name.trim()
@@ -38,6 +40,16 @@ export function Avatar({
     md: "h-10 w-10 text-sm",
     lg: "h-12 w-12 text-base",
   };
+
+  const statusColor = status
+    ? status === "online"
+      ? "bg-green-500"
+      : status === "away"
+      ? "bg-amber-500"
+      : "bg-gray-400"
+    : isOnline
+    ? "bg-green-500"
+    : null;
 
   return (
     <div className="relative inline-block">
@@ -63,8 +75,11 @@ export function Avatar({
         </div>
       )}
 
-      {isOnline && (
-        <span className="absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full bg-green-500 ring-2 ring-white dark:ring-gray-800" />
+      {statusColor && (
+        <span className={cx(
+          "absolute bottom-0 right-0 block h-2.5 w-2.5 rounded-full ring-2 ring-white dark:ring-gray-800",
+          statusColor
+        )} />
       )}
     </div>
   );

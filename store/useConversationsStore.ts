@@ -21,6 +21,7 @@ interface ConversationsState {
     messageId: string,
     newContent: string
   ) => void;
+  updateConversationUserStatus: (otherUserId: string, status: string) => void;
   clearData: () => void;
 }
 
@@ -195,6 +196,22 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
             conversations: updatedConversations,
           };
         }),
+
+      updateConversationUserStatus: (otherUserId, status) =>
+        set((state) => ({
+          conversations: state.conversations.map((item) => {
+            if ((item as any).other_user_id === otherUserId) {
+              return {
+                ...item,
+                Conversation: {
+                  ...item.Conversation,
+                  status: status,
+                }
+              };
+            }
+            return item;
+          })
+        })),
 
       clearData: () => set(() => ({ conversations: [] })),
     }),

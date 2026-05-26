@@ -374,6 +374,24 @@ export function useGlobalMessageSocket(userId: string) {
 
           const response = JSON.parse(jsonData);
 
+          // Handle User Presence Event
+          if (response.message === "user_presence") {
+            const presence = response.data;
+            if (presence && presence.user_id) {
+              console.log("🟢 Presence update received:", presence);
+              useContactsStore.getState().updateContactStatus(
+                presence.user_id,
+                presence.status,
+                presence.last_seen_at
+              );
+              useConversationsStore.getState().updateConversationUserStatus(
+                presence.user_id,
+                presence.status
+              );
+            }
+            return;
+          }
+
           // Handle Custom Events (Contact Sync)
           if (response.message === "contact_sync_started") {
              console.log("🔄 Contact sync started");
