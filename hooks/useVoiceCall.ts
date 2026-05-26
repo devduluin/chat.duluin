@@ -96,7 +96,7 @@ export const useVoiceCall = (
   conversationId: string,
   userId: string,
   userName: string,
-  onCallConnected?: () => void,
+  onCallConnected?: (isInitiator: boolean) => void,
   onCallEnded?: () => void
 ) => {
   const [isCalling, setIsCalling] = useState(false);
@@ -118,13 +118,15 @@ export const useVoiceCall = (
   }, []);
 
   const leaveCall = useCallback(async () => {
-    if (roomRef.current) {
+    const room = roomRef.current;
+    if (room) {
+      // Set to null immediately before disconnect to prevent re-entrant calls
+      roomRef.current = null;
       try {
-        roomRef.current.disconnect();
+        room.disconnect();
       } catch (err) {
         console.error("Error disconnecting room:", err);
       }
-      roomRef.current = null;
     }
     
     // Stop outgoing ringtone
@@ -184,7 +186,7 @@ export const useVoiceCall = (
           if (prev.some((p) => p.sid === participant.sid)) return prev;
           return [...prev, participant];
         });
-        toast.info(`${participant.name || participant.identity} joined the call`);
+        toast.success(`${participant.name || participant.identity} answered the call!`);
       });
 
       room.on(RoomEvent.ParticipantDisconnected, (participant) => {
@@ -253,10 +255,15 @@ export const useVoiceCall = (
       setIsCalling(true);
       setIsConnecting(false);
       setParticipants(Array.from(room.remoteParticipants.values()));
-      toast.success("Voice call connected!");
       
+      if (room.remoteParticipants.size > 0) {
+        toast.success("Voice call connected!");
+      }
+      
+      const isInitiator = room.remoteParticipants.size === 0;
+
       if (onCallConnected) {
-        onCallConnected();
+        onCallConnected(isInitiator);
       }
     } catch (error: any) {
       console.error("Failed to start voice call:", error);

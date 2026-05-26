@@ -13,7 +13,7 @@ import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { ContactPicker } from "./ContactPicker";
 import { useConversationsStore } from "@/store/useConversationsStore";
@@ -68,7 +68,13 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
 
   const [callMessageId, setCallMessageId] = useState<string | null>(null);
 
-  const handleCallConnected = useCallback(() => {
+  const handleCallConnected = useCallback((isInitiator?: boolean) => {
+    // Hanya inisiator/pemanggil pertama yang diperbolehkan mengirim notifikasi panggilan aktif
+    if (isInitiator === false) {
+      console.log("ℹ️ Joined as responder. Skipping call notification message.");
+      return;
+    }
+
     const tenantId = Cookies.get("tenant_id") || userId;
     sendMessage({
       conversationId,
@@ -126,16 +132,18 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     toggleMute,
   } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected, handleCallEnded);
 
+  const hasInitiatedAutoCall = useRef(false);
+
   useEffect(() => {
-    if (shouldStartCall && startCall && !isCalling && !isConnecting) {
+    if (shouldStartCall && startCall && !isCalling && !isConnecting && !hasInitiatedAutoCall.current) {
       console.log("🚀 Automatically initiating call from query param!");
+      hasInitiatedAutoCall.current = true;
       startCall();
 
-      // Clean up the URL query parameter
-      const newUrl = window.location.pathname;
-      window.history.replaceState({ ...window.history.state }, "", newUrl);
+      // Clean up the URL query parameter using Next.js router to clear searchParams state
+      router.replace(window.location.pathname, { scroll: false });
     }
-  }, [shouldStartCall, startCall, isCalling, isConnecting]);
+  }, [shouldStartCall, startCall, isCalling, isConnecting, router]);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
