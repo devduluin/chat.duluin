@@ -201,7 +201,8 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
       updateConversationUserStatus: (otherUserId, status) =>
         set((state) => ({
           conversations: state.conversations.map((item) => {
-            if ((item as any).other_user_id === otherUserId) {
+            const currentTargetId = (item as any).other_user_id || (item.Conversation as any).other_user_id;
+            if (currentTargetId && currentTargetId.toLowerCase() === otherUserId.toLowerCase()) {
               return {
                 ...item,
                 Conversation: {

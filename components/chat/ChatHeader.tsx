@@ -49,6 +49,11 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const members = useChatStore((state) => state.members[conversationId]);
   const messages = useChatStore((state) => state.messages[conversationId]);
 
+  const sidebarConv = useConversationsStore((state) => 
+    state.conversations.find((c) => c.Conversation.id === conversationId)
+  );
+  const resolvedStatus = sidebarConv?.Conversation.status || (conversation as any)?.status || "offline";
+
   // Force reactivity by watching store version
   const storeVersion = useChatStore((state) => state._version);
 
@@ -351,15 +356,17 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
                   src={displayAvatar || ""}
                   name={displayName}
                   size="md"
+                  status={resolvedStatus}
+                  isOnline={resolvedStatus === "online"}
                 />
                 <div className="text-left">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {displayName}
                   </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                     {conversation.is_group
                       ? `${members?.length ?? 0} members`
-                      : "Online"}
+                      : resolvedStatus}
                   </p>
                 </div>
               </button>
