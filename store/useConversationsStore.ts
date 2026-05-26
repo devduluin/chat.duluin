@@ -60,6 +60,7 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                     display_avatar: (current as any).display_avatar,
                     unread_count: (current as any).unread_count || 0,
                     is_user_member: (current as any).is_user_member !== false, // Default to true if not specified
+                    status: (current as any).other_user_status || (current.Conversation as any).status,
                   },
                 });
               }

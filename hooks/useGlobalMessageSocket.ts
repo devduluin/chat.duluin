@@ -572,6 +572,7 @@ export function useGlobalMessageSocket(userId: string) {
                       }
 
                       const newConversation: RecentConversation = {
+                        ...conversationData,
                         Conversation: {
                           id: conversationData.Conversation.id,
                           name: conversationData.Conversation.name,
@@ -590,6 +591,7 @@ export function useGlobalMessageSocket(userId: string) {
                           display_avatar:
                             conversationData.display_avatar ||
                             conversationData.Conversation.avatar_url,
+                          status: conversationData.other_user_status,
                           unread_count: 0,
                         } as any,
                         LastMessage: {
