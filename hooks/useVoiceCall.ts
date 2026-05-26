@@ -96,7 +96,7 @@ export const useVoiceCall = (
   conversationId: string,
   userId: string,
   userName: string,
-  onCallConnected?: () => void,
+  onCallConnected?: (isInitiator: boolean) => void,
   onCallEnded?: () => void
 ) => {
   const [isCalling, setIsCalling] = useState(false);
@@ -260,8 +260,10 @@ export const useVoiceCall = (
         toast.success("Voice call connected!");
       }
       
+      const isInitiator = room.remoteParticipants.size === 0;
+
       if (onCallConnected) {
-        onCallConnected();
+        onCallConnected(isInitiator);
       }
     } catch (error: any) {
       console.error("Failed to start voice call:", error);

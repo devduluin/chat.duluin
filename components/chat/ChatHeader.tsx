@@ -68,7 +68,13 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
 
   const [callMessageId, setCallMessageId] = useState<string | null>(null);
 
-  const handleCallConnected = useCallback(() => {
+  const handleCallConnected = useCallback((isInitiator?: boolean) => {
+    // Hanya inisiator/pemanggil pertama yang diperbolehkan mengirim notifikasi panggilan aktif
+    if (isInitiator === false) {
+      console.log("ℹ️ Joined as responder. Skipping call notification message.");
+      return;
+    }
+
     const tenantId = Cookies.get("tenant_id") || userId;
     sendMessage({
       conversationId,
