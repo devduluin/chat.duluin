@@ -13,7 +13,7 @@ import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { ContactPicker } from "./ContactPicker";
 import { useConversationsStore } from "@/store/useConversationsStore";
@@ -126,9 +126,12 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     toggleMute,
   } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected, handleCallEnded);
 
+  const hasInitiatedAutoCall = useRef(false);
+
   useEffect(() => {
-    if (shouldStartCall && startCall && !isCalling && !isConnecting) {
+    if (shouldStartCall && startCall && !isCalling && !isConnecting && !hasInitiatedAutoCall.current) {
       console.log("🚀 Automatically initiating call from query param!");
+      hasInitiatedAutoCall.current = true;
       startCall();
 
       // Clean up the URL query parameter

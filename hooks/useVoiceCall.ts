@@ -118,13 +118,15 @@ export const useVoiceCall = (
   }, []);
 
   const leaveCall = useCallback(async () => {
-    if (roomRef.current) {
+    const room = roomRef.current;
+    if (room) {
+      // Set to null immediately before disconnect to prevent re-entrant calls
+      roomRef.current = null;
       try {
-        roomRef.current.disconnect();
+        room.disconnect();
       } catch (err) {
         console.error("Error disconnecting room:", err);
       }
-      roomRef.current = null;
     }
     
     // Stop outgoing ringtone
