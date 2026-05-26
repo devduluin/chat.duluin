@@ -47,6 +47,7 @@ export function ContactList({ userId, searchQuery = "" }: { userId: string; sear
             <Avatar 
               src={contact.target?.avatar_url || ''} 
               name={(contact.first_name || contact.target?.first_name || "") + " " + (contact.last_name || contact.target?.last_name || "")} 
+              status={contact.target?.status}
               isOnline={contact.target?.is_online}
             />
             <div className="flex-1 min-w-0">
