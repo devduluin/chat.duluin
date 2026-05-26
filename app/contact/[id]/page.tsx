@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getContact, updateContact, deleteContact } from "@/services/v1/contactService";
 import { createConversation } from "@/services/conversationService";
+import { useConversationsStore } from "@/store/useConversationsStore";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ShareContactDialog } from "@/components/chat/ShareContactDialog";
@@ -28,6 +29,7 @@ import {
 export default function ContactPage() {
   const params = useParams();
   const router = useRouter();
+  const conversations = useConversationsStore((state) => state.conversations);
   const [contact, setContact] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -110,7 +112,6 @@ export default function ContactPage() {
 
   const handleStartChat = async () => {
     const userId = Cookies.get("user_id") || "";
-    const tenantId = Cookies.get("tenant_id") || "";
     
     if (!userId) {
       toast.error("Please login to send a message");
@@ -122,24 +123,17 @@ export default function ContactPage() {
     // Resolve target contact ID (either from target nested object or direct fields)
     const targetContactId = contact.target?.id || contact.target_id || contact.id;
 
-    try {
-      toast.info("Opening chat conversation...");
-      const response = await createConversation({
-        name: "",
-        user_id: userId,
-        tenant_id: tenantId || userId,
-        is_group: false,
-        member_ids: [targetContactId]
-      });
-      
-      if (response && response.data) {
-        router.push(`/conversation/${response.data.id}`);
-      } else {
-        toast.error("Failed to start conversation");
-      }
-    } catch (err) {
-      console.error("Failed to start conversation:", err);
-      toast.error("Failed to start conversation");
+    // Check if we already have an active conversation with this user in the store
+    const existingConv = conversations.find(
+      (item: any) => item.other_user_id === targetContactId && !item.Conversation?.is_group
+    );
+
+    if (existingConv && existingConv.Conversation?.id) {
+      toast.info("Opening existing conversation...");
+      router.push(`/conversation/${existingConv.Conversation.id}`);
+    } else {
+      toast.info("Opening new message draft...");
+      router.push(`/conversation/new?contact=${targetContactId}`);
     }
   };
 
