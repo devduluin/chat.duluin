@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useParams, useRouter } from "next/navigation";
-import { Phone, Mail, ChevronLeft, MoreVertical } from "lucide-react";
+import { Phone, Mail, ChevronLeft, MoreVertical, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -107,6 +107,41 @@ export default function ContactPage() {
 
     fetchContact();
   }, [params.id]);
+
+  const handleStartChat = async () => {
+    const userId = Cookies.get("user_id") || "";
+    const tenantId = Cookies.get("tenant_id") || "";
+    
+    if (!userId) {
+      toast.error("Please login to send a message");
+      return;
+    }
+    
+    if (!contact) return;
+    
+    // Resolve target contact ID (either from target nested object or direct fields)
+    const targetContactId = contact.target?.id || contact.target_id || contact.id;
+
+    try {
+      toast.info("Opening chat conversation...");
+      const response = await createConversation({
+        name: "",
+        user_id: userId,
+        tenant_id: tenantId || userId,
+        is_group: false,
+        member_ids: [targetContactId]
+      });
+      
+      if (response && response.data) {
+        router.push(`/conversation/${response.data.id}`);
+      } else {
+        toast.error("Failed to start conversation");
+      }
+    } catch (err) {
+      console.error("Failed to start conversation:", err);
+      toast.error("Failed to start conversation");
+    }
+  };
 
   const handleStartCall = async () => {
     const userId = Cookies.get("user_id") || "";
@@ -223,6 +258,15 @@ export default function ContactPage() {
 
           {/* Action Buttons */}
           <div className="flex space-x-4 pt-2">
+            <Button 
+              onClick={handleStartChat}
+              variant="outline" 
+              size="icon" 
+              className="h-12 w-12 rounded-full border-gray-200 dark:border-gray-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-200"
+              title="Send Message"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
             <Button 
               onClick={handleStartCall}
               variant="outline" 
