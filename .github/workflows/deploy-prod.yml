@@ -23,20 +23,20 @@ jobs:
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H ${{ secrets.PROD_SERVER_IP }} >> ~/.ssh/known_hosts
+          ssh-keyscan -H ${{ vars.PROD_SERVER_IP }} >> ~/.ssh/known_hosts
 
       - name: Deploy to production server
         env:
-          SERVER_IP: ${{ secrets.PROD_SERVER_IP }}
+          SERVER_IP: ${{ vars.PROD_SERVER_IP }}
           SERVER_USER: ${{ secrets.PROD_SERVER_USER }}
-          DEPLOY_PATH: ${{ secrets.PROD_DEPLOY_PATH }}
+          DEPLOY_PATH: ${{ vars.PROD_DEPLOY_PATH }}
         run: |
           # Create necessary directories on server
-          ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }} "mkdir -p ${DEPLOY_PATH}/src"
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }} "mkdir -p ${DEPLOY_PATH}/src"
 
           # Copy Dockerfile and docker-compose files to parent directory
-          scp Dockerfile ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:${DEPLOY_PATH}/
-          scp docker-compose.prod.yml ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:${DEPLOY_PATH}/
+          scp Dockerfile ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }}:${DEPLOY_PATH}/
+          scp docker-compose.prod.yml ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }}:${DEPLOY_PATH}/
 
           # Sync source code to src/ directory (excluding node_modules, .git, etc)
           rsync -avz --delete \
@@ -50,10 +50,10 @@ jobs:
             --exclude 'docker-compose*.yml' \
             --exclude '.github' \
             --exclude '.dockerignore' \
-            ./ ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }}:${DEPLOY_PATH}/src/
+            ./ ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }}:${DEPLOY_PATH}/src/
 
           # Deploy with Docker Compose
-          ssh ${{ secrets.PROD_SERVER_USER }}@${{ secrets.PROD_SERVER_IP }} << 'ENDSSH'
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }} << 'ENDSSH'
             cd ${DEPLOY_PATH}
             
             # Stop and remove existing containers
@@ -72,7 +72,7 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Production deployment completed successfully!"
-          echo "Application should be accessible at https://${{ secrets.PROD_SERVER_IP }} or your production domain"
+          echo "Application should be accessible at https://${{ vars.PROD_SERVER_IP }} or your production domain"
 
       - name: Notify deployment status
         if: always()
