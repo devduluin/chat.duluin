@@ -53,7 +53,7 @@ jobs:
             ./ ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }}:${DEPLOY_PATH}/src/
 
           # Deploy with Docker Compose
-          ssh ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }} << 'ENDSSH'
+          ssh ${{ secrets.PROD_SERVER_USER }}@${{ vars.PROD_SERVER_IP }} << ENDSSH
             cd ${DEPLOY_PATH}
             
             # Stop and remove existing containers
