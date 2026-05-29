@@ -32,6 +32,8 @@ import {
 import { toast } from "sonner";
 import { useVoiceCall } from "@/hooks/useVoiceCall";
 import { VoiceCallOverlay } from "./VoiceCallOverlay";
+import { useVideoCall } from "@/hooks/useVideoCall";
+import { VideoCallOverlay } from "./VideoCallOverlay";
 import Cookies from "js-cookie";
 
 interface ChatHeaderProps {
@@ -48,6 +50,11 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   );
   const members = useChatStore((state) => state.members[conversationId]);
   const messages = useChatStore((state) => state.messages[conversationId]);
+
+  const sidebarConv = useConversationsStore((state) => 
+    state.conversations.find((c) => c.Conversation.id === conversationId)
+  );
+  const resolvedStatus = sidebarConv?.Conversation.status || (conversation as any)?.status || "offline";
 
   // Force reactivity by watching store version
   const storeVersion = useChatStore((state) => state._version);
@@ -121,6 +128,56 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     }
   }, [conversationId, userId, callMessageId]);
 
+  const handleVideoCallConnected = useCallback((isInitiator?: boolean) => {
+    if (isInitiator === false) {
+      console.log("ℹ️ Joined as responder. Skipping video call notification message.");
+      return;
+    }
+
+    const tenantId = Cookies.get("tenant_id") || userId;
+    sendMessage({
+      conversationId,
+      content: "📹 Panggilan video aktif. Buka chat ini dan klik ikon video di kanan atas untuk bergabung.",
+      senderId: userId,
+      tenantId: tenantId,
+    })
+      .then((res: any) => {
+        if (res && res.messageId) {
+          setCallMessageId(res.messageId);
+        }
+      })
+      .catch((err) => console.error("Failed to send video call notification message:", err));
+  }, [conversationId, userId, sendMessage]);
+
+  const handleVideoCallEnded = useCallback(() => {
+    const messages = useChatStore.getState().messages[conversationId] || [];
+    const callMsg = [...messages].reverse().find(
+      (m) => m.content?.startsWith("📹 Panggilan video aktif")
+    );
+
+    const isSender = callMsg ? callMsg.sender_id === userId : true;
+
+    if (!isSender) {
+      console.log("ℹ️ Not the video call message sender. Skipping edit to avoid 403 Forbidden.");
+      return;
+    }
+
+    const targetMessageId = callMsg?.id || callMessageId;
+
+    if (targetMessageId) {
+      import("@/services/v1/messageService").then(({ editMessage }) => {
+        editMessage(targetMessageId, userId, "📹 Video panggilan berakhir")
+          .then((res) => {
+            console.log("Video call message updated to ended successfully:", res);
+            setCallMessageId(null);
+          })
+          .catch((err) => console.error("Failed to update video call message to ended:", err));
+      });
+    } else {
+      console.warn("⚠️ Could not find video call message ID to update for conversation:", conversationId);
+    }
+  }, [conversationId, userId, callMessageId]);
+
   const {
     isCalling,
     isConnecting,
@@ -131,6 +188,20 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     leaveCall,
     toggleMute,
   } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected, handleCallEnded);
+
+  const {
+    isCalling: isVideoCalling,
+    isConnecting: isVideoConnecting,
+    isMuted: isVideoMuted,
+    isCameraOn: isVideoCameraOn,
+    participants: videoParticipants,
+    videoTracks,
+    localVideoTrack,
+    startCall: startVideoCall,
+    leaveCall: leaveVideoCall,
+    toggleMute: toggleVideoMute,
+    toggleCamera: toggleVideoCamera,
+  } = useVideoCall(conversationId, userId, currentUserName, handleVideoCallConnected, handleVideoCallEnded);
 
   const hasInitiatedAutoCall = useRef(false);
 
@@ -351,15 +422,17 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
                   src={displayAvatar || ""}
                   name={displayName}
                   size="md"
+                  status={resolvedStatus}
+                  isOnline={resolvedStatus === "online"}
                 />
                 <div className="text-left">
                   <h2 className="text-lg font-semibold text-gray-900 dark:text-white">
                     {displayName}
                   </h2>
-                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">
                     {conversation.is_group
                       ? `${members?.length ?? 0} members`
-                      : "Online"}
+                      : resolvedStatus}
                   </p>
                 </div>
               </button>
@@ -371,9 +444,9 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
           <Button id="header-phone-button" variant="ghost" size="icon" onClick={startCall}>
             <Phone className="h-5 w-5" />
           </Button>
-          {/* <Button variant="ghost" size="icon">
-          <Video className="h-5 w-5" />
-        </Button> */}
+          <Button id="header-video-button" variant="ghost" size="icon" onClick={startVideoCall}>
+            <Video className="h-5 w-5" />
+          </Button>
 
           {conversation?.is_group && (
             <Button
@@ -416,6 +489,20 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         displayName={displayName}
         onHangUp={leaveCall}
         onToggleMute={toggleMute}
+      />
+
+      <VideoCallOverlay
+        isCalling={isVideoCalling}
+        isConnecting={isVideoConnecting}
+        isMuted={isVideoMuted}
+        isCameraOn={isVideoCameraOn}
+        participants={videoParticipants}
+        videoTracks={videoTracks}
+        localVideoTrack={localVideoTrack}
+        displayName={displayName}
+        onHangUp={leaveVideoCall}
+        onToggleMute={toggleVideoMute}
+        onToggleCamera={toggleVideoCamera}
       />
     </>
   );

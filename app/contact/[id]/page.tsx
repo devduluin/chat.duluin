@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { useParams, useRouter } from "next/navigation";
-import { Phone, Mail, ChevronLeft, MoreVertical } from "lucide-react";
+import { Phone, Mail, ChevronLeft, MoreVertical, MessageSquare } from "lucide-react";
 import Link from "next/link";
 import { Avatar } from "@/components/ui/avatar";
 import {
@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { getContact, updateContact, deleteContact } from "@/services/v1/contactService";
 import { createConversation } from "@/services/conversationService";
+import { useConversationsStore } from "@/store/useConversationsStore";
 import Cookies from "js-cookie";
 import { toast } from "sonner";
 import { ShareContactDialog } from "@/components/chat/ShareContactDialog";
@@ -28,6 +29,7 @@ import {
 export default function ContactPage() {
   const params = useParams();
   const router = useRouter();
+  const conversations = useConversationsStore((state) => state.conversations);
   const [contact, setContact] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -108,6 +110,33 @@ export default function ContactPage() {
     fetchContact();
   }, [params.id]);
 
+  const handleStartChat = async () => {
+    const userId = Cookies.get("user_id") || "";
+    
+    if (!userId) {
+      toast.error("Please login to send a message");
+      return;
+    }
+    
+    if (!contact) return;
+    
+    // Resolve target contact ID (either from target nested object or direct fields)
+    const targetContactId = contact.target?.id || contact.target_id || contact.id;
+
+    // Check if we already have an active conversation with this user in the store
+    const existingConv = conversations.find(
+      (item: any) => item.other_user_id === targetContactId && !item.Conversation?.is_group
+    );
+
+    if (existingConv && existingConv.Conversation?.id) {
+      toast.info("Opening existing conversation...");
+      router.push(`/conversation/${existingConv.Conversation.id}`);
+    } else {
+      toast.info("Opening new message draft...");
+      router.push(`/conversation/new?contact=${targetContactId}`);
+    }
+  };
+
   const handleStartCall = async () => {
     const userId = Cookies.get("user_id") || "";
     const tenantId = Cookies.get("tenant_id") || "";
@@ -170,7 +199,8 @@ export default function ContactPage() {
   const contactPhone = contact.phone || contact.target?.phone || "-";
   const contactAvatar = contact.avatar_url || contact.target?.avatar_url || "";
   const contactOnline = contact.is_online || contact.target?.is_online || false;
-  const contactStatus = contact.status || contact.target?.status || (contactOnline ? "Available" : "Offline");
+  const contactStatusRaw = contact.status || contact.target?.status || (contactOnline ? "online" : "offline");
+  const contactStatus = contactStatusRaw === "online" ? "Available" : contactStatusRaw === "away" ? "Away" : "Offline";
 
   return (
     <div className="flex flex-col h-full w-full bg-gray-50 dark:bg-gray-900">
@@ -208,6 +238,7 @@ export default function ContactPage() {
               src={contactAvatar}
               name={contactName}
               size="lg"
+              status={contactStatusRaw}
               isOnline={contactOnline}
               className="h-28 w-28 text-3xl shadow-md border-2 border-white dark:border-gray-800"
             />
@@ -216,13 +247,22 @@ export default function ContactPage() {
           <div className="text-center space-y-1">
             <h2 className="text-2xl font-bold text-gray-900 dark:text-white">{contactName}</h2>
             <div className="flex items-center justify-center gap-2 text-sm text-gray-500 dark:text-gray-400">
-              <span className={`h-2.5 w-2.5 rounded-full ${contactOnline ? "bg-green-500 animate-pulse" : "bg-gray-400"}`}></span>
+              <span className={`h-2.5 w-2.5 rounded-full ${contactStatusRaw === "online" ? "bg-green-500 animate-pulse" : contactStatusRaw === "away" ? "bg-amber-500 animate-pulse" : "bg-gray-400"}`}></span>
               <span>{contactStatus}</span>
             </div>
           </div>
 
           {/* Action Buttons */}
           <div className="flex space-x-4 pt-2">
+            <Button 
+              onClick={handleStartChat}
+              variant="outline" 
+              size="icon" 
+              className="h-12 w-12 rounded-full border-gray-200 dark:border-gray-700 text-green-600 dark:text-green-400 hover:bg-green-50 dark:hover:bg-green-900/20 hover:border-green-200"
+              title="Send Message"
+            >
+              <MessageSquare className="h-5 w-5" />
+            </Button>
             <Button 
               onClick={handleStartCall}
               variant="outline" 

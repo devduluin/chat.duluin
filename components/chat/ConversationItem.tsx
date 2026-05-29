@@ -33,7 +33,7 @@ export function ConversationItem({
       className="block p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors"
     >
       <div className="flex items-center space-x-3">
-        <Avatar src={displayAvatar} name={displayName} isOnline={true} />
+        <Avatar src={displayAvatar} name={displayName} status={conversation.status} isOnline={conversation.status === "online"} />
         {lastMessage ? (
           <div className="flex-1 min-w-0">
             <div className="flex justify-between items-center">

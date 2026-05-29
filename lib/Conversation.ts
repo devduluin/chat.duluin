@@ -54,6 +54,7 @@ interface ConversationDetails {
   display_name?: string;
   display_avatar?: string;
   unread_count?: number;
+  status?: string;
 }
 
 interface LastMessage {

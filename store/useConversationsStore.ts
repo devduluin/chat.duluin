@@ -21,6 +21,7 @@ interface ConversationsState {
     messageId: string,
     newContent: string
   ) => void;
+  updateConversationUserStatus: (otherUserId: string, status: string) => void;
   clearData: () => void;
 }
 
@@ -59,6 +60,7 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                     display_avatar: (current as any).display_avatar,
                     unread_count: (current as any).unread_count || 0,
                     is_user_member: (current as any).is_user_member !== false, // Default to true if not specified
+                    status: (current as any).other_user_status || (current.Conversation as any).status,
                   },
                 });
               }
@@ -195,6 +197,23 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
             conversations: updatedConversations,
           };
         }),
+
+      updateConversationUserStatus: (otherUserId, status) =>
+        set((state) => ({
+          conversations: state.conversations.map((item) => {
+            const currentTargetId = (item as any).other_user_id || (item.Conversation as any).other_user_id;
+            if (currentTargetId && currentTargetId.toLowerCase() === otherUserId.toLowerCase()) {
+              return {
+                ...item,
+                Conversation: {
+                  ...item.Conversation,
+                  status: status,
+                }
+              };
+            }
+            return item;
+          })
+        })),
 
       clearData: () => set(() => ({ conversations: [] })),
     }),
