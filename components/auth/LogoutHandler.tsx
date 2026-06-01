@@ -43,6 +43,8 @@ export default function LogoutHandler() {
 
         // Clear all cookies
         const cookies = document.cookie.split(";");
+        const hostnameParts = window.location.hostname.split(".");
+        const rootDomain = hostnameParts.length >= 2 ? `.${hostnameParts.slice(-2).join(".")}` : "";
 
         for (let i = 0; i < cookies.length; i++) {
           const cookie = cookies[i];
@@ -54,6 +56,9 @@ export default function LogoutHandler() {
           document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT`;
           document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=${window.location.hostname}`;
           document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=.${window.location.hostname}`;
+          if (rootDomain) {
+            document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=${rootDomain}`;
+          }
         }
 
         // Clear localStorage

@@ -38,8 +38,16 @@ apiAuth.interceptors.response.use(
         clearAuth();
 
         // Clear cookies and storage
-        document.cookie =
-          "app_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        const hostnameParts = window.location.hostname.split(".");
+        const rootDomain = hostnameParts.length >= 2 ? `.${hostnameParts.slice(-2).join(".")}` : "";
+        
+        document.cookie = "app_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT";
+        document.cookie = `app_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=${window.location.hostname}`;
+        document.cookie = `app_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=.${window.location.hostname}`;
+        if (rootDomain) {
+          document.cookie = `app_token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=${rootDomain}`;
+        }
+        
         localStorage.removeItem("auth-storage");
         localStorage.removeItem("account-store");
 
