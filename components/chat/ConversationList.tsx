@@ -60,7 +60,7 @@ export function ConversationList({ userId, searchQuery = "" }: { userId: string;
     fetchDraftUser();
   }, [contactId, recent_conversations]);
 
-  if (loading) {
+  if (loading && recent_conversations.length === 0) {
     return (
       <div className="p-4">
         <div className="animate-pulse space-y-4">
@@ -77,10 +77,10 @@ export function ConversationList({ userId, searchQuery = "" }: { userId: string;
 
   // Filter AI bot and regular conversations locally based on search query
   const query = searchQuery.toLowerCase().trim();
-  
-  const showAIBot = !query || 
-    "ai assistant".includes(query) || 
-    "bot".includes(query) || 
+
+  const showAIBot = !query ||
+    "ai assistant".includes(query) ||
+    "bot".includes(query) ||
     "tanya apa saja kepada asisten ai".includes(query);
 
   // Construct synthetic conversation item for the draft chat
@@ -141,7 +141,7 @@ export function ConversationList({ userId, searchQuery = "" }: { userId: string;
             <div className="flex-1 min-w-0">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-semibold text-gray-900 dark:text-white truncate flex items-center gap-2">
-                  AI Assistant
+                  Citra
                   <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                     Bot
                   </span>

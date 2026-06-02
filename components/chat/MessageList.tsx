@@ -117,8 +117,6 @@ export function MessageList({
   isGroupConversation?: boolean;
 }) {
   const { messages, loading } = useMessages(conversationId, userId);
-  const typingUsersMap = useChatStore((s) => s.typingUsers);
-  const typingUsers = typingUsersMap?.[conversationId] || {};
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [isClient, setIsClient] = useState(false);
@@ -170,7 +168,7 @@ export function MessageList({
     return null;
   }
 
-  if (loading) {
+  if (loading && messages.length === 0) {
     return (
       <div className="flex-1 p-4 overflow-y-auto">
         <div className="animate-pulse space-y-4">
@@ -242,19 +240,7 @@ export function MessageList({
             />
           );
         })}
-        {/* Typing Indicator */}
-      {Object.keys(typingUsers).length > 0 && (
-        <div className="flex items-center gap-2 text-xs text-gray-500 italic px-4 py-2">
-          <div className="flex gap-1">
-            <span className="animate-bounce">●</span>
-            <span className="animate-bounce delay-100">●</span>
-            <span className="animate-bounce delay-200">●</span>
-          </div>
-          <span>
-            {Object.values(typingUsers).join(", ")} is typing...
-          </span>
-        </div>
-      )}
+
       <div ref={messagesEndRef} />
     </div>
     </div>

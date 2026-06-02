@@ -64,6 +64,8 @@ export function MessageInput({
   const fileInputRef = useRef<HTMLInputElement>(null);
   const addMessage = useChatStore((s) => s.addMessage);
   const updateMessageStatus = useChatStore((s) => s.updateMessageStatus);
+  const typingUsersMap = useChatStore((s) => s.typingUsers);
+  const typingUsers = typingUsersMap?.[conversationId] || {};
   const { sendMessage: sendMessageOffline } = useSendMessage();
   const { isOnline } = useOfflineQueueStore();
   const { isConnected: isWebSocketConnected } = useWebSocketStore();
@@ -125,10 +127,10 @@ export function MessageInput({
   const isInMemberList =
     members && members.length > 0
       ? members.some((m: any) => {
-          const memberUserId =
-            m.user_id || m.UserID || m.user?.id || m.User?.id;
-          return memberUserId === userId;
-        })
+        const memberUserId =
+          m.user_id || m.UserID || m.user?.id || m.User?.id;
+        return memberUserId === userId;
+      })
       : undefined; // undefined if no members data yet
 
   // Priority logic:
@@ -327,20 +329,33 @@ export function MessageInput({
       icon: <ImageIcon className="h-4 w-4 mr-2" />,
       action: () => fileInputRef.current?.click(),
     },
-    {
-      name: "Application",
-      icon: <File className="h-4 w-4 mr-2" />,
-      action: () => setShowApplicationPicker(true),
-    },
-    {
-      name: "Task",
-      icon: <CheckSquare className="h-4 w-4 mr-2" />,
-      action: () => setShowTaskCreator(true),
-    },
+    // {
+    //   name: "Application",
+    //   icon: <File className="h-4 w-4 mr-2" />,
+    //   action: () => setShowApplicationPicker(true),
+    // },
+    // {
+    //   name: "Task",
+    //   icon: <CheckSquare className="h-4 w-4 mr-2" />,
+    //   action: () => setShowTaskCreator(true),
+    // },
   ];
 
   return (
     <div className="border-t border-gray-200 dark:border-gray-700 p-4 relative">
+      {/* Floating Typing Indicator */}
+      {Object.keys(typingUsers).length > 0 && (
+        <div className="absolute bottom-full left-0 right-0 bg-white/95 dark:bg-gray-900/95 backdrop-blur-sm border-t border-gray-200 dark:border-gray-700 px-6 py-2 text-xs text-gray-500 italic flex items-center gap-2 z-10 transition-all duration-200 animate-in fade-in slide-in-from-bottom-2">
+          <div className="flex gap-1 items-center">
+            <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></span>
+            <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></span>
+            <span className="w-1.5 h-1.5 bg-gray-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></span>
+          </div>
+          <span>
+            {Object.values(typingUsers).join(", ")} is typing...
+          </span>
+        </div>
+      )}
       {/* Hidden file inputs */}
       <input
         type="file"
@@ -514,9 +529,9 @@ export function MessageInput({
             type="text"
             value={message}
             onChange={(e) => {
-                  setMessage(e.target.value);
-                  handleTyping();
-                }}
+              setMessage(e.target.value);
+              handleTyping();
+            }}
             onClick={handleInputClick}
             onKeyUp={handleKeyUp}
             placeholder="Type a message..."

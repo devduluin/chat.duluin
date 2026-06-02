@@ -19,14 +19,14 @@ import {
 } from "../ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { useAccountStore } from "@/store/useAccountStore";
-import { useGlobalMessageSocket } from "@/hooks/useGlobalMessageSocket";
+import Cookies from "js-cookie";
 
 export function Sidebar() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"chats" | "contacts">("chats");
   const [searchQuery, setSearchQuery] = useState("");
   const { data: account } = useAccountStore();
-  const userId = account?.id || "";
+  const userId = account?.id || (typeof window !== "undefined" ? Cookies.get("user_id") || "" : "");
   const [showNewContact, setShowNewContact] = useState(false);
 
   useEffect(() => {
@@ -36,8 +36,7 @@ export function Sidebar() {
     };
   }, [userId]);
 
-  // Connect to global WebSocket for real-time message notifications
-  useGlobalMessageSocket(userId);
+
 
   // Listen for navigate-home event (when removed from group)
   useEffect(() => {

@@ -27,7 +27,6 @@ export default function ConversationPage() {
   const updateConversation = useConversationsStore((s) => s.updateConversation);
   const conversations = useConversationsStore((s) => s.conversations);
   const isConnected = useWebSocketStore((s) => s.isConnected);
-  const [isAuthChecking, setIsAuthChecking] = useState(true);
 
   // Get userId from account store or fallback to cookies
   const userIdFromCookies =
@@ -63,15 +62,6 @@ export default function ConversationPage() {
   const isGroupConversation =
     currentConversation?.Conversation?.is_group || false;
 
-  // Wait for account store to load (middleware already handles auth redirect)
-  useEffect(() => {
-    // Give time for account store to hydrate from localStorage
-    const timer = setTimeout(() => {
-      setIsAuthChecking(false);
-    }, 100);
-
-    return () => clearTimeout(timer);
-  }, []);
 
   // Initialize WebSocket for real-time messaging (only after auth check and userId available)
   const { sendMessage } = useMessageSocket(
@@ -99,9 +89,9 @@ export default function ConversationPage() {
 
   // Mark conversation as read when opened (only if authenticated and has userId)
   useEffect(() => {
-    if (isAuthChecking) return; // Don't call API until auth is checked
+    if (!userId) return;
 
-    if (conversationId && userId) {
+    if (conversationId) {
       if (markedReadConversationIdRef.current === conversationId) return;
       markedReadConversationIdRef.current = conversationId;
       markConversationAsRead(conversationId, userId)
@@ -113,11 +103,10 @@ export default function ConversationPage() {
           console.error("Failed to mark as read:", error);
         });
     }
-  }, [conversationId, userId, updateConversation, isAuthChecking]);
+  }, [conversationId, userId, updateConversation]);
 
   useEffect(() => {
-    if (isAuthChecking) return;
-    if (!conversationId || !userId) return;
+    if (!userId || !conversationId) return;
     if (!isConnected) return;
     if (!messages || messages.length === 0) return;
 
@@ -145,7 +134,7 @@ export default function ConversationPage() {
     if (sent) {
       lastReadReceiptSentMessageIdRef.current = lastInboundMessage.id;
     }
-  }, [conversationId, userId, isConnected, isAuthChecking, messages, sendMessage]);
+  }, [conversationId, userId, isConnected, messages, sendMessage]);
 
   // Listen for navigate-home event (smooth redirect when removed from group)
   useEffect(() => {
@@ -160,17 +149,6 @@ export default function ConversationPage() {
     };
   }, [router]);
 
-  // Show loading while checking auth
-  if (isAuthChecking) {
-    return (
-      <div className="flex-1 flex items-center justify-center h-screen">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-gray-900 mx-auto mb-4"></div>
-          <p className="text-gray-600">Checking authentication...</p>
-        </div>
-      </div>
-    );
-  }
 
   if (!conversationId) {
     return (

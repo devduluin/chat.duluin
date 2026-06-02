@@ -161,21 +161,21 @@ export default function AIChatbotPage() {
         if (event.data instanceof Blob) return;
 
         const response = JSON.parse(event.data);
-        
+
         // Check if this is a message for our current conversation
         if (
-          response.status && 
-          response.message === "New message" && 
-          response.data && 
+          response.status &&
+          response.message === "New message" &&
+          response.data &&
           response.data.conversation_id === conversationId
         ) {
           const msgData = response.data;
-          
+
           // Determine role based on sender_id
           // AI Bot ID: 1196e18b-c1dc-41aa-946a-0c55e9d64fe6
           const isBot = msgData.sender_id === "1196e18b-c1dc-41aa-946a-0c55e9d64fe6";
           const isMe = msgData.sender_id === userId;
-          
+
           if (isBot) {
             // It's a response from AI
             const newMsg: ChatMessage = {
@@ -184,7 +184,7 @@ export default function AIChatbotPage() {
               content: msgData.content,
               timestamp: msgData.created_at,
             };
-            
+
             setMessages(prev => {
               // Avoid duplicates
               if (prev.some(m => m.id === newMsg.id)) return prev;
@@ -192,7 +192,7 @@ export default function AIChatbotPage() {
               localStorage.setItem("ai-messages", JSON.stringify(updated));
               return updated;
             });
-            
+
             setIsLoading(false); // Stop loading when AI responds
           } else if (isMe) {
             // It's my message confirmed by server (optional: update status)
@@ -211,25 +211,25 @@ export default function AIChatbotPage() {
     // Ideally, we should use a custom event or a store subscription.
     // For this implementation, we'll rely on the fact that useConversationsStore 
     // or useChatStore might be updated by the global socket.
-    
+
     // BUT, for a direct "listen" in this component without refactoring the whole socket architecture:
     // We can add a window event listener that the global socket *could* dispatch, 
     // OR we can poll/subscribe to the store.
-    
+
     // Let's implement a custom event listener that useGlobalMessageSocket dispatches
     // (We need to modify useGlobalMessageSocket to dispatch 'ai-message-received' or similar)
     // OR: simpler approach for now -> we trust the store updates if we were using the chat store.
     // Since this page manages its own state `messages`, we need to sync.
-    
+
     // WORKAROUND: We'll add a listener to the WebSocket object if we can access it, 
     // but it's hidden in closure.
     // ALTERNATIVE: The Global Socket Logic handles the "onmessage".
-    
+
     // Let's rely on `useChatStore` updates if possible, or add a listener to a custom event.
     // Since we didn't modify GlobalSocket to dispatch custom events, we'll use a specific approach:
     // We will assume the GlobalSocket updates the `useChatStore` or `useConversationsStore`.
     // Let's check `useChatStore`.
-    
+
     // Actually, looking at `useGlobalMessageSocket.ts`, it calls `addOrUpdateMessage` in `useChatStore`.
     // So we can subscribe to `useChatStore` changes!
   }, [conversationId, userId]);
@@ -252,7 +252,7 @@ export default function AIChatbotPage() {
       scrollToBottom();
     }
   }, [isAITyping]);
-  
+
   useEffect(() => {
     if (conversationId && chatMessages && chatMessages.length > 0) {
       // Convert store messages to local ChatMessage format
@@ -262,19 +262,19 @@ export default function AIChatbotPage() {
         content: msg.content,
         timestamp: msg.created_at,
       }));
-      
+
       // We only want to update if we have *new* messages to avoid overwriting optimistic updates or causing loops
       // But since we are moving to WS, we should trust the store more.
-      
+
       // Filter out messages we already have to prevent flicker, OR just replace.
       // Let's replace for simplicity but keep "isLoading" logic separate.
-      
+
       // Check if we received a new AI message to stop loading
       const lastMsg = mappedMessages[mappedMessages.length - 1];
       if (lastMsg && lastMsg.role === "assistant" && isLoading) {
         setIsLoading(false);
       }
-      
+
       setMessages(mappedMessages);
       localStorage.setItem("ai-messages", JSON.stringify(mappedMessages));
     }
@@ -394,18 +394,18 @@ export default function AIChatbotPage() {
             content: messageContent,
             agent_role: agentRole
           });
-          
+
           if (!success) {
-             throw new Error("Failed to send via WebSocket");
+            throw new Error("Failed to send via WebSocket");
           }
-          
+
           // Note: We don't manually add the response here anymore.
           // We wait for the WebSocket broadcast to update the store -> update this component.
-          
+
         } else {
           // Fallback to HTTP if WS not connected
           console.warn("⚠️ WebSocket not connected, falling back to HTTP...");
-          
+
           // Save user message to database
           await saveAIMessage(conversationId, userId, messageContent, "text");
 
@@ -521,7 +521,7 @@ export default function AIChatbotPage() {
               </div>
               <div>
                 <h1 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
-                  AI Assistant
+                  Citra
                   <span className="text-xs font-normal px-2 py-0.5 rounded-full bg-blue-100 dark:bg-blue-900 text-blue-700 dark:text-blue-300">
                     Bot
                   </span>
@@ -556,8 +556,8 @@ export default function AIChatbotPage() {
                 {/* Dropdown Menu */}
                 {isDropdownOpen && (
                   <>
-                    <div 
-                      className="fixed inset-0 z-30" 
+                    <div
+                      className="fixed inset-0 z-30"
                       onClick={() => setIsDropdownOpen(false)}
                     />
                     <div className="absolute left-0 mt-2 w-64 sm:w-72 bg-white dark:bg-gray-900 border border-gray-200/80 dark:border-gray-800/80 rounded-2xl shadow-xl z-40 py-2 animate-in fade-in slide-in-from-top-2 duration-200 backdrop-blur-md">
@@ -571,9 +571,8 @@ export default function AIChatbotPage() {
                         return (
                           <button
                             key={role.id}
-                            className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 flex items-start gap-3 transition-colors duration-200 ${
-                              isActive ? "bg-gray-50 dark:bg-gray-800/50" : ""
-                            }`}
+                            className={`w-full text-left px-4 py-2.5 hover:bg-gray-50 dark:hover:bg-gray-800/60 flex items-start gap-3 transition-colors duration-200 ${isActive ? "bg-gray-50 dark:bg-gray-800/50" : ""
+                              }`}
                             onClick={() => {
                               setAgentRole(role.id);
                               setIsDropdownOpen(false);
@@ -619,16 +618,14 @@ export default function AIChatbotPage() {
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${
-                message.role === "user" ? "justify-end" : "justify-start"
-              }`}
+              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"
+                }`}
             >
               <div
-                className={`flex items-start space-x-2 max-w-[70%] ${
-                  message.role === "user"
+                className={`flex items-start space-x-2 max-w-[70%] ${message.role === "user"
                     ? "flex-row-reverse space-x-reverse"
                     : ""
-                }`}
+                  }`}
               >
                 {message.role === "assistant" ? (
                   <div className="w-8 h-8 rounded-full bg-gradient-to-r from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
@@ -637,19 +634,17 @@ export default function AIChatbotPage() {
                 ) : (
                   <Avatar
                     src={account?.avatar_url || ""}
-                    name={`${account?.first_name || "User"} ${
-                      account?.last_name || ""
-                    }`}
+                    name={`${account?.first_name || "User"} ${account?.last_name || ""
+                      }`}
                     size="sm"
                   />
                 )}
                 <div>
                   <div
-                    className={`rounded-lg px-4 py-2 ${
-                      message.role === "user"
+                    className={`rounded-lg px-4 py-2 ${message.role === "user"
                         ? "bg-blue-600 text-white"
                         : "bg-white dark:bg-gray-800 text-gray-900 dark:text-white border border-gray-200 dark:border-gray-700"
-                    }`}
+                      }`}
                   >
                     <div className="text-sm whitespace-pre-wrap leading-relaxed">
                       {renderFormattedMessage(message.content)}

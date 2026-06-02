@@ -84,3 +84,42 @@ export async function updateUserStatus(
     return error?.response?.data;
   }
 } */
+
+export async function updateUserProfile(
+  userId: string,
+  firstName: string,
+  lastName: string,
+  avatarUrl: string
+): Promise<any | null> {
+  try {
+    const response = await apiClient.put(`/users/${userId}`, {
+      first_name: firstName,
+      last_name: lastName,
+      avatar_url: avatarUrl,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to update user profile:", error);
+    return error?.response?.data;
+  }
+}
+
+export async function updateUserSettings(
+  userId: string,
+  theme: string,
+  language: string,
+  notificationPrefs: { email: boolean; push: boolean }
+): Promise<any | null> {
+  try {
+    const response = await apiClient.put(`/users/${userId}/settings`, {
+      theme,
+      language,
+      notification_prefs: notificationPrefs,
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to update user settings:", error);
+    return error?.response?.data;
+  }
+}
+
