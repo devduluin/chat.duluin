@@ -895,7 +895,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         </div>
 
         {/* Spacer */}
-        {isCurrentUser && <div className="flex-shrink-0 ml-2 w-8" />}
+        {isCurrentUser && <div className="flex-shrink-0 ml-2 w-8 h-8 invisible" />}
 
         {/* Delete Confirmation Dialog */}
         <DeleteConfirmDialog
