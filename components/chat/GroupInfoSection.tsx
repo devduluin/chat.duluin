@@ -9,6 +9,9 @@ import { Shield, ShieldOff, UserX, User } from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { useRouter } from "next/navigation";
+import { toast } from "sonner";
+import { useContactsStore } from "@/store/useContactStore";
 
 interface GroupInfoSectionProps {
   name: string;
@@ -27,7 +30,29 @@ export function GroupInfoSection({
   onDemoteMember,
   currentUserId,
 }: GroupInfoSectionProps) {
+  const router = useRouter();
+  const { contacts } = useContactsStore();
   const [selectedMember, setSelectedMember] = useState<string | null>(null);
+
+  const handleProfileClick = (e: React.MouseEvent, member: ConversationMember) => {
+    e.stopPropagation();
+    const isSelf = member.user.id === currentUserId;
+    if (isSelf) {
+      router.push("/profile");
+      return;
+    }
+
+    const foundContact = contacts?.find((c) => {
+      const targetId = c.target?.id || (c as any).target_id || (c as any).TargetID;
+      return targetId && targetId === member.user.id;
+    });
+
+    if (foundContact) {
+      router.push(`/contact/${foundContact.id}`);
+    } else {
+      toast.error("Kontak tidak ditemukan di daftar kontak Anda.");
+    }
+  };
 
   // Find the current user's role in the conversation
   const currentUserRole = members.find((m) => m.user.id === currentUserId)?.role;
@@ -161,15 +186,10 @@ export function GroupInfoSection({
                         variant="outline"
                         size="sm"
                         className="w-full border-gray-300 dark:border-gray-600"
-                        asChild
+                        onClick={(e) => handleProfileClick(e, member)}
                       >
-                        <Link 
-                          href={`/contact/${member.user.id}`}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <User className="h-4 w-4 mr-2" />
-                          Profile
-                        </Link>
+                        <User className="h-4 w-4 mr-2" />
+                        Profile
                       </Button>
                     </div>
                   )}
