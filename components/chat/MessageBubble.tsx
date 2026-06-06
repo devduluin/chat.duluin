@@ -31,6 +31,7 @@ import {
   Phone,
   User,
   Mail,
+  Download,
 } from "lucide-react";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
@@ -103,8 +104,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const [permanentDelete, setPermanentDelete] = useState(false);
     const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
     const [imagePreview, setImagePreview] = useState<{
-      url: string;
-      fileName: string;
+      images: { url: string; fileName: string }[];
+      initialIndex: number;
     } | null>(null);
     const [showForwardDialog, setShowForwardDialog] = useState(false);
     const [showEditDialog, setShowEditDialog] = useState(false);
@@ -486,62 +487,118 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
             {message.attachments && message.attachments.length > 0 && (() => {
               const imageAttachments = message.attachments.filter((a: any) => a.attachment_type === "image");
               if (imageAttachments.length === 0) return null;
+
+              const allImages = imageAttachments.map((a: any) => ({
+                url: getAttachmentUrl(a.file_url),
+                fileName: a.file_name,
+              }));
+
+              const openGallery = (index: number) => {
+                setImagePreview({ images: allImages, initialIndex: index });
+              };
+
+              const count = imageAttachments.length;
+              const remaining = count - 4;
+
               return (
-                <div
-                  className={cn(
-                    "space-y-2",
-                    isCurrentUser
-                      ? "bg-blue-500 rounded-2xl rounded-tr-none rounded-b-none px-2 pt-2 pb-2"
-                      : "bg-white dark:bg-gray-700 rounded-2xl rounded-tl-none rounded-b-none px-2 pt-2 pb-2",
-                  )}
-                >
-                  {imageAttachments.map((attachment: any) => (
-                    <div key={attachment.id} className="relative group">
+                <div className="pb-1 max-w-xs">
+
+                  {count === 1 && (
+                    /* Single image: full width */
+                    <div className="relative group">
                       <img
-                        src={getAttachmentUrl(attachment.file_url)}
-                        alt={attachment.file_name}
-                        className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                        style={{
-                          maxHeight: "300px",
-                          objectFit: "contain",
-                        }}
-                        onClick={() => {
-                          setImagePreview({
-                            url: getAttachmentUrl(attachment.file_url),
-                            fileName: attachment.file_name,
-                          });
-                        }}
+                        src={allImages[0].url}
+                        alt={allImages[0].fileName}
+                        className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        style={{ maxHeight: "300px", objectFit: "contain" }}
+                        onClick={() => openGallery(0)}
                       />
-                      {/* Download button overlay */}
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
                           const link = document.createElement("a");
-                          link.href = getAttachmentUrl(attachment.file_url);
-                          link.download = attachment.file_name;
+                          link.href = allImages[0].url;
+                          link.download = allImages[0].fileName;
                           document.body.appendChild(link);
                           link.click();
                           document.body.removeChild(link);
                         }}
                         className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white p-2 rounded-full hover:bg-black/80"
                       >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            strokeWidth={2}
-                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                          />
-                        </svg>
+                        <Download className="h-4 w-4" />
                       </button>
                     </div>
-                  ))}
+                  )}
+
+                  {count === 2 && (
+                    /* Two images: side by side */
+                    <div className="grid grid-cols-2 gap-1">
+                      {allImages.slice(0, 2).map((img, idx) => (
+                        <div key={idx} className="relative group aspect-square">
+                          <img
+                            src={img.url}
+                            alt={img.fileName}
+                            className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => openGallery(idx)}
+                          />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
+                  {count === 3 && (
+                    /* Three images: 1 top full, 2 bottom */
+                    <div className="space-y-1">
+                      <div className="relative group">
+                        <img
+                          src={allImages[0].url}
+                          alt={allImages[0].fileName}
+                          className="w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                          style={{ maxHeight: "200px", objectFit: "cover" }}
+                          onClick={() => openGallery(0)}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-1">
+                        {allImages.slice(1, 3).map((img, idx) => (
+                          <div key={idx} className="relative group aspect-square">
+                            <img
+                              src={img.url}
+                              alt={img.fileName}
+                              className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                              onClick={() => openGallery(idx + 1)}
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {count >= 4 && (
+                    /* 4+ images: 2x2 grid with +N overlay on 4th cell */
+                    <div className="grid grid-cols-2 gap-1">
+                      {allImages.slice(0, 4).map((img, idx) => (
+                        <div key={idx} className="relative group aspect-square">
+                          <img
+                            src={img.url}
+                            alt={img.fileName}
+                            className="w-full h-full object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                            onClick={() => openGallery(idx)}
+                          />
+                          {/* "+N" overlay on 4th image when there are more */}
+                          {idx === 3 && remaining > 0 && (
+                            <div
+                              className="absolute inset-0 bg-black/50 rounded-lg flex items-center justify-center cursor-pointer"
+                              onClick={() => openGallery(3)}
+                            >
+                              <span className="text-white text-2xl font-bold">
+                                +{remaining}
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
               );
             })()}
@@ -551,14 +608,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                 <div
                   ref={ref}
                   className={cn(
-                    "px-4 py-3 cursor-pointer",
-                    // Adjust rounding based on whether image attachments exist above
-                    message.attachments?.some((a: any) => a.attachment_type === "image")
-                      ? "rounded-b-2xl rounded-t-none"
-                      : cn(
-                          "rounded-2xl",
-                          isCurrentUser ? "rounded-tr-none" : "rounded-tl-none",
-                        ),
+                    "px-4 py-3 cursor-pointer rounded-2xl",
+                    isCurrentUser ? "rounded-tr-none" : "rounded-tl-none",
                     isVoiceCallMessage
                       ? "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm"
                       : isCurrentUser
@@ -961,8 +1012,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
           <ImagePreviewModal
             open={!!imagePreview}
             onClose={() => setImagePreview(null)}
-            imageUrl={imagePreview.url}
-            fileName={imagePreview.fileName}
+            images={imagePreview.images}
+            initialIndex={imagePreview.initialIndex}
           />
         )}
 
