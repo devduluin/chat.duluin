@@ -354,6 +354,23 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       }
     };
 
+    const handleSenderClick = (e: React.MouseEvent) => {
+      e.preventDefault();
+      const targetUserId = message.sender?.id;
+      if (!targetUserId) return;
+
+      const foundContact = contacts?.find((c) => {
+        const targetId = c.target?.id || (c as any).target_id || (c as any).TargetID;
+        return targetId && targetId === targetUserId;
+      });
+
+      if (foundContact) {
+        router.push(`/contact/${foundContact.id}`);
+      } else {
+        toast.error("Kontak tidak ditemukan di daftar kontak Anda.");
+      }
+    };
+
     const reactionGroups = reactions.reduce(
       (acc, reaction) => {
         if (!acc[reaction.emoji]) {
@@ -420,15 +437,15 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         >
           {/* Sender name */}
           {!isCurrentUser && message.sender && (
-            <Link
-              href={`/conversation/${message.sender.email || ""}`}
-              className="flex items-center mb-1 hover:underline cursor-pointer"
+            <button
+              onClick={handleSenderClick}
+              className="flex items-center mb-1 hover:underline cursor-pointer text-left bg-transparent border-none p-0 focus:outline-none"
             >
               <span className="font-medium text-sm text-gray-700 dark:text-gray-300">
                 {getSenderName(message.sender)}
               </span>
               <ChevronDown className="h-3 w-3 ml-1 text-gray-500" />
-            </Link>
+            </button>
           )}
 
           {/* Replied message preview */}
