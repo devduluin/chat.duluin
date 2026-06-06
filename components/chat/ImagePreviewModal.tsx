@@ -1,7 +1,7 @@
 // components/chat/ImagePreviewModal.tsx
 "use client";
 
-import { Dialog, DialogContent } from "../ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "../ui/dialog";
 import { X, Download, ZoomIn, ZoomOut } from "lucide-react";
 import { useState } from "react";
 import { Button } from "../ui/button";
@@ -41,6 +41,7 @@ export function ImagePreviewModal({
   return (
     <Dialog open={open} onOpenChange={onClose}>
       <DialogContent className="max-w-4xl w-full p-0 bg-black/95">
+        <DialogTitle className="sr-only">{fileName}</DialogTitle>
         {/* Header */}
         <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-black/50">
           <div className="text-white text-sm truncate flex-1">{fileName}</div>

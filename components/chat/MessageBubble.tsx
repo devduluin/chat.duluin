@@ -482,78 +482,99 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
           {/* Message bubble with dropdown */}
           <div className="relative" ref={dropdownRef}>
+            {/* Image attachments rendered OUTSIDE DropdownMenuTrigger for direct click-to-preview */}
+            {message.attachments && message.attachments.length > 0 && (() => {
+              const imageAttachments = message.attachments.filter((a: any) => a.attachment_type === "image");
+              if (imageAttachments.length === 0) return null;
+              return (
+                <div
+                  className={cn(
+                    "space-y-2",
+                    isCurrentUser
+                      ? "bg-blue-500 rounded-2xl rounded-tr-none rounded-b-none px-2 pt-2 pb-2"
+                      : "bg-white dark:bg-gray-700 rounded-2xl rounded-tl-none rounded-b-none px-2 pt-2 pb-2",
+                  )}
+                >
+                  {imageAttachments.map((attachment: any) => (
+                    <div key={attachment.id} className="relative group">
+                      <img
+                        src={getAttachmentUrl(attachment.file_url)}
+                        alt={attachment.file_name}
+                        className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
+                        style={{
+                          maxHeight: "300px",
+                          objectFit: "contain",
+                        }}
+                        onClick={() => {
+                          setImagePreview({
+                            url: getAttachmentUrl(attachment.file_url),
+                            fileName: attachment.file_name,
+                          });
+                        }}
+                      />
+                      {/* Download button overlay */}
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const link = document.createElement("a");
+                          link.href = getAttachmentUrl(attachment.file_url);
+                          link.download = attachment.file_name;
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        }}
+                        className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white p-2 rounded-full hover:bg-black/80"
+                      >
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
+                          />
+                        </svg>
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
+
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <div
                   ref={ref}
                   className={cn(
-                    "rounded-2xl px-4 py-3 cursor-pointer",
+                    "px-4 py-3 cursor-pointer",
+                    // Adjust rounding based on whether image attachments exist above
+                    message.attachments?.some((a: any) => a.attachment_type === "image")
+                      ? "rounded-b-2xl rounded-t-none"
+                      : cn(
+                          "rounded-2xl",
+                          isCurrentUser ? "rounded-tr-none" : "rounded-tl-none",
+                        ),
                     isVoiceCallMessage
                       ? "bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 shadow-sm"
                       : isCurrentUser
-                        ? "bg-blue-500 text-white rounded-tr-none"
-                        : "bg-white dark:bg-gray-700 rounded-tl-none",
+                        ? "bg-blue-500 text-white"
+                        : "bg-white dark:bg-gray-700",
                   )}
                 >
-                  {/* Display attachments if any */}
-                  {message.attachments && message.attachments.length > 0 && (
-                    <div
-                      className={cn(
-                        "mb-2 space-y-2",
-                        message.content ? "" : "",
-                      )}
-                    >
-                      {message.attachments.map((attachment: any) => (
-                        <div key={attachment.id}>
-                          {attachment.attachment_type === "image" ? (
-                            <div className="relative group">
-                              <img
-                                src={getAttachmentUrl(attachment.file_url)}
-                                alt={attachment.file_name}
-                                className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
-                                style={{
-                                  maxHeight: "300px",
-                                  objectFit: "contain",
-                                }}
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  setImagePreview({
-                                    url: getAttachmentUrl(attachment.file_url),
-                                    fileName: attachment.file_name,
-                                  });
-                                }}
-                              />
-                              {/* Download button overlay */}
-                              <button
-                                onClick={(e) => {
-                                  e.stopPropagation();
-                                  const link = document.createElement("a");
-                                  link.href = getAttachmentUrl(attachment.file_url);
-                                  link.download = attachment.file_name;
-                                  document.body.appendChild(link);
-                                  link.click();
-                                  document.body.removeChild(link);
-                                }}
-                                className="absolute bottom-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 text-white p-2 rounded-full hover:bg-black/80"
-                              >
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                >
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"
-                                  />
-                                </svg>
-                              </button>
-                            </div>
-                          ) : (
-                            // Non-image file attachment
+                  {/* Display non-image attachments */}
+                  {message.attachments && message.attachments.length > 0 && (() => {
+                    const nonImageAttachments = message.attachments.filter((a: any) => a.attachment_type !== "image");
+                    if (nonImageAttachments.length === 0) return null;
+                    return (
+                      <div className={cn("mb-2 space-y-2")}>
+                        {nonImageAttachments.map((attachment: any) => (
+                          <div key={attachment.id}>
+                            {/* Non-image file attachment */}
                             <div
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -603,11 +624,11 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 />
                               </svg>
                             </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })()}
                   {message.content && (
                     <div>
                       {message.content.startsWith("📞 Panggilan suara aktif") ? (
