@@ -37,7 +37,6 @@ export function ImagePreviewModal({
   const currentImage = images[currentIndex];
   const hasMultiple = images.length > 1;
 
-  // Reset state when modal opens or initialIndex changes
   useEffect(() => {
     if (open) {
       setCurrentIndex(initialIndex);
@@ -55,7 +54,6 @@ export function ImagePreviewModal({
     setZoom(100);
   }, [images.length]);
 
-  // Keyboard navigation
   useEffect(() => {
     if (!open || !hasMultiple) return;
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -88,11 +86,12 @@ export function ImagePreviewModal({
 
   return (
     <Dialog open={open} onOpenChange={onClose}>
-      <DialogContent className="max-w-4xl w-full p-0 bg-black/95">
+      <DialogContent className="!max-w-[96vw] !w-full h-[92vh] p-0 bg-black/95 flex flex-col overflow-hidden border-zinc-800">
         <DialogTitle className="sr-only">{currentImage.fileName}</DialogTitle>
+
         {/* Header */}
-        <div className="absolute top-0 left-0 right-0 z-10 flex items-center justify-between p-4 bg-black/50">
-          <div className="text-white text-sm truncate flex-1">
+        <div className="w-full flex items-center justify-between p-4 bg-black/50 z-10 border-b border-zinc-800/50">
+          <div className="text-white text-sm truncate flex-1 mr-4">
             {currentImage.fileName}
             {hasMultiple && (
               <span className="ml-2 text-white/60">
@@ -106,11 +105,11 @@ export function ImagePreviewModal({
               size="icon"
               onClick={handleZoomOut}
               disabled={zoom <= 50}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-9 w-9"
             >
               <ZoomOut className="h-5 w-5" />
             </Button>
-            <span className="text-white text-sm min-w-[60px] text-center">
+            <span className="text-white text-sm min-w-[50px] text-center select-none">
               {zoom}%
             </span>
             <Button
@@ -118,7 +117,7 @@ export function ImagePreviewModal({
               size="icon"
               onClick={handleZoomIn}
               disabled={zoom >= 200}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-9 w-9"
             >
               <ZoomIn className="h-5 w-5" />
             </Button>
@@ -126,7 +125,7 @@ export function ImagePreviewModal({
               variant="ghost"
               size="icon"
               onClick={handleDownload}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-9 w-9"
             >
               <Download className="h-5 w-5" />
             </Button>
@@ -134,49 +133,49 @@ export function ImagePreviewModal({
               variant="ghost"
               size="icon"
               onClick={onClose}
-              className="text-white hover:bg-white/20"
+              className="text-white hover:bg-white/20 h-9 w-9"
             >
               <X className="h-5 w-5" />
             </Button>
           </div>
         </div>
 
-        {/* Image Container */}
-        <div className="relative flex items-center justify-center min-h-[400px] max-h-[80vh] overflow-auto p-16">
-          {/* Prev button */}
+        {/* Image Container Utama */}
+        <div className="relative flex-1 w-full flex items-center justify-center p-2 min-h-0 overflow-auto select-none">
           {hasMultiple && (
             <button
               onClick={goPrev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+              className="absolute left-6 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full transition-colors backdrop-blur-sm border border-white/10"
             >
               <ChevronLeft className="h-6 w-6" />
             </button>
           )}
 
-          <img
-            src={currentImage.url}
-            alt={currentImage.fileName}
-            style={{
-              transform: `scale(${zoom / 100})`,
-              transition: "transform 0.2s ease-in-out",
-            }}
-            className="max-w-full max-h-full object-contain"
-          />
+          <div className="w-full h-full flex items-center justify-center p-2">
+            <img
+              src={currentImage.url}
+              alt={currentImage.fileName}
+              style={{
+                transform: `scale(${zoom / 100})`,
+                transition: "transform 0.2s ease-in-out",
+              }}
+              className="w-full h-full object-contain pointer-events-none"
+            />
+          </div>
 
-          {/* Next button */}
           {hasMultiple && (
             <button
               onClick={goNext}
-              className="absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/50 hover:bg-black/70 text-white p-2 rounded-full transition-colors"
+              className="absolute right-6 top-1/2 -translate-y-1/2 z-20 bg-black/60 hover:bg-black/80 text-white p-3 rounded-full transition-colors backdrop-blur-sm border border-white/10"
             >
               <ChevronRight className="h-6 w-6" />
             </button>
           )}
         </div>
 
-        {/* Thumbnail strip for multiple images */}
+        {/* Thumbnail strip */}
         {hasMultiple && (
-          <div className="absolute bottom-0 left-0 right-0 z-10 flex items-center justify-center gap-2 p-3 bg-black/50">
+          <div className="w-full flex items-center justify-center gap-2 p-4 bg-black/50 border-t border-zinc-800/50 z-10 overflow-x-auto">
             {images.map((img, idx) => (
               <button
                 key={idx}
@@ -184,11 +183,10 @@ export function ImagePreviewModal({
                   setCurrentIndex(idx);
                   setZoom(100);
                 }}
-                className={`w-12 h-12 rounded-md overflow-hidden border-2 transition-all ${
-                  idx === currentIndex
-                    ? "border-white opacity-100 scale-110"
-                    : "border-transparent opacity-50 hover:opacity-75"
-                }`}
+                className={`w-14 h-14 rounded-md overflow-hidden border-2 flex-shrink-0 transition-all ${idx === currentIndex
+                    ? "border-white opacity-100 scale-105 shadow-md shadow-black"
+                    : "border-transparent opacity-40 hover:opacity-75"
+                  }`}
               >
                 <img
                   src={img.url}
