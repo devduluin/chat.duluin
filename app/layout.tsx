@@ -9,6 +9,7 @@ import { SSOAutoLogin } from "@/components/SSOAutoLogin";
 import { OfflineManager } from "@/components/OfflineManager";
 import { WebSocketManager } from "@/components/WebSocketManager";
 import { Suspense } from "react";
+import { ThemeProvider } from "@/components/theme-provider";
 
 export const metadata = {
   title: "Duluin Workspace",
@@ -23,7 +24,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className="theme-3">
+    <html lang="en" className="theme-3" suppressHydrationWarning>
       <head>
         <meta charSet="utf-8" />
         <meta
@@ -33,17 +34,19 @@ export default function RootLayout({
         <title>TeamChat - Collaboration App</title>
       </head>
       <body className={`${inter.className} bg-gray-100 dark:bg-gray-900`}>
-        <Suspense fallback={null}>
-          <SSOAutoLogin />
-        </Suspense>
-        <SessionMonitor />
-        <OfflineManager />
-        <WebSocketManager />
-        <GuideProvider>
-          <div className="flex h-screen overflow-hidden">{children}</div>
-        </GuideProvider>
-        <ToastProvider />
-        <Toaster richColors position="bottom-center" />
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <Suspense fallback={null}>
+            <SSOAutoLogin />
+          </Suspense>
+          <SessionMonitor />
+          <OfflineManager />
+          <WebSocketManager />
+          <GuideProvider>
+            <div className="flex h-screen overflow-hidden">{children}</div>
+          </GuideProvider>
+          <ToastProvider />
+          <Toaster richColors position="bottom-center" />
+        </ThemeProvider>
       </body>
     </html>
   );
