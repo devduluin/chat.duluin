@@ -218,6 +218,14 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
     const API_URL = process.env.NEXT_PUBLIC_GATEWAY_API_URL_DEV;
 
+    const getAttachmentUrl = (url: string) => {
+      if (!url) return "";
+      if (url.startsWith("http://") || url.startsWith("https://")) {
+        return url;
+      }
+      return `${API_URL}${url}`;
+    };
+
     const handleReply = () => {
       onReply?.({
         id: message.id,
@@ -500,7 +508,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                           {attachment.attachment_type === "image" ? (
                             <div className="relative group">
                               <img
-                                src={`${API_URL}${attachment.file_url}`}
+                                src={getAttachmentUrl(attachment.file_url)}
                                 alt={attachment.file_name}
                                 className="max-w-full rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
                                 style={{
@@ -510,7 +518,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   setImagePreview({
-                                    url: `${API_URL}${attachment.file_url}`,
+                                    url: getAttachmentUrl(attachment.file_url),
                                     fileName: attachment.file_name,
                                   });
                                 }}
@@ -520,7 +528,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 onClick={(e) => {
                                   e.stopPropagation();
                                   const link = document.createElement("a");
-                                  link.href = `${API_URL}${attachment.file_url}`;
+                                  link.href = getAttachmentUrl(attachment.file_url);
                                   link.download = attachment.file_name;
                                   document.body.appendChild(link);
                                   link.click();
@@ -550,7 +558,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                               onClick={(e) => {
                                 e.stopPropagation();
                                 const link = document.createElement("a");
-                                link.href = `${API_URL}${attachment.file_url}`;
+                                link.href = getAttachmentUrl(attachment.file_url);
                                 link.download = attachment.file_name;
                                 document.body.appendChild(link);
                                 link.click();

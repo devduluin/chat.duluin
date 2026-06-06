@@ -35,6 +35,7 @@ import { toast } from "sonner";
 import { dummyUser } from "@/lib/dummyChat";
 import { v4 as uuidv4 } from "uuid";
 import Cookies from "js-cookie";
+import { useAuthStore } from "@/store/useAuthStore";
 
 export function MessageInput({
   userId,
@@ -190,31 +191,67 @@ export function MessageInput({
     e.preventDefault();
     if (!message.trim() && attachedFiles.length === 0) return;
 
-    const messageId = uuidv4();
+    const token = Cookies.get("app_token") || useAuthStore.getState().token;
+    const AUTH_API_URL = process.env.NEXT_PUBLIC_AUTH_API_URL || "http://localhost:8080/api";
 
     // Upload files first if there are any
     const uploadPromises = attachedFiles.map(async (file) => {
       const formData = new FormData();
       formData.append("file", file);
-      formData.append("user_id", userId);
+      formData.append("folder", "attachments");
 
       try {
-        const response = await fetch(`${API_URL}/api/v1/upload`, {
+        const headers: Record<string, string> = {
+          "X-Forwarded-Host": "chat",
+          // "X-Account-Type": "chat_workspace",
+        };
+        if (token) {
+          headers["Authorization"] = `Bearer ${token}`;
+        }
+
+        const uploadResponse = await fetch(`${AUTH_API_URL}/users/file_uploader`, {
           method: "POST",
+          headers,
           body: formData,
         });
 
-        if (!response.ok) {
-          throw new Error("Upload failed");
+        if (!uploadResponse.ok) {
+          throw new Error("SSO Upload failed");
         }
 
-        const result = await response.json();
-        if (result.status && result.data) {
-          return result.data.id; // Return attachment ID
+        const uploadResult = await uploadResponse.json();
+        if (!uploadResult.success || !uploadResult.file) {
+          throw new Error(uploadResult.message || "SSO upload failed");
+        }
+
+        const fileUrl = uploadResult.file;
+
+        // Register attachment metadata in chat backend (duluin_chat_be)
+        const registerResponse = await fetch(`${API_URL}/attachments`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            file_url: fileUrl,
+            file_name: file.name,
+            file_type: file.type,
+            file_size: file.size,
+          }),
+        });
+
+        if (!registerResponse.ok) {
+          throw new Error("Metadata registration failed");
+        }
+
+        const registerResult = await registerResponse.json();
+        if (registerResult.status && registerResult.data) {
+          return registerResult.data.id; // Return attachment UUID
         }
         return null;
       } catch (error) {
-        console.error("Failed to upload file:", error);
+        console.error("Failed to upload/register file:", error);
         toast.error(`Failed to upload ${file.name}`);
         return null;
       }
