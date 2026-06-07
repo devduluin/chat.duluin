@@ -292,6 +292,9 @@ export default function SettingsPage() {
                 <div>
                   <h3 className="text-sm font-bold text-gray-900 dark:text-white flex items-center gap-2 mb-0.5">
                     <Globe className="w-4 h-4 text-green-500" /> Language Preferences
+                    <span className="text-[9px] font-bold bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded uppercase tracking-wider select-none">
+                      Soon
+                    </span>
                   </h3>
                   <p className="text-xs text-gray-500 dark:text-gray-400">
                     Select your preferred language translation key for the workspace UI

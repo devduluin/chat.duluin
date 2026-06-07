@@ -48,6 +48,11 @@ export const ToggleSetting = ({
       <div className="flex items-center gap-2">
         {icon}
         <Label className={disabled ? "opacity-50" : ""}>{label}</Label>
+        {disabled && (
+          <span className="text-[9px] font-bold bg-gray-200 dark:bg-gray-800 text-gray-600 dark:text-gray-400 px-1.5 py-0.5 rounded uppercase tracking-wider select-none">
+            Soon
+          </span>
+        )}
       </div>
       <p className="text-xs text-gray-500 ml-6 mt-1 mr-2">{description}</p>
     </div>
