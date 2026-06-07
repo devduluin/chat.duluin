@@ -138,7 +138,12 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
             if (item.Conversation.id === conversationId) {
               const normalizedMessageType =
                 (newMessage as any).message_type || (newMessage as any).MessageType || "";
-              const shouldAffectUnread = normalizedMessageType === "text";
+              const shouldAffectUnread =
+                normalizedMessageType !== "system" &&
+                normalizedMessageType !== "message_deleted" &&
+                normalizedMessageType !== "message_read" &&
+                normalizedMessageType !== "typing_started" &&
+                normalizedMessageType !== "typing_stopped";
               const canCompareSender = !!currentUserId;
               const isFromCurrentUser =
                 canCompareSender && newMessage.sender_id === currentUserId;
