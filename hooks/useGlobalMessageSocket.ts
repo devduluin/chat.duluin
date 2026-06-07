@@ -4,6 +4,7 @@ import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { useContactsStore } from "@/store/useContactStore";
+import { useAccountStore } from "@/store/useAccountStore";
 import { toast } from "sonner";
 import { getConversationById } from "@/services/v1/conversationService";
 import Cookies from "js-cookie";
@@ -139,6 +140,15 @@ export function useGlobalMessageSocket(userId: string) {
   // Main notification trigger (in-app toast, synthesized sound, and floating desktop notification)
   const triggerNotification = useCallback((msg: any) => {
     if (!msg || msg.sender_id === userId) return;
+
+    // Check desktop push notification preference
+    const accountData = useAccountStore.getState().data;
+    const notificationPrefs = accountData?.settings?.notification_prefs;
+    const isPushEnabled = notificationPrefs?.push !== false;
+
+    if (!isPushEnabled) {
+      return;
+    }
 
     const isSystem = msg.message_type === "system" || msg.is_system_message;
     const content = typeof msg.content === "string" ? msg.content : "";
@@ -1413,8 +1423,8 @@ export function useGlobalMessageSocket(userId: string) {
               }
             }
 
-            // Check if conversation exists in the list
-            const conversationExists = conversations.some(
+            // Check if conversation exists in the list (using getState() to avoid stale closures)
+            const conversationExists = useConversationsStore.getState().conversations.some(
               (item) => item.Conversation.id === msg.conversation_id,
             );
 
