@@ -30,6 +30,7 @@ import {
   RefreshCw,
   Phone,
   User,
+  UserPlus,
   Mail,
   Download,
 } from "lucide-react";
@@ -55,6 +56,7 @@ import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
 import { useRetryMessage } from "@/hooks/useRetryMessage";
 import { useContactsStore } from "@/store/useContactStore";
+import { useContactsList } from "@/hooks/useContacts";
 import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
@@ -94,6 +96,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     const isCurrentUser = message.sender?.id === userId;
     const router = useRouter();
     const [loadingContactChat, setLoadingContactChat] = useState(false);
+    const [savingContact, setSavingContact] = useState(false);
+    const { fetchContactsList } = useContactsList(userId);
     const isVoiceCallMessage =
       message.content?.startsWith("📞 Panggilan suara aktif") ||
       message.content?.startsWith("📞 Suara panggilan berakhir") ||
@@ -214,6 +218,65 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
         toast.error(err?.message || "Terjadi kesalahan saat menghubungi kontak.");
       } finally {
         setLoadingContactChat(false);
+      }
+    };
+
+    const handleSaveContact = async (parsed: { name: string; phone: string; email: string }) => {
+      if (!parsed.phone || parsed.phone === "-") {
+        toast.error("Nomor telepon tidak valid.");
+        return;
+      }
+
+      const isAlreadyContact = contacts?.some((c) => {
+        const cPhone = c.phone || c.target?.phone;
+        return cPhone && cPhone === parsed.phone;
+      });
+
+      if (isAlreadyContact) {
+        toast.error("Kontak sudah ada sebelumnya");
+        return;
+      }
+
+      setSavingContact(true);
+      try {
+        const { findContact } = await import("@/services/userService");
+        const res = await findContact(parsed.phone);
+        const result = res?.result;
+
+        if (!result) {
+          toast.error("User tidak ditemukan.");
+          setSavingContact(false);
+          return;
+        }
+
+        if (result.is_chat_registered === false) {
+          toast.error("User belum terdaftar di chat workspace.");
+          setSavingContact(false);
+          return;
+        }
+
+        const { createContact } = await import("@/services/v1/contactService");
+        await createContact({
+          userId: userId,
+          firstName: result.name || parsed.name,
+          lastName: "",
+          phone: parsed.phone,
+          email: result.email || parsed.email || "",
+          uid: result.user_id,
+        });
+
+        toast.success("Kontak berhasil disimpan.");
+        await fetchContactsList();
+      } catch (err: any) {
+        console.error("Failed to save contact:", err);
+        const errorMsg = err?.response?.data?.message || err?.message || "Gagal menyimpan kontak.";
+        if (errorMsg.includes("already exists") || errorMsg.includes("sudah ada")) {
+          toast.error("Kontak sudah ada sebelumnya");
+        } else {
+          toast.error(errorMsg);
+        }
+      } finally {
+        setSavingContact(false);
       }
     };
 
@@ -768,32 +831,58 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                                 </div>
                               );
                             })()}
+                            {!isCurrentUser && (
+                              <div className="flex flex-col gap-2 mt-2">
+                                <Button
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const parsed = parseContactCard(message.content);
+                                    handleContactMessageClick(parsed.phone);
+                                  }}
+                                  disabled={loadingContactChat}
+                                  className="w-full flex items-center justify-center space-x-2 py-1.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all duration-200 shadow-md border border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-blue-500/10 dark:shadow-none"
+                                >
+                                  {loadingContactChat ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
+                                  ) : (
+                                    <>
+                                      <CornerUpLeft className="h-3.5 w-3.5 transform scale-x-[-1] fill-current" />
+                                      <span>Kirim Pesan</span>
+                                    </>
+                                  )}
+                                </Button>
+
+                                <Button
+                                  onPointerDown={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                  }}
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    const parsed = parseContactCard(message.content);
+                                    handleSaveContact(parsed);
+                                  }}
+                                  disabled={savingContact}
+                                  className="w-full flex items-center justify-center space-x-2 py-1.5 px-4 rounded-xl bg-gray-100 hover:bg-gray-200 text-gray-800 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-gray-200 font-semibold text-xs transition-all duration-200 border border-gray-200 dark:border-gray-600"
+                                >
+                                  {savingContact ? (
+                                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                  ) : (
+                                    <>
+                                      <UserPlus className="h-3.5 w-3.5" />
+                                      <span>Simpan Kontak</span>
+                                    </>
+                                  )}
+                                </Button>
+                              </div>
+                            )}
                           </div>
-                          {!isCurrentUser && (
-                            <Button
-                              onPointerDown={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                              }}
-                              onClick={(e) => {
-                                e.preventDefault();
-                                e.stopPropagation();
-                                const parsed = parseContactCard(message.content);
-                                handleContactMessageClick(parsed.phone);
-                              }}
-                              disabled={loadingContactChat}
-                              className="w-full mt-2 flex items-center justify-center space-x-2 py-1.5 px-4 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-semibold text-xs transition-all duration-200 shadow-md border border-blue-500 dark:bg-blue-500 dark:hover:bg-blue-600 shadow-blue-500/10 dark:shadow-none"
-                            >
-                              {loadingContactChat ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin text-white" />
-                              ) : (
-                                <>
-                                  <CornerUpLeft className="h-3.5 w-3.5 transform scale-x-[-1] fill-current" />
-                                  <span>Kirim Pesan</span>
-                                </>
-                              )}
-                            </Button>
-                          )}
                         </div>
                       ) : (
                         <p className="break-words whitespace-pre-wrap">
