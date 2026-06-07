@@ -152,13 +152,14 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="space-y-3 pt-1">
-                  <div className="p-4 bg-gray-50/50 dark:bg-gray-950/40 rounded-2xl border border-gray-150/60 dark:border-gray-900/60 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors duration-200">
+                  <div className="p-4 bg-gray-50/50 dark:bg-gray-950/40 rounded-2xl border border-gray-150/60 dark:border-gray-900/60 hover:bg-gray-50 dark:hover:bg-gray-950 transition-colors duration-200 opacity-60">
                     <ToggleSetting
                       icon={<Bell className="w-4 h-4 text-gray-400 mt-0.5" />}
                       label="Email Alerts"
                       description="Receive automatic email logs of messages sent while you are offline"
                       value={emailNotifications}
                       onChange={setEmailNotifications}
+                      disabled={true}
                     />
                   </div>
 
@@ -168,7 +169,32 @@ export default function SettingsPage() {
                       label="Desktop Push Notifications"
                       description="Get instant workspace popups when messages are received in your rooms"
                       value={pushNotifications}
-                      onChange={setPushNotifications}
+                      onChange={async (checked) => {
+                        if (checked) {
+                          if (typeof window !== "undefined" && "Notification" in window) {
+                            const permission = Notification.permission;
+                            
+                            if (permission === "denied") {
+                              toast.error("Notifikasi diblokir oleh browser", {
+                                description: "Silakan aktifkan izin notifikasi secara manual lewat pengaturan browser Anda (ikon gembok di samping URL).",
+                                duration: 5000,
+                              });
+                              setPushNotifications(false);
+                              return;
+                            }
+
+                            if (permission === "default") {
+                              const res = await Notification.requestPermission();
+                              if (res !== "granted") {
+                                toast.error("Izin notifikasi ditolak");
+                                setPushNotifications(false);
+                                return;
+                              }
+                            }
+                          }
+                        }
+                        setPushNotifications(checked);
+                      }}
                     />
                   </div>
                 </div>
@@ -272,7 +298,7 @@ export default function SettingsPage() {
                   </p>
                 </div>
 
-                <div className="flex flex-col sm:flex-row gap-3 pt-1">
+                <div className="flex flex-col sm:flex-row gap-3 pt-1 pointer-events-none opacity-50 select-none">
                   {/* English Option */}
                   <div
                     onClick={() => setSelectedLanguage("en")}
