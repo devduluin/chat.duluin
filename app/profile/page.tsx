@@ -50,7 +50,7 @@ export default function ProfilePage() {
           setEmail(user.email || "");
           setPhone(user.phone || "");
           setUserType(user.user_type || "human");
-          setTenantId(user.tenant_id || "");
+          // setTenantId(user.tenant_id || "");
           setTenantName(user.tenant?.name || "");
 
           setAccountData({
@@ -246,34 +246,33 @@ export default function ProfilePage() {
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="firstName" className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                        First Name
-                      </Label>
-                      <Input
-                        id="firstName"
-                        value={firstName}
-                        onChange={(e) => setFirstName(e.target.value)}
-                        placeholder="John"
-                        className="bg-gray-50/50 dark:bg-gray-950/50 rounded-xl border-gray-200 dark:border-gray-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all"
-                      />
-                    </div>
-                    <div className="space-y-1.5">
-                      <Label htmlFor="lastName" className="text-xs font-bold text-gray-700 dark:text-gray-300">
-                        Last Name
-                      </Label>
-                      <Input
-                        id="lastName"
-                        value={lastName}
-                        onChange={(e) => setLastName(e.target.value)}
-                        placeholder="Doe"
-                        className="bg-gray-50/50 dark:bg-gray-950/50 rounded-xl border-gray-200 dark:border-gray-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all"
-                      />
-                    </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="firstName" className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                      First Name
+                    </Label>
+                    <Input
+                      id="firstName"
+                      value={firstName}
+                      onChange={(e) => setFirstName(e.target.value)}
+                      placeholder="John"
+                      className="bg-gray-50/50 dark:bg-gray-950/50 rounded-xl border-gray-200 dark:border-gray-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all"
+                    />
                   </div>
 
                   <div className="space-y-1.5">
+                    <Label htmlFor="lastName" className="text-xs font-bold text-gray-700 dark:text-gray-300">
+                      Last Name
+                    </Label>
+                    <Input
+                      id="lastName"
+                      value={lastName}
+                      onChange={(e) => setLastName(e.target.value)}
+                      placeholder="Doe"
+                      className="bg-gray-50/50 dark:bg-gray-950/50 rounded-xl border-gray-200 dark:border-gray-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all"
+                    />
+                  </div>
+
+                  {/* <div className="space-y-1.5">
                     <Label htmlFor="avatarUrl" className="text-xs font-bold text-gray-700 dark:text-gray-300">
                       Avatar Image URL
                     </Label>
@@ -284,7 +283,7 @@ export default function ProfilePage() {
                       placeholder="https://example.com/avatar.jpg"
                       className="bg-gray-50/50 dark:bg-gray-950/50 rounded-xl border-gray-200 dark:border-gray-800 focus:border-green-500 focus:ring-1 focus:ring-green-500 transition-all font-mono text-xs"
                     />
-                  </div>
+                  </div> */}
                 </div>
               </div>
 
