@@ -469,6 +469,26 @@ export function useGlobalMessageSocket(userId: string) {
              return;
           }
 
+          // Handle Message Reaction Event
+          if (response.message === "Message reaction updated") {
+            const reactionPayload = response.data;
+            if (reactionPayload) {
+              console.log("👁️ MESSAGE REACTION UPDATE EVENT RECEIVED:", reactionPayload);
+              useChatStore.getState().updateMessageReaction(
+                reactionPayload.conversation_id,
+                reactionPayload.message_id,
+                {
+                  userId: reactionPayload.user_id,
+                  userName: reactionPayload.user_name,
+                  userAvatar: reactionPayload.user_avatar,
+                  emoji: reactionPayload.emoji,
+                  action: reactionPayload.action,
+                }
+              );
+            }
+            return;
+          }
+
           console.log("🌍📨 [PARSED] Full response:", {
             status: response.status,
             message: response.message,

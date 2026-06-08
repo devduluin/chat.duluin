@@ -54,6 +54,7 @@ import {
 } from "@/services/v1/messageService";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { useChatStore } from "@/store/useChatStore";
+import { useWebSocketStore } from "@/store/useWebSocketStore";
 import { useRetryMessage } from "@/hooks/useRetryMessage";
 import { useContactsStore } from "@/store/useContactStore";
 import { useContactsList } from "@/hooks/useContacts";
@@ -61,12 +62,6 @@ import { Button } from "../ui/button";
 import { useRouter } from "next/navigation";
 import Cookies from "js-cookie";
 
-interface Reaction {
-  emoji: string;
-  userId: string;
-  userName: string;
-  userAvatar?: string;
-}
 
 interface MessageBubbleProps {
   userId: string;
@@ -102,7 +97,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       message.content?.startsWith("📞 Panggilan suara aktif") ||
       message.content?.startsWith("📞 Suara panggilan berakhir") ||
       message.content?.startsWith("📞 Panggilan suara berakhir");
-    const [reactions, setReactions] = useState<Reaction[]>([]);
+    const [reactions, setReactions] = useState<Reaction[]>(message.reactions || []);
     const [showReactors, setShowReactors] = useState(false);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
     const [permanentDelete, setPermanentDelete] = useState(false);
@@ -122,6 +117,7 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     );
     const { retry } = useRetryMessage();
     const { contacts } = useContactsStore();
+    const sendMessage = useWebSocketStore((s) => s.sendMessage);
 
     const getSenderName = (sender: any) => {
       if (!sender) return "User";
@@ -336,13 +332,28 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
     };
 
     const handleReact = (emoji: string) => {
-      const newReaction = {
-        emoji,
-        userId: userId,
-        userName: "You",
-        userAvatar: "",
+      if (!sendMessage) {
+        toast.error("Tidak terhubung ke server chat.");
+        return;
+      }
+
+      // Check if user already reacted with this exact emoji
+      const existingReaction = reactions.find((r) => {
+        const rId = r.userId || (r as any).user_id || r.user?.id;
+        return rId === userId;
+      });
+      const isSameEmoji = existingReaction?.emoji === emoji;
+
+      // If they clicked the same emoji, remove it (send empty content)
+      // Otherwise, add/update with the new emoji
+      const payload = {
+        type: "reaction",
+        conversation_id: message.conversation_id,
+        message_id: message.id,
+        content: isSameEmoji ? "" : emoji,
       };
-      setReactions((prev) => [...prev, newReaction]);
+
+      sendMessage(payload);
       setIsEmojiPickerOpen(false);
     };
 
@@ -458,6 +469,12 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       hidden: { opacity: 0, y: 20 },
       visible: { opacity: 1, y: 0 },
     };
+
+    useEffect(() => {
+      if (message.reactions) {
+        setReactions(message.reactions);
+      }
+    }, [message.reactions]);
 
     useEffect(() => {
       const handleClickOutside = (event: MouseEvent) => {
@@ -970,9 +987,8 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                 <DropdownMenuSeparator />
 
                 <DropdownMenuItem
-                  onSelect={(e) => {
-                    e.preventDefault();
-                    setIsEmojiPickerOpen(!isEmojiPickerOpen);
+                  onSelect={() => {
+                    setIsEmojiPickerOpen(true);
                   }}
                   className="px-4 py-2"
                 >
@@ -984,7 +1000,10 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
             {/* Emoji Picker positioned above the dropdown */}
             {isEmojiPickerOpen && (
-              <div className="emoji-picker-wrapper absolute bottom-full right-0 mb-2 z-[100]">
+              <div className={cn(
+                "emoji-picker-wrapper absolute bottom-full mb-2 z-[100]",
+                isCurrentUser ? "right-0" : "left-0"
+              )}>
                 <EmojiPicker
                   width={300}
                   height={350}
@@ -1007,42 +1026,58 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
 
           {/* Message footer */}
           <div className="flex items-center mt-1 space-x-1">
-            {Object.entries(reactionGroups).map(([emoji, reactors]) => (
-              <Tooltip key={emoji}>
-                <TooltipTrigger asChild>
-                  <button
-                    className="text-sm bg-white dark:bg-gray-800 rounded-full px-1 border border-gray-200 dark:border-gray-700 flex items-center"
-                    onClick={() => setShowReactors(true)}
-                  >
-                    <span className="text-lg">{emoji}</span>
-                    {reactors.length > 1 && (
-                      <span className="text-xs ml-1">{reactors.length}</span>
-                    )}
-                  </button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="max-w-[200px]">
-                  <div className="space-y-1">
-                    <p className="font-medium">{emoji} Reacted by:</p>
-                    <div className="max-h-40 overflow-y-auto">
-                      {reactors.map((reactor) => (
-                        <div
-                          key={reactor.userId}
-                          className="flex items-center py-1"
-                        >
-                          <Avatar
-                            src={reactor.userAvatar}
-                            name={reactor.userName}
-                            size="md"
-                            className="mr-2"
-                          />
-                          <span>{reactor.userName}</span>
-                        </div>
-                      ))}
+            {Object.entries(reactionGroups).map(([emoji, reactors]) => {
+              const hasUserReacted = reactors.some((r) => {
+                const rId = r.userId || (r as any).user_id || r.user?.id;
+                return rId === userId;
+              });
+              return (
+                <Tooltip key={emoji}>
+                  <TooltipTrigger asChild>
+                    <button
+                      className={cn(
+                        "text-sm rounded-full px-2 py-0.5 border flex items-center transition-colors hover:bg-gray-50 dark:hover:bg-gray-750",
+                        hasUserReacted
+                          ? "bg-blue-50 border-blue-200 text-blue-600 dark:bg-blue-950/40 dark:border-blue-800 dark:text-blue-400"
+                          : "bg-white dark:bg-gray-800 border-gray-200 dark:border-gray-700 text-gray-700 dark:text-gray-300"
+                      )}
+                      onClick={() => handleReact(emoji)}
+                    >
+                      <span className="text-base">{emoji}</span>
+                      {reactors.length > 0 && (
+                        <span className="text-xs ml-1 font-medium">{reactors.length}</span>
+                      )}
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent side="top" className="max-w-[200px]">
+                    <div className="space-y-1">
+                      <p className="font-medium">{emoji} Reacted by:</p>
+                      <div className="max-h-40 overflow-y-auto">
+                        {reactors.map((reactor) => {
+                          const rId = reactor.userId || (reactor as any).user_id || reactor.user?.id;
+                          const rName = reactor.userName || (reactor as any).user_name || (reactor.user ? `${reactor.user.first_name || ""} ${reactor.user.last_name || ""}`.trim() : "") || "User";
+                          const rAvatar = reactor.userAvatar || (reactor as any).user_avatar || reactor.user?.avatar_url;
+                          return (
+                            <div
+                              key={rId}
+                              className="flex items-center py-1"
+                            >
+                              <Avatar
+                                src={rAvatar}
+                                name={rName}
+                                size="md"
+                                className="mr-2"
+                              />
+                              <span>{rName}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
                     </div>
-                  </div>
-                </TooltipContent>
-              </Tooltip>
-            ))}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            })}
             <p className="text-xs text-gray-500 dark:text-gray-400">
               {formatRelativeTime(message.created_at || "")}
             </p>

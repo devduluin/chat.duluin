@@ -50,6 +50,17 @@ interface ChatStore {
     realMessage: Message,
   ) => void;
   removeMessage: (conversationId: string, messageId: string) => void;
+  updateMessageReaction: (
+    conversationId: string,
+    messageId: string,
+    reaction: {
+      userId: string;
+      userName: string;
+      userAvatar?: string;
+      emoji: string;
+      action: "added" | "removed";
+    },
+  ) => void;
   clearConversationData: (conversationId: string) => void;
 }
 
@@ -325,6 +336,46 @@ export const useChatStore = create<ChatStore>()(
 
         console.log("🗑️ After remove:", {
           afterCount: updatedMessages.length,
+        });
+
+        set({
+          messages: {
+            ...currentState.messages,
+            [conversationId]: updatedMessages,
+          },
+          _version: currentState._version + 1,
+        });
+      },
+
+      updateMessageReaction: (conversationId, messageId, reaction) => {
+        const currentState = get();
+        const convMsgs = currentState.messages[conversationId] || [];
+        const updatedMessages = convMsgs.map((msg) => {
+          if (msg.id !== messageId) return msg;
+
+          const currentReactions = msg.reactions || [];
+          let nextReactions = [...currentReactions];
+
+          if (reaction.action === "removed") {
+            nextReactions = nextReactions.filter((r) => {
+              const rId = r.userId || (r as any).user_id || r.user?.id;
+              return rId !== reaction.userId;
+            });
+          } else {
+            // Remove any existing reaction by this user to enforce 1 reaction per user
+            nextReactions = nextReactions.filter((r) => {
+              const rId = r.userId || (r as any).user_id || r.user?.id;
+              return rId !== reaction.userId;
+            });
+            nextReactions.push({
+              emoji: reaction.emoji,
+              userId: reaction.userId,
+              userName: reaction.userName,
+              userAvatar: reaction.userAvatar,
+            });
+          }
+
+          return { ...msg, reactions: nextReactions };
         });
 
         set({

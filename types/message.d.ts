@@ -2,6 +2,22 @@
 
 // Extend existing Message interface to include new status types
 declare global {
+  interface Reaction {
+    emoji: string;
+    userId?: string;
+    user_id?: string;
+    userName?: string;
+    user_name?: string;
+    userAvatar?: string;
+    user_avatar?: string;
+    user?: {
+      id?: string;
+      first_name?: string;
+      last_name?: string;
+      avatar_url?: string;
+    };
+  }
+
   interface Message {
     id: string;
     conversation_id: string;
