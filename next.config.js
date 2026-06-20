@@ -9,12 +9,12 @@ const nextConfig = {
       {
         protocol: "https",
         hostname: "gajian.duluin.com",
-        pathname: "/assets/img/**", // allow all images in this path
+        pathname: "/assets/img/**",
       },
       {
         protocol: "https",
         hostname: "duluin.com",
-        pathname: "/storage/photos/**", // allow all images in this path
+        pathname: "/storage/photos/**",
       },
     ],
   },
@@ -22,6 +22,15 @@ const nextConfig = {
     API_BASE_URL: process.env.NEXT_PUBLIC_API_BASE_URL,
   },
   output: "standalone",
+  webpack: (config) => {
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      path: false,
+      crypto: false,
+    };
+    return config;
+  },
 };
 
 module.exports = nextConfig;

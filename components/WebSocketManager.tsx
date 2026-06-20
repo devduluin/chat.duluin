@@ -6,6 +6,7 @@ import { useGlobalMessageSocket } from "@/hooks/useGlobalMessageSocket";
 import { useAccountStore } from "@/store/useAccountStore";
 import Cookies from "js-cookie";
 import { usePathname } from "next/navigation";
+import { useE2EEInit } from "@/hooks/useE2EEInit";
 
 /**
  * Global WebSocket Manager
@@ -28,6 +29,8 @@ export function WebSocketManager() {
   const { isConnected, sendMessage } = useGlobalMessageSocket(
     isAuthPage ? "" : userId,
   );
+
+  useE2EEInit(isAuthPage ? "" : userId);
 
   useEffect(() => {
     if (!isAuthPage && userId && !hasAttemptedConnection) {
