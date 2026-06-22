@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import axios from "axios";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
+import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
+import {
+  getSentPlaintext,
+  isEncryptedPlaceholder,
+} from "@/lib/e2ee/sent-plaintext-cache";
 
 // Empty array constant to avoid creating new arrays
 const EMPTY_ARRAY: any[] = [];
@@ -29,8 +34,34 @@ export function useMessages(conversationId: string, userId: string) {
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
 
+  // Restore sender plaintext from localStorage immediately after reload (before API fetch).
   useEffect(() => {
-    // Only fetch once per conversationId change
+    if (!conversationId || !userId) return;
+
+    const msgs = useChatStore.getState().messages[conversationId] || [];
+    let changed = false;
+    const updated = msgs.map((msg) => {
+      if (msg.message_type !== "e2ee_text" || msg.sender_id !== userId) {
+        return msg;
+      }
+      if (!isEncryptedPlaceholder(msg.content)) {
+        return msg;
+      }
+      const cached = getSentPlaintext(msg.id);
+      if (!cached) {
+        return msg;
+      }
+      changed = true;
+      return { ...msg, content: cached };
+    });
+
+    if (changed) {
+      setMessages(conversationId, updated);
+    }
+  }, [conversationId, userId]);
+
+  useEffect(() => {
+    // Only fetch once per conversationId/userId pair
     if (hasFetched) return;
 
     const fetchMessages = async () => {
@@ -42,7 +73,7 @@ export function useMessages(conversationId: string, userId: string) {
 
       const finalUserId = userId || userIdFromCookie;
 
-      // Don't fetch if no userId available
+      // Don't fetch if no userId available — wait for auth to hydrate
       if (!finalUserId) {
         console.warn("⚠️ No userId available, skipping fetch");
         setLoading(false);
@@ -51,6 +82,7 @@ export function useMessages(conversationId: string, userId: string) {
 
       setLoading(true);
       try {
+        await ensureDeviceRegistered(finalUserId);
         // Get token from cookies
         const token = document.cookie
           .split("; ")
@@ -95,10 +127,17 @@ export function useMessages(conversationId: string, userId: string) {
           Array.isArray(apiMessages) &&
           apiMessages.every((msg) => typeof msg.id === "string")
         ) {
+          const existingMessages =
+            useChatStore.getState().messages[conversationId] || [];
+
           const decryptedMessages = await Promise.all(
-            apiMessages.map((msg) =>
-              processIncomingE2EEMessage(msg, finalUserId),
-            ),
+            apiMessages.map((msg) => {
+              const existingMsg = existingMessages.find((m) => m.id === msg.id);
+              return processIncomingE2EEMessage(msg, finalUserId, {
+                senderPlaintext:
+                  msg.sender_id === finalUserId ? existingMsg?.content : undefined,
+              });
+            }),
           );
 
           setMessages(conversationId, decryptedMessages);
@@ -130,17 +169,23 @@ export function useMessages(conversationId: string, userId: string) {
         );
       } finally {
         setLoading(false);
-        setHasFetched(true);
+        const userIdFromCookie = document.cookie
+          .split("; ")
+          .find((row) => row.startsWith("user_id="))
+          ?.split("=")[1];
+        if (userId || userIdFromCookie) {
+          setHasFetched(true);
+        }
       }
     };
 
     fetchMessages();
-  }, [conversationId, userId]); // Remove store actions from dependencies
+  }, [conversationId, userId, hasFetched]); // Remove store actions from dependencies
 
-  // Reset hasFetched when conversationId changes
+  // Reset hasFetched when conversation or user changes
   useEffect(() => {
     setHasFetched(false);
-  }, [conversationId]);
+  }, [conversationId, userId]);
 
   return { conversations, messages, loading };
 }

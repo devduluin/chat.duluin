@@ -10,7 +10,7 @@ import { getConversationById } from "@/services/v1/conversationService";
 import Cookies from "js-cookie";
 import Swal from "sweetalert2";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
-import { remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
+import { getSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -1417,12 +1417,23 @@ export function useGlobalMessageSocket(userId: string) {
             if (existingMessage) {
               // Message already exists, just update it
               console.log("🔄 Message already exists, updating:", msg.id);
+
+              let preservedContent = existingMessage.content;
+              if (
+                messageType === "e2ee_text" &&
+                msg.sender_id === userId &&
+                (!preservedContent || preservedContent.startsWith("🔒"))
+              ) {
+                preservedContent =
+                  getSentPlaintext(msg.id) || preservedContent;
+              }
+
               const updatedMessage =
                 messageType === "e2ee_text" &&
                 msg.sender_id === userId &&
-                existingMessage.content &&
-                !existingMessage.content.startsWith("🔒")
-                  ? { ...msg, content: existingMessage.content, status: "sent" as const }
+                preservedContent &&
+                !preservedContent.startsWith("🔒")
+                  ? { ...msg, content: preservedContent, status: "sent" as const }
                   : { ...msg, status: "sent" as const };
 
               addOrUpdateMessage(msg.conversation_id, updatedMessage);
@@ -1473,8 +1484,19 @@ export function useGlobalMessageSocket(userId: string) {
                   content: msg.content,
                   sender: msg.sender?.first_name,
                 });
+
+                let finalMsg = msg;
+                if (messageType === "e2ee_text") {
+                  finalMsg = await processIncomingE2EEMessage(msg, userId, {
+                    senderPlaintext:
+                      msg.sender_id === userId
+                        ? getSentPlaintext(msg.id) ?? undefined
+                        : undefined,
+                  });
+                }
+
                 addOrUpdateMessage(msg.conversation_id, {
-                  ...msg,
+                  ...finalMsg,
                   status: "sent" as const,
                 });
               }

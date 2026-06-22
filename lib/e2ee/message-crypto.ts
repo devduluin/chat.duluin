@@ -8,8 +8,10 @@ import { getUserKeyBundles } from "@/services/v1/e2eeService";
 import { arrayBufferToUtf8, base64ToArrayBuffer, base64ToBinaryString, binaryStringToBase64, utf8ToArrayBuffer } from "./buffer-utils";
 import { getDeviceId } from "./device-manager";
 import {
+  cacheSentPlaintext,
   getSentPlaintext,
   isEncryptedPlaceholder,
+  looksLikeCiphertext,
 } from "./sent-plaintext-cache";
 import { LocalSignalStore } from "./signal-store";
 import type { E2EEMetadata, PreKeyBundle } from "./types";
@@ -112,13 +114,14 @@ function resolveSenderPlaintext(
   msg: Message,
   options?: { senderPlaintext?: string },
 ): string {
-  if (options?.senderPlaintext && !isEncryptedPlaceholder(options.senderPlaintext)) {
-    return options.senderPlaintext;
-  }
+  const candidates = [options?.senderPlaintext, getSentPlaintext(msg.id), msg.content];
 
-  const cached = getSentPlaintext(msg.id);
-  if (cached) {
-    return cached;
+  for (const candidate of candidates) {
+    if (!candidate || isEncryptedPlaceholder(candidate) || looksLikeCiphertext(candidate)) {
+      continue;
+    }
+    cacheSentPlaintext(msg.id, candidate);
+    return candidate;
   }
 
   return "🔒 Encrypted message";

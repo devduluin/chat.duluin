@@ -24,3 +24,10 @@ export function isEncryptedPlaceholder(content: string): boolean {
     content === "🔒 Unable to decrypt this message"
   );
 }
+
+/** Heuristic: server-stored E2EE ciphertext is base64 and much longer than normal chat text. */
+export function looksLikeCiphertext(content: string): boolean {
+  if (!content || content.length < 40) return false;
+  if (isEncryptedPlaceholder(content)) return false;
+  return /^[A-Za-z0-9+/=]+$/.test(content);
+}

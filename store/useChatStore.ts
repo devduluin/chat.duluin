@@ -296,6 +296,7 @@ export const useChatStore = create<ChatStore>()(
       replaceOptimisticMessage: (conversationId, optimisticId, realMessage) => {
         const currentState = get();
         const convMsgs = currentState.messages[conversationId] || [];
+        const optimisticMessage = convMsgs.find((m) => m.id === optimisticId);
 
         console.log("🔄 Replacing optimistic message:", {
           optimisticId,
@@ -303,10 +304,22 @@ export const useChatStore = create<ChatStore>()(
           conversationId,
         });
 
+        let mergedMessage = { ...realMessage, status: "sent" as const };
+        if (
+          realMessage.message_type === "e2ee_text" &&
+          optimisticMessage?.content &&
+          !optimisticMessage.content.startsWith("🔒")
+        ) {
+          mergedMessage = {
+            ...mergedMessage,
+            content: optimisticMessage.content,
+          };
+        }
+
         // Remove optimistic message and add real message, then sort by timestamp
         const updatedMessages = convMsgs
           .filter((m) => m.id !== optimisticId)
-          .concat({ ...realMessage, status: "sent" })
+          .concat(mergedMessage)
           .sort(
             (a, b) =>
               new Date(a.created_at || 0).getTime() -
