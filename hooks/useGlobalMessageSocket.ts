@@ -11,6 +11,7 @@ import Cookies from "js-cookie";
 import Swal from "sweetalert2";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
 import { getSentPlaintext, remapSentPlaintext, cacheSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
+import { resolveMessageForDisplay } from "@/lib/e2ee/message-preview";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -1685,7 +1686,11 @@ export function useGlobalMessageSocket(userId: string) {
               }
 
               // Conversation exists, update last message and unread count
-              setLastMessage(msg.conversation_id, msg, userId);
+              const sidebarMessage =
+                messageType === "e2ee_text"
+                  ? await resolveMessageForDisplay(msg, userId)
+                  : msg;
+              setLastMessage(msg.conversation_id, sidebarMessage, userId);
 
               // Trigger notification for incoming messages from others
               triggerNotification(msg);
