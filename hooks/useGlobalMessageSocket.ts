@@ -10,6 +10,7 @@ import { getConversationById } from "@/services/v1/conversationService";
 import Cookies from "js-cookie";
 import Swal from "sweetalert2";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
+import { remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -535,18 +536,17 @@ export function useGlobalMessageSocket(userId: string) {
                 (m) =>
                   m.sender_id === userId &&
                   m.conversation_id === msg.conversation_id &&
-                  (m.message_type === "e2ee_text" ||
-                    !m.status ||
-                    m.status === "pending" ||
-                    m.status === "sending") &&
-                  (m.status === "pending" ||
-                    !m.status ||
-                    m.status === "sending"),
+                  m.message_type === "e2ee_text" &&
+                  m.id !== msg.id,
               );
 
               msg = await processIncomingE2EEMessage(msg, userId, {
                 senderPlaintext: optimisticMessage?.content,
               });
+
+              if (optimisticMessage && msg.sender_id === userId) {
+                remapSentPlaintext(optimisticMessage.id, msg.id);
+              }
             }
             
             // --- 0. HANDLE NEW GROUP CREATION ---
@@ -1453,6 +1453,10 @@ export function useGlobalMessageSocket(userId: string) {
                   messageType === "e2ee_text" && msg.sender_id === userId
                     ? { ...msg, content: optimisticMessage.content }
                     : msg;
+
+                if (messageType === "e2ee_text" && msg.sender_id === userId) {
+                  remapSentPlaintext(optimisticMessage.id, msg.id);
+                }
 
                 useChatStore
                   .getState()

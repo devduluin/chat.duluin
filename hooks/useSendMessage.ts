@@ -7,6 +7,7 @@ import { useConversationsStore } from "@/store/useConversationsStore";
 import { toast } from "sonner";
 import Cookies from "js-cookie";
 import { encryptMessageForUser } from "@/lib/e2ee/message-crypto";
+import { cacheSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 import type { SecurityMode } from "@/lib/e2ee/types";
 
 interface SendMessageParams {
@@ -124,6 +125,10 @@ export const useSendMessage = () => {
 
       addMessage(conversationId, optimisticMessage);
       setMessage(conversationId, optimisticMessage, senderId);
+
+      if (mode === "e2ee") {
+        cacheSentPlaintext(messageId, content);
+      }
 
       if (isOnline && sendViaWebSocket) {
         try {
