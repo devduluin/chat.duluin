@@ -35,6 +35,8 @@ import { VoiceCallOverlay } from "./VoiceCallOverlay";
 import { useVideoCall } from "@/hooks/useVideoCall";
 import { VideoCallOverlay } from "./VideoCallOverlay";
 import Cookies from "js-cookie";
+import { enableConversationE2EE } from "@/services/v1/e2eeService";
+import { Lock } from "lucide-react";
 
 interface ChatHeaderProps {
   conversationId: string;
@@ -72,6 +74,31 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     "Chat User";
 
   const { sendMessage } = useSendMessage();
+  const updateConversation = useConversationsStore((state) => state.updateConversation);
+  const securityMode = (sidebarConv?.Conversation as any)?.security_mode || (conversation as any)?.security_mode || "plain";
+  const isDirectConversation = !(sidebarConv?.Conversation?.is_group || (conversation as any)?.is_group);
+
+  const handleEnableE2EE = async () => {
+    try {
+      const response = await enableConversationE2EE(conversationId, userId);
+      if (response?.status) {
+        updateConversation(conversationId, {
+          security_mode: "e2ee",
+        } as any);
+        useChatStore.getState().setConversation(conversationId, {
+          ...(useChatStore.getState().conversations[conversationId] || {}),
+          security_mode: "e2ee",
+        } as any);
+        toast.success("Encrypted chat enabled");
+      } else {
+        toast.error(response?.message || "Failed to enable encrypted chat");
+      }
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to enable encrypted chat");
+    }
+  };
+
 
   const [callMessageId, setCallMessageId] = useState<string | null>(null);
 
@@ -464,7 +491,19 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
                 <MoreVertical className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-48">
+            <DropdownMenuContent className="w-56">
+              {isDirectConversation && securityMode !== "e2ee" && (
+                <DropdownMenuItem onClick={handleEnableE2EE}>
+                  <Lock className="w-4 h-4 mr-2" />
+                  Enable encrypted chat
+                </DropdownMenuItem>
+              )}
+              {securityMode === "e2ee" && (
+                <DropdownMenuItem disabled>
+                  <Lock className="w-4 h-4 mr-2" />
+                  Encrypted chat enabled
+                </DropdownMenuItem>
+              )}
               <DropdownMenuItem onClick={handleArchiveChat}>
                 Archive Chat
               </DropdownMenuItem>

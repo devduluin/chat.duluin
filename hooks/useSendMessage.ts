@@ -6,6 +6,8 @@ import { useOfflineQueueStore } from "@/store/useOfflineQueueStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { toast } from "sonner";
 import Cookies from "js-cookie";
+import { encryptMessageForUser } from "@/lib/e2ee/message-crypto";
+import type { SecurityMode } from "@/lib/e2ee/types";
 
 interface SendMessageParams {
   conversationId: string;
@@ -16,6 +18,28 @@ interface SendMessageParams {
   attachmentIds?: string[];
   sendViaWebSocket?: (payload: any) => boolean;
   recipientId?: string;
+  securityMode?: SecurityMode;
+}
+
+function resolveSecurityMode(conversationId: string): SecurityMode {
+  const conversations = useConversationsStore.getState().conversations;
+  const match = conversations.find((item) => item.Conversation.id === conversationId);
+  const mode = (match?.Conversation as any)?.security_mode;
+  return mode === "e2ee" ? "e2ee" : "plain";
+}
+
+function resolveRecipientUserId(
+  conversationId: string,
+  senderId: string,
+  explicitRecipientId?: string,
+): string | null {
+  if (explicitRecipientId) return explicitRecipientId;
+
+  const conversations = useConversationsStore.getState().conversations;
+  const match = conversations.find((item) => item.Conversation.id === conversationId);
+  const members = match?.Conversation?.members || [];
+  const otherMember = members.find((member: any) => member.user_id !== senderId);
+  return otherMember?.user_id || null;
 }
 
 export const useSendMessage = () => {
@@ -33,8 +57,8 @@ export const useSendMessage = () => {
       attachmentIds,
       sendViaWebSocket,
       recipientId,
+      securityMode,
     }: SendMessageParams) => {
-      // Handle new direct conversation creation on first message send
       if (conversationId === "new" && recipientId) {
         try {
           const { sendDirectMessage } = await import("@/services/v1/messageService");
@@ -50,33 +74,31 @@ export const useSendMessage = () => {
             const newMsg = response.data;
             const newConversationId = newMsg.conversation_id;
             return { success: true, messageId: newMsg.id, conversationId: newConversationId };
-          } else {
-            toast.error(response?.message || "Failed to start direct conversation");
-            return { success: false };
           }
+
+          toast.error(response?.message || "Failed to start direct conversation");
+          return { success: false };
         } catch (error: any) {
           toast.error(error?.message || "Error starting conversation");
           return { success: false };
         }
       }
 
+      const mode = securityMode || resolveSecurityMode(conversationId);
       const messageId = uuidv4();
       const now = new Date();
 
-      // Get user info from cookies for sender object
       const firstName = Cookies.get("first_name") || "User";
       const lastName = Cookies.get("last_name") || "";
       const email = Cookies.get("email") || "";
       const avatarUrl = Cookies.get("avatar_url") || "";
 
-      // Create optimistic message for UI
       const optimisticMessage: Message = {
         id: messageId,
         conversation_id: conversationId,
         sender_id: senderId,
         content,
-        message_type: "text",
-        // Don't show loader - assume message will be sent (optimistic UI)
+        message_type: mode === "e2ee" ? "e2ee_text" : "text",
         status: isOnline ? undefined : "pending",
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
@@ -100,61 +122,57 @@ export const useSendMessage = () => {
         },
       };
 
-      // Add to local store immediately (optimistic update)
       addMessage(conversationId, optimisticMessage);
-
-      // Update conversation's last message
       setMessage(conversationId, optimisticMessage, senderId);
 
-      console.log(
-        isOnline
-          ? sendViaWebSocket
-            ? "🟢 Online + WebSocket available - sending via WebSocket"
-            : "🟡 Online but WebSocket not ready - will queue and sync via HTTP"
-          : "🔴 Offline - queueing message for later",
-        messageId,
-      );
-
-      // Priority 1: If online AND WebSocket available, send via WebSocket
       if (isOnline && sendViaWebSocket) {
-        const payload = {
-          conversation_id: conversationId,
-          content,
-          parent_message_id: parentMessageId,
-          attachment_ids: attachmentIds,
-        };
+        try {
+          let payload: Record<string, unknown>;
 
-        const success = sendViaWebSocket(payload);
+          if (mode === "e2ee") {
+            const recipientUserId = resolveRecipientUserId(
+              conversationId,
+              senderId,
+              recipientId,
+            );
+            if (!recipientUserId) {
+              toast.error("Cannot send encrypted message: recipient not found");
+              return { success: false, messageId };
+            }
 
-        if (success) {
-          // Message sent via WebSocket successfully
-          console.log("✅ Message sent via WebSocket");
-          return { success: true, messageId };
-        } else {
-          // WebSocket failed, fallback to queue + HTTP
-          console.warn(
-            "⚠️ WebSocket send failed, adding to queue for HTTP sync",
-          );
-          updateMessageStatus(messageId, conversationId, "pending");
+            const encrypted = await encryptMessageForUser(
+              senderId,
+              recipientUserId,
+              content,
+            );
 
-          addToQueue({
-            id: messageId,
-            conversationId,
-            content,
-            senderId,
-            tenantId,
-            createdAt: now,
-          });
+            payload = {
+              type: "e2ee_text",
+              conversation_id: conversationId,
+              ciphertext: encrypted.ciphertext,
+              e2ee: encrypted.e2ee,
+              parent_message_id: parentMessageId,
+              attachment_ids: attachmentIds,
+            };
+          } else {
+            payload = {
+              conversation_id: conversationId,
+              content,
+              parent_message_id: parentMessageId,
+              attachment_ids: attachmentIds,
+            };
+          }
 
-          return { success: false, messageId, queued: true };
+          const success = sendViaWebSocket(payload);
+          if (success) {
+            return { success: true, messageId };
+          }
+        } catch (error) {
+          console.error("Failed to send message:", error);
+          toast.error("Failed to send encrypted message");
         }
-      } else {
-        // Priority 2: Offline or WebSocket not ready - add to queue for HTTP sync
-        console.log(
-          "📥 Adding message to queue (will sync via HTTP when online)",
-        );
-        updateMessageStatus(messageId, conversationId, "pending");
 
+        updateMessageStatus(messageId, conversationId, "pending");
         addToQueue({
           id: messageId,
           conversationId,
@@ -163,18 +181,31 @@ export const useSendMessage = () => {
           tenantId,
           createdAt: now,
         });
-
-        if (!isOnline) {
-          toast.info(
-            "Offline - message will be sent when connection is restored",
-            {
-              id: "offline-queue",
-            },
-          );
-        }
-
         return { success: false, messageId, queued: true };
       }
+
+      if (mode === "e2ee") {
+        toast.error("Encrypted messages require an active WebSocket connection");
+        return { success: false, messageId };
+      }
+
+      updateMessageStatus(messageId, conversationId, "pending");
+      addToQueue({
+        id: messageId,
+        conversationId,
+        content,
+        senderId,
+        tenantId,
+        createdAt: now,
+      });
+
+      if (!isOnline) {
+        toast.info("Offline - message will be sent when connection is restored", {
+          id: "offline-queue",
+        });
+      }
+
+      return { success: false, messageId, queued: true };
     },
     [addMessage, setMessage, updateMessageStatus, addToQueue, isOnline],
   );

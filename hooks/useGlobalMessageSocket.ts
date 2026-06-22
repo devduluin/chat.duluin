@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { getConversationById } from "@/services/v1/conversationService";
 import Cookies from "js-cookie";
 import Swal from "sweetalert2";
+import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -511,7 +512,7 @@ export function useGlobalMessageSocket(userId: string) {
           }
 
           if (response.status && response.data) {
-            const msg = response.data as Message;
+            let msg = response.data as Message;
 
             console.log("🌍✅ [MSG] Message details:", {
               messageId: msg.id,
@@ -526,6 +527,10 @@ export function useGlobalMessageSocket(userId: string) {
             // Normalize message type
             const messageType =
               msg.message_type || (msg as any).MessageType || "";
+
+            if (messageType === "e2ee_text") {
+              msg = await processIncomingE2EEMessage(msg, userId);
+            }
             
             // --- 0. HANDLE NEW GROUP CREATION ---
             // Explicitly handle "new_group" message type
@@ -1404,9 +1409,10 @@ export function useGlobalMessageSocket(userId: string) {
               const optimisticMessage = convMsgs.find(
                 (m) =>
                   m.sender_id === msg.sender_id &&
-                  m.content === msg.content &&
                   m.conversation_id === msg.conversation_id &&
-                  // Match messages with pending status
+                  (messageType === "e2ee_text"
+                    ? m.message_type === "e2ee_text" || !m.status || m.status === "pending" || m.status === "sending"
+                    : m.content === msg.content) &&
                   (m.status === "pending" ||
                     !m.status ||
                     m.status === "sending"),
