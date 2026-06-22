@@ -6,6 +6,7 @@ import { useAuthStore } from "@/store/useAuthStore";
 import { useAccountStore } from "@/store/useAccountStore";
 import { useAppCookies } from "@/hooks/useAppCookies";
 import { logoutService } from "@/services/loginService";
+import { clearAuthLocalStoragePreservingE2EE } from "@/lib/e2ee/storage-persistence";
 import { Loader2, LayoutDashboard } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { motion } from "framer-motion";
@@ -61,9 +62,9 @@ export default function LogoutHandler() {
           }
         }
 
-        // Clear localStorage
+        // Clear auth localStorage but keep E2EE keys on this device (WhatsApp-like).
         if (typeof window !== "undefined") {
-          localStorage.clear();
+          clearAuthLocalStoragePreservingE2EE();
           sessionStorage.clear();
         }
 

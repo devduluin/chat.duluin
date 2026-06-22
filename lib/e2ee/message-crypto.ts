@@ -92,11 +92,22 @@ export async function decryptMessage(
 ): Promise<string> {
   const store = new LocalSignalStore(recipientUserId);
   const myDeviceId = getDeviceId(recipientUserId);
-  const deviceMessage =
-    metadata.device_messages?.find((item) => item.device_id === myDeviceId) ??
-    metadata.device_messages?.[0];
+  const deviceMessages = metadata.device_messages ?? [];
+  let ciphertextB64: string;
 
-  const ciphertextB64 = deviceMessage?.ciphertext ?? fallbackCiphertext;
+  if (deviceMessages.length > 0) {
+    const deviceMessage = myDeviceId
+      ? deviceMessages.find((item) => item.device_id === myDeviceId)
+      : deviceMessages[0];
+    if (!deviceMessage?.ciphertext) {
+      throw new Error("No ciphertext available for this device");
+    }
+    ciphertextB64 = deviceMessage.ciphertext;
+  } else if (fallbackCiphertext) {
+    ciphertextB64 = fallbackCiphertext;
+  } else {
+    throw new Error("No ciphertext available for this device");
+  }
   const body = base64ToBinaryString(ciphertextB64);
 
   const address = new SignalProtocolAddress(

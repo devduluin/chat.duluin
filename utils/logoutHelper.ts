@@ -1,4 +1,5 @@
 import { logoutService } from "@/services/loginService";
+import { clearAuthLocalStoragePreservingE2EE } from "@/lib/e2ee/storage-persistence";
 
 /**
  * Utility function to perform logout with backend API call
@@ -29,9 +30,9 @@ export const performLogout = async (appToken?: string) => {
     document.cookie = `${name}=; path=/; expires=Thu, 01 Jan 1970 00:00:00 GMT; domain=.${window.location.hostname}`;
   }
 
-  // Clear localStorage and sessionStorage
+  // Clear auth storage but preserve E2EE keys on this device.
   if (typeof window !== "undefined") {
-    localStorage.clear();
+    clearAuthLocalStoragePreservingE2EE();
     sessionStorage.clear();
   }
 };
