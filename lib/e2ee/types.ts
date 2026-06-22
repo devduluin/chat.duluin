@@ -35,3 +35,15 @@ export interface RegisterDevicePayload {
   registration_id: number;
   one_time_prekeys: Array<{ prekey_id: number; prekey_pub: string }>;
 }
+
+export interface E2EEReadiness {
+  self_device_ready: boolean;
+  recipient_device_ready: boolean;
+  recipient_user_id?: string;
+  can_send_encrypted: boolean;
+}
+
+export interface EnableE2EEResponse {
+  conversation: Conversation;
+  e2ee_readiness: E2EEReadiness;
+}

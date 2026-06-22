@@ -7,6 +7,8 @@ import { useConversationsStore } from "@/store/useConversationsStore";
 import { toast } from "sonner";
 import Cookies from "js-cookie";
 import { encryptMessageForUser } from "@/lib/e2ee/message-crypto";
+import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
+import { recipientHasRegisteredDevices } from "@/services/v1/e2eeService";
 import { cacheSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 import type { SecurityMode } from "@/lib/e2ee/types";
 
@@ -25,7 +27,12 @@ interface SendMessageParams {
 function resolveSecurityMode(conversationId: string): SecurityMode {
   const conversations = useConversationsStore.getState().conversations;
   const match = conversations.find((item) => item.Conversation.id === conversationId);
-  const mode = (match?.Conversation as any)?.security_mode;
+  const fromSidebar = (match?.Conversation as any)?.security_mode;
+
+  const chatConv = useChatStore.getState().conversations[conversationId];
+  const fromChat = (chatConv as any)?.security_mode;
+
+  const mode = fromSidebar || fromChat;
   return mode === "e2ee" ? "e2ee" : "plain";
 }
 
@@ -89,6 +96,34 @@ export const useSendMessage = () => {
       const messageId = uuidv4();
       const now = new Date();
 
+      if (mode === "e2ee") {
+        try {
+          await ensureDeviceRegistered(senderId);
+        } catch (error) {
+          console.error("Failed to register E2EE device:", error);
+          toast.error("Gagal menyiapkan enkripsi di perangkat ini. Muat ulang halaman lalu coba lagi.");
+          return { success: false };
+        }
+
+        const recipientUserId = resolveRecipientUserId(
+          conversationId,
+          senderId,
+          recipientId,
+        );
+        if (!recipientUserId) {
+          toast.error("Tidak dapat mengirim pesan terenkripsi: kontak tidak ditemukan");
+          return { success: false };
+        }
+
+        const recipientReady = await recipientHasRegisteredDevices(recipientUserId);
+        if (!recipientReady) {
+          toast.error(
+            "Kontak belum siap menerima pesan terenkripsi. Minta mereka membuka aplikasi chat terlebih dahulu.",
+          );
+          return { success: false };
+        }
+      }
+
       const firstName = Cookies.get("first_name") || "User";
       const lastName = Cookies.get("last_name") || "";
       const email = Cookies.get("email") || "";
@@ -141,7 +176,8 @@ export const useSendMessage = () => {
               recipientId,
             );
             if (!recipientUserId) {
-              toast.error("Cannot send encrypted message: recipient not found");
+              toast.error("Tidak dapat mengirim pesan terenkripsi: kontak tidak ditemukan");
+              useChatStore.getState().removeMessage(conversationId, messageId);
               return { success: false, messageId };
             }
 
@@ -174,7 +210,14 @@ export const useSendMessage = () => {
           }
         } catch (error) {
           console.error("Failed to send message:", error);
-          toast.error("Failed to send encrypted message");
+          useChatStore.getState().removeMessage(conversationId, messageId);
+          const message =
+            error instanceof Error &&
+            (error.message.includes("No key bundles") ||
+              error.message.includes("no active devices"))
+              ? "Kontak belum siap menerima pesan terenkripsi. Minta mereka membuka aplikasi chat."
+              : "Gagal mengirim pesan terenkripsi";
+          toast.error(message);
         }
 
         updateMessageStatus(messageId, conversationId, "pending");

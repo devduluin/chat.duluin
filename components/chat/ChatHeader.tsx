@@ -36,6 +36,8 @@ import { useVideoCall } from "@/hooks/useVideoCall";
 import { VideoCallOverlay } from "./VideoCallOverlay";
 import Cookies from "js-cookie";
 import { enableConversationE2EE } from "@/services/v1/e2eeService";
+import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
+import type { EnableE2EEResponse } from "@/lib/e2ee/types";
 import { Lock } from "lucide-react";
 
 interface ChatHeaderProps {
@@ -80,22 +82,38 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
 
   const handleEnableE2EE = async () => {
     try {
+      await ensureDeviceRegistered(userId);
       const response = await enableConversationE2EE(conversationId, userId);
       if (response?.status) {
+        const payload = response.data as EnableE2EEResponse | undefined;
+        const conversation = payload?.conversation;
+        const readiness = payload?.e2ee_readiness;
+
         updateConversation(conversationId, {
           security_mode: "e2ee",
         } as any);
         useChatStore.getState().setConversation(conversationId, {
           ...(useChatStore.getState().conversations[conversationId] || {}),
+          ...(conversation || {}),
           security_mode: "e2ee",
         } as any);
-        toast.success("Encrypted chat enabled");
+
+        if (readiness?.can_send_encrypted) {
+          toast.success("Obrolan terenkripsi aktif. Pesan Anda sekarang dilindungi end-to-end.");
+        } else if (readiness && !readiness.recipient_device_ready) {
+          toast.success(
+            "Obrolan terenkripsi aktif. Kontak akan bisa menerima pesan setelah membuka aplikasi chat.",
+            { duration: 6000 },
+          );
+        } else {
+          toast.success("Obrolan terenkripsi aktif");
+        }
       } else {
-        toast.error(response?.message || "Failed to enable encrypted chat");
+        toast.error(response?.message || "Gagal mengaktifkan obrolan terenkripsi");
       }
     } catch (error) {
       console.error(error);
-      toast.error("Failed to enable encrypted chat");
+      toast.error("Gagal mengaktifkan obrolan terenkripsi. Muat ulang halaman lalu coba lagi.");
     }
   };
 
@@ -103,6 +121,10 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const [callMessageId, setCallMessageId] = useState<string | null>(null);
 
   const handleCallConnected = useCallback((isInitiator?: boolean) => {
+    if (securityMode === "e2ee") {
+      return;
+    }
+
     // Hanya inisiator/pemanggil pertama yang diperbolehkan mengirim notifikasi panggilan aktif
     if (isInitiator === false) {
       console.log("ℹ️ Joined as responder. Skipping call notification message.");
@@ -122,9 +144,13 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         }
       })
       .catch((err) => console.error("Failed to send call notification message:", err));
-  }, [conversationId, userId, sendMessage]);
+  }, [conversationId, userId, sendMessage, securityMode]);
 
   const handleCallEnded = useCallback(() => {
+    if (securityMode === "e2ee") {
+      return;
+    }
+
     // Cari pesan notifikasi panggilan suara aktif dari store untuk mendapatkan ID database aslinya
     const messages = useChatStore.getState().messages[conversationId] || [];
     const callMsg = [...messages].reverse().find(
@@ -153,9 +179,13 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     } else {
       console.warn("⚠️ Could not find call message ID to update for conversation:", conversationId);
     }
-  }, [conversationId, userId, callMessageId]);
+  }, [conversationId, userId, callMessageId, securityMode]);
 
   const handleVideoCallConnected = useCallback((isInitiator?: boolean) => {
+    if (securityMode === "e2ee") {
+      return;
+    }
+
     if (isInitiator === false) {
       console.log("ℹ️ Joined as responder. Skipping video call notification message.");
       return;
@@ -174,9 +204,13 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         }
       })
       .catch((err) => console.error("Failed to send video call notification message:", err));
-  }, [conversationId, userId, sendMessage]);
+  }, [conversationId, userId, sendMessage, securityMode]);
 
   const handleVideoCallEnded = useCallback(() => {
+    if (securityMode === "e2ee") {
+      return;
+    }
+
     const messages = useChatStore.getState().messages[conversationId] || [];
     const callMsg = [...messages].reverse().find(
       (m) => m.content?.startsWith("📹 Panggilan video aktif")
@@ -203,7 +237,7 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     } else {
       console.warn("⚠️ Could not find video call message ID to update for conversation:", conversationId);
     }
-  }, [conversationId, userId, callMessageId]);
+  }, [conversationId, userId, callMessageId, securityMode]);
 
   const {
     isCalling,

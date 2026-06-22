@@ -18,6 +18,11 @@ export async function listDevices(userId: string) {
   return response.data?.data ?? [];
 }
 
+export async function recipientHasRegisteredDevices(userId: string): Promise<boolean> {
+  const devices = await listDevices(userId);
+  return Array.isArray(devices) && devices.length > 0;
+}
+
 export async function enableConversationE2EE(conversationId: string, userId: string) {
   const response = await api.post(`/conversations/${conversationId}/enable-e2ee`, {
     user_id: userId,
