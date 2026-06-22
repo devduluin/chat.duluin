@@ -529,7 +529,24 @@ export function useGlobalMessageSocket(userId: string) {
               msg.message_type || (msg as any).MessageType || "";
 
             if (messageType === "e2ee_text") {
-              msg = await processIncomingE2EEMessage(msg, userId);
+              const convMsgs =
+                useChatStore.getState().messages[msg.conversation_id] || [];
+              const optimisticMessage = convMsgs.find(
+                (m) =>
+                  m.sender_id === userId &&
+                  m.conversation_id === msg.conversation_id &&
+                  (m.message_type === "e2ee_text" ||
+                    !m.status ||
+                    m.status === "pending" ||
+                    m.status === "sending") &&
+                  (m.status === "pending" ||
+                    !m.status ||
+                    m.status === "sending"),
+              );
+
+              msg = await processIncomingE2EEMessage(msg, userId, {
+                senderPlaintext: optimisticMessage?.content,
+              });
             }
             
             // --- 0. HANDLE NEW GROUP CREATION ---
@@ -1400,10 +1417,15 @@ export function useGlobalMessageSocket(userId: string) {
             if (existingMessage) {
               // Message already exists, just update it
               console.log("🔄 Message already exists, updating:", msg.id);
-              addOrUpdateMessage(msg.conversation_id, {
-                ...msg,
-                status: "sent" as const,
-              });
+              const updatedMessage =
+                messageType === "e2ee_text" &&
+                msg.sender_id === userId &&
+                existingMessage.content &&
+                !existingMessage.content.startsWith("🔒")
+                  ? { ...msg, content: existingMessage.content, status: "sent" as const }
+                  : { ...msg, status: "sent" as const };
+
+              addOrUpdateMessage(msg.conversation_id, updatedMessage);
             } else {
               // New message, check if there's an optimistic message to replace
               const optimisticMessage = convMsgs.find(
@@ -1427,12 +1449,17 @@ export function useGlobalMessageSocket(userId: string) {
                   msg.id,
                 );
 
+                const mergedMessage =
+                  messageType === "e2ee_text" && msg.sender_id === userId
+                    ? { ...msg, content: optimisticMessage.content }
+                    : msg;
+
                 useChatStore
                   .getState()
                   .replaceOptimisticMessage(
                     msg.conversation_id,
                     optimisticMessage.id,
-                    msg,
+                    mergedMessage,
                   );
               } else {
                 // Add as new message

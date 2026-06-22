@@ -107,9 +107,18 @@ export async function decryptMessage(
 export async function processIncomingE2EEMessage(
   msg: Message,
   currentUserId: string,
+  options?: { senderPlaintext?: string },
 ): Promise<Message> {
   if (msg.message_type !== "e2ee_text") {
     return msg;
+  }
+
+  // Ciphertext is encrypted for recipient devices; only the sender client knows plaintext.
+  if (msg.sender_id === currentUserId) {
+    return {
+      ...msg,
+      content: options?.senderPlaintext ?? "🔒 Encrypted message",
+    };
   }
 
   try {
@@ -117,6 +126,10 @@ export async function processIncomingE2EEMessage(
       typeof msg.metadata === "string"
         ? (JSON.parse(msg.metadata) as E2EEMetadata)
         : (msg.metadata as unknown as E2EEMetadata);
+
+    if (!metadata?.sender_registration_id) {
+      throw new Error("Missing E2EE metadata");
+    }
 
     const plaintext = await decryptMessage(
       currentUserId,

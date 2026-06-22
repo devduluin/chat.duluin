@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useChatStore } from "@/store/useChatStore";
 import axios from "axios";
+import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
 
 // Empty array constant to avoid creating new arrays
 const EMPTY_ARRAY: any[] = [];
@@ -94,7 +95,13 @@ export function useMessages(conversationId: string, userId: string) {
           Array.isArray(apiMessages) &&
           apiMessages.every((msg) => typeof msg.id === "string")
         ) {
-          setMessages(conversationId, apiMessages);
+          const decryptedMessages = await Promise.all(
+            apiMessages.map((msg) =>
+              processIncomingE2EEMessage(msg, finalUserId),
+            ),
+          );
+
+          setMessages(conversationId, decryptedMessages);
           // Store conversation with display_name, display_avatar, and is_user_member
           setConversation(conversationId, {
             ...apiConversation,
@@ -105,7 +112,7 @@ export function useMessages(conversationId: string, userId: string) {
           setMembers(conversationId, apiMembers);
 
           // Update read status for messages not sent by the current user
-          apiMessages.forEach((msg) => {
+          decryptedMessages.forEach((msg) => {
             if (msg.sender_id !== finalUserId && !msg.read_at && msg.id) {
               updateMessageReadStatus(msg.id, conversationId, new Date());
             }
