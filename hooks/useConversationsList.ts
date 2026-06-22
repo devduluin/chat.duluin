@@ -107,7 +107,7 @@ export const useConversations = (userId: string, filter?: any) => {
     if (!userId || !conversations.length || hydratedPreviewRef.current) return;
 
     const needsResolve = conversations.some(
-      (item) =>
+      (item: RecentConversation) =>
         item.LastMessage?.message_type === "e2ee_text" &&
         looksLikeCiphertext(item.LastMessage.content || ""),
     );
@@ -127,7 +127,7 @@ export const useConversations = (userId: string, filter?: any) => {
         if (cancelled) return;
 
         const changed = resolved.some(
-          (item, index) =>
+          (item: RecentConversation, index: number) =>
             item.LastMessage?.content !==
             conversations[index]?.LastMessage?.content,
         );
