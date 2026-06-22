@@ -1,6 +1,7 @@
 // store/useChatStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { cacheSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 
 interface ChatStore {
   messages: Record<string, Message[]>;
@@ -314,6 +315,8 @@ export const useChatStore = create<ChatStore>()(
             ...mergedMessage,
             content: optimisticMessage.content,
           };
+          remapSentPlaintext(optimisticId, realMessage.id);
+          cacheSentPlaintext(realMessage.id, optimisticMessage.content);
         }
 
         // Remove optimistic message and add real message, then sort by timestamp

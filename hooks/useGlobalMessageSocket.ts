@@ -10,7 +10,7 @@ import { getConversationById } from "@/services/v1/conversationService";
 import Cookies from "js-cookie";
 import Swal from "sweetalert2";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
-import { getSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
+import { getSentPlaintext, remapSentPlaintext, cacheSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -532,13 +532,22 @@ export function useGlobalMessageSocket(userId: string) {
             if (messageType === "e2ee_text") {
               const convMsgs =
                 useChatStore.getState().messages[msg.conversation_id] || [];
-              const optimisticMessage = convMsgs.find(
-                (m) =>
-                  m.sender_id === userId &&
-                  m.conversation_id === msg.conversation_id &&
-                  m.message_type === "e2ee_text" &&
-                  m.id !== msg.id,
-              );
+              const optimisticMessage = convMsgs
+                .filter(
+                  (m) =>
+                    m.sender_id === userId &&
+                    m.conversation_id === msg.conversation_id &&
+                    m.message_type === "e2ee_text" &&
+                    m.id !== msg.id &&
+                    (m.status === "pending" ||
+                      m.status === "sending" ||
+                      !m.status),
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at || 0).getTime() -
+                    new Date(a.created_at || 0).getTime(),
+                )[0];
 
               msg = await processIncomingE2EEMessage(msg, userId, {
                 senderPlaintext: optimisticMessage?.content,
@@ -546,6 +555,9 @@ export function useGlobalMessageSocket(userId: string) {
 
               if (optimisticMessage && msg.sender_id === userId) {
                 remapSentPlaintext(optimisticMessage.id, msg.id);
+                if (optimisticMessage.content) {
+                  cacheSentPlaintext(msg.id, optimisticMessage.content);
+                }
               }
             }
             
@@ -1409,6 +1421,17 @@ export function useGlobalMessageSocket(userId: string) {
               return; // Don't process further if user is not a member
             }
 
+            // Dedupe WS deliveries (ack + broadcast can arrive for the same message).
+            if (msg.id) {
+              const lastSeen = processedMessageIds.current[msg.id];
+              const now = Date.now();
+              if (lastSeen && now - lastSeen < 5000) {
+                console.log("⏭️ Skipping duplicate WS message:", msg.id);
+                return;
+              }
+              processedMessageIds.current[msg.id] = now;
+            }
+
             // Check if message already exists in store
             const convMsgs =
               useChatStore.getState().messages[msg.conversation_id] || [];
@@ -1439,17 +1462,21 @@ export function useGlobalMessageSocket(userId: string) {
               addOrUpdateMessage(msg.conversation_id, updatedMessage);
             } else {
               // New message, check if there's an optimistic message to replace
-              const optimisticMessage = convMsgs.find(
-                (m) =>
-                  m.sender_id === msg.sender_id &&
-                  m.conversation_id === msg.conversation_id &&
-                  (messageType === "e2ee_text"
-                    ? m.message_type === "e2ee_text" || !m.status || m.status === "pending" || m.status === "sending"
-                    : m.content === msg.content) &&
-                  (m.status === "pending" ||
-                    !m.status ||
-                    m.status === "sending"),
-              );
+              const optimisticMessage = convMsgs
+                .filter(
+                  (m) =>
+                    m.sender_id === msg.sender_id &&
+                    m.conversation_id === msg.conversation_id &&
+                    m.id !== msg.id &&
+                    (m.status === "pending" ||
+                      m.status === "sending" ||
+                      (!m.status && messageType === "e2ee_text")),
+                )
+                .sort(
+                  (a, b) =>
+                    new Date(b.created_at || 0).getTime() -
+                    new Date(a.created_at || 0).getTime(),
+                )[0];
 
               if (optimisticMessage) {
                 // Replace optimistic message with real message
@@ -1467,6 +1494,9 @@ export function useGlobalMessageSocket(userId: string) {
 
                 if (messageType === "e2ee_text" && msg.sender_id === userId) {
                   remapSentPlaintext(optimisticMessage.id, msg.id);
+                  if (optimisticMessage.content) {
+                    cacheSentPlaintext(msg.id, optimisticMessage.content);
+                  }
                 }
 
                 useChatStore
@@ -1487,10 +1517,17 @@ export function useGlobalMessageSocket(userId: string) {
 
                 let finalMsg = msg;
                 if (messageType === "e2ee_text") {
+                  const existingMsg = convMsgs.find((m) => m.id === msg.id);
                   finalMsg = await processIncomingE2EEMessage(msg, userId, {
                     senderPlaintext:
                       msg.sender_id === userId
-                        ? getSentPlaintext(msg.id) ?? undefined
+                        ? getSentPlaintext(msg.id) ??
+                          existingMsg?.content ??
+                          undefined
+                        : undefined,
+                    existingPlaintext:
+                      msg.sender_id !== userId
+                        ? existingMsg?.content
                         : undefined,
                   });
                 }

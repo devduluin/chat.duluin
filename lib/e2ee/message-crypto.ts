@@ -13,6 +13,10 @@ import {
   isEncryptedPlaceholder,
   looksLikeCiphertext,
 } from "./sent-plaintext-cache";
+import {
+  cacheReceivedPlaintext,
+  getReceivedPlaintext,
+} from "./decrypted-plaintext-cache";
 import { LocalSignalStore } from "./signal-store";
 import type { E2EEMetadata, PreKeyBundle } from "./types";
 
@@ -130,7 +134,7 @@ function resolveSenderPlaintext(
 export async function processIncomingE2EEMessage(
   msg: Message,
   currentUserId: string,
-  options?: { senderPlaintext?: string },
+  options?: { senderPlaintext?: string; existingPlaintext?: string },
 ): Promise<Message> {
   if (msg.message_type !== "e2ee_text") {
     return msg;
@@ -142,6 +146,21 @@ export async function processIncomingE2EEMessage(
       ...msg,
       content: resolveSenderPlaintext(msg, options),
     };
+  }
+
+  const cached = getReceivedPlaintext(msg.id);
+  if (cached) {
+    return { ...msg, content: cached };
+  }
+
+  const existing = options?.existingPlaintext;
+  if (
+    existing &&
+    !isEncryptedPlaceholder(existing) &&
+    !looksLikeCiphertext(existing)
+  ) {
+    cacheReceivedPlaintext(msg.id, existing);
+    return { ...msg, content: existing };
   }
 
   try {
@@ -161,9 +180,26 @@ export async function processIncomingE2EEMessage(
       msg.content,
     );
 
+    cacheReceivedPlaintext(msg.id, plaintext);
     return { ...msg, content: plaintext };
   } catch (error) {
-    console.error("Failed to decrypt E2EE message:", error);
+    const name = error instanceof Error ? error.name : "";
+    const recovered = getReceivedPlaintext(msg.id);
+    if (recovered) {
+      return { ...msg, content: recovered };
+    }
+    if (
+      existing &&
+      !isEncryptedPlaceholder(existing) &&
+      !looksLikeCiphertext(existing)
+    ) {
+      return { ...msg, content: existing };
+    }
+    if (name === "MessageCounterError") {
+      console.warn("E2EE message already decrypted, skipping ratchet advance:", msg.id);
+    } else {
+      console.error("Failed to decrypt E2EE message:", error);
+    }
     return {
       ...msg,
       content: "🔒 Unable to decrypt this message",

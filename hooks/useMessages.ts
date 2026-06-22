@@ -8,6 +8,10 @@ import {
   getSentPlaintext,
   isEncryptedPlaceholder,
 } from "@/lib/e2ee/sent-plaintext-cache";
+import {
+  dedupeMessagesById,
+  removeStaleOptimisticE2EEMessages,
+} from "@/lib/e2ee/message-dedup";
 
 // Empty array constant to avoid creating new arrays
 const EMPTY_ARRAY: any[] = [];
@@ -34,7 +38,7 @@ export function useMessages(conversationId: string, userId: string) {
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
 
-  // Restore sender plaintext from localStorage immediately after reload (before API fetch).
+  // Restore sender plaintext from localStorage and drop stale optimistic bubbles on reload.
   useEffect(() => {
     if (!conversationId || !userId) return;
 
@@ -55,8 +59,12 @@ export function useMessages(conversationId: string, userId: string) {
       return { ...msg, content: cached };
     });
 
-    if (changed) {
-      setMessages(conversationId, updated);
+    const cleaned = dedupeMessagesById(
+      removeStaleOptimisticE2EEMessages(updated, userId),
+    );
+
+    if (changed || cleaned.length !== msgs.length) {
+      setMessages(conversationId, cleaned);
     }
   }, [conversationId, userId]);
 
@@ -130,14 +138,17 @@ export function useMessages(conversationId: string, userId: string) {
           const existingMessages =
             useChatStore.getState().messages[conversationId] || [];
 
-          const decryptedMessages = await Promise.all(
-            apiMessages.map((msg) => {
-              const existingMsg = existingMessages.find((m) => m.id === msg.id);
-              return processIncomingE2EEMessage(msg, finalUserId, {
-                senderPlaintext:
-                  msg.sender_id === finalUserId ? existingMsg?.content : undefined,
-              });
-            }),
+          const decryptedMessages = dedupeMessagesById(
+            await Promise.all(
+              apiMessages.map((msg) => {
+                const existingMsg = existingMessages.find((m) => m.id === msg.id);
+                const isSelf = msg.sender_id === finalUserId;
+                return processIncomingE2EEMessage(msg, finalUserId, {
+                  senderPlaintext: isSelf ? existingMsg?.content : undefined,
+                  existingPlaintext: !isSelf ? existingMsg?.content : undefined,
+                });
+              }),
+            ),
           );
 
           setMessages(conversationId, decryptedMessages);
