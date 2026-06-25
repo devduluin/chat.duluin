@@ -12,6 +12,10 @@ import {
   dedupeMessagesById,
   removeStaleOptimisticE2EEMessages,
 } from "@/lib/e2ee/message-dedup";
+import {
+  archiveGetByConversation,
+  mergeArchiveWithServer,
+} from "@/lib/message-archive";
 
 // Empty array constant to avoid creating new arrays
 const EMPTY_ARRAY: any[] = [];
@@ -32,8 +36,6 @@ export function useMessages(conversationId: string, userId: string) {
   const setMessages = useChatStore.getState().setMessages;
   const setConversation = useChatStore.getState().setConversation;
   const setMembers = useChatStore.getState().setMembers;
-  const updateMessageReadStatus =
-    useChatStore.getState().updateMessageReadStatus;
 
   const [loading, setLoading] = useState(true);
   const [hasFetched, setHasFetched] = useState(false);
@@ -137,11 +139,14 @@ export function useMessages(conversationId: string, userId: string) {
         ) {
           const existingMessages =
             useChatStore.getState().messages[conversationId] || [];
+          const archivedMessages = await archiveGetByConversation(conversationId);
 
-          const decryptedMessages = dedupeMessagesById(
+          const decryptedServer = dedupeMessagesById(
             await Promise.all(
               apiMessages.map((msg) => {
-                const existingMsg = existingMessages.find((m) => m.id === msg.id);
+                const existingMsg =
+                  existingMessages.find((m) => m.id === msg.id) ||
+                  archivedMessages.find((m) => m.id === msg.id);
                 const isSelf = msg.sender_id === finalUserId;
                 return processIncomingE2EEMessage(msg, finalUserId, {
                   senderPlaintext: isSelf ? existingMsg?.content : undefined,
@@ -149,6 +154,11 @@ export function useMessages(conversationId: string, userId: string) {
                 });
               }),
             ),
+          );
+
+          const decryptedMessages = mergeArchiveWithServer(
+            archivedMessages,
+            decryptedServer,
           );
 
           setMessages(conversationId, decryptedMessages);
@@ -160,13 +170,18 @@ export function useMessages(conversationId: string, userId: string) {
             is_user_member: isUserMember, // Store is_user_member flag
           } as any);
           setMembers(conversationId, apiMembers);
-
-          // Update read status for messages not sent by the current user
-          decryptedMessages.forEach((msg) => {
-            if (msg.sender_id !== finalUserId && !msg.read_at && msg.id) {
-              updateMessageReadStatus(msg.id, conversationId, new Date());
-            }
-          });
+        } else if (Array.isArray(apiMessages) && apiMessages.length === 0) {
+          const archivedMessages = await archiveGetByConversation(conversationId);
+          if (archivedMessages.length > 0) {
+            setMessages(conversationId, archivedMessages);
+          }
+          setConversation(conversationId, {
+            ...apiConversation,
+            display_name: displayName,
+            display_avatar: displayAvatar,
+            is_user_member: isUserMember,
+          } as any);
+          setMembers(conversationId, apiMembers);
         } else {
           console.warn("Invalid message format:", apiMessages);
           // Don't clear messages - keep cached data
