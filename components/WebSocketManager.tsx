@@ -7,6 +7,7 @@ import { useAccountStore } from "@/store/useAccountStore";
 import Cookies from "js-cookie";
 import { usePathname } from "next/navigation";
 import { useE2EEInit } from "@/hooks/useE2EEInit";
+import { IncomingCallOverlay } from "@/components/chat/IncomingCallOverlay";
 
 /**
  * Global WebSocket Manager
@@ -54,6 +55,6 @@ export function WebSocketManager() {
     }
   }, [userId, isConnected, sendMessage, isAuthPage]);
 
-  // This component doesn't render anything, it just manages the WebSocket
-  return null;
+  // This component manages the WebSocket and global incoming call UI
+  return <IncomingCallOverlay />;
 }

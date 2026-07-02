@@ -13,7 +13,7 @@ import { Avatar } from "../ui/avatar";
 import { Button } from "../ui/button";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { ContactInfoModal } from "./ContactInfoModal";
 import { ContactPicker } from "./ContactPicker";
 import { useConversationsStore } from "@/store/useConversationsStore";
@@ -39,6 +39,7 @@ import { enableConversationE2EE } from "@/services/v1/e2eeService";
 import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
 import type { EnableE2EEResponse } from "@/lib/e2ee/types";
 import { Lock } from "lucide-react";
+import { useCallStore } from "@/store/useCallStore";
 
 interface ChatHeaderProps {
   conversationId: string;
@@ -49,6 +50,11 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const shouldStartCall = searchParams?.get("start_call") === "true";
+  const shouldStartVideoCall = searchParams?.get("start_video_call") === "true";
+  const shouldAcceptCall = searchParams?.get("accept_call") === "true";
+  const acceptCallType = searchParams?.get("call_type") || "voice";
+  const pendingRespond = useCallStore((s) => s.pendingRespond);
+  const setPendingRespond = useCallStore((s) => s.setPendingRespond);
   const conversation = useChatStore(
     (state) => state.conversations[conversationId],
   );
@@ -79,6 +85,28 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   const updateConversation = useConversationsStore((state) => state.updateConversation);
   const securityMode = (sidebarConv?.Conversation as any)?.security_mode || (conversation as any)?.security_mode || "plain";
   const isDirectConversation = !(sidebarConv?.Conversation?.is_group || (conversation as any)?.is_group);
+
+  const otherUserId = useMemo(() => {
+    if (!isDirectConversation) return undefined;
+    const fromSidebar =
+      (sidebarConv as any)?.other_user_id ||
+      (sidebarConv?.Conversation as any)?.other_user_id;
+    if (fromSidebar && fromSidebar !== userId) return fromSidebar;
+    if (members?.length) {
+      const other = members.find((m: any) => {
+        const memberId =
+          m.user_id || m.UserID || m.user?.id || m.User?.id;
+        return memberId && memberId !== userId;
+      });
+      return (
+        (other as any)?.user_id ||
+        (other as any)?.UserID ||
+        (other as any)?.user?.id ||
+        (other as any)?.User?.id
+      );
+    }
+    return undefined;
+  }, [isDirectConversation, sidebarConv, members, userId]);
 
   const handleEnableE2EE = async () => {
     try {
@@ -248,7 +276,14 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     startCall,
     leaveCall,
     toggleMute,
-  } = useVoiceCall(conversationId, userId, currentUserName, handleCallConnected, handleCallEnded);
+  } = useVoiceCall(
+    conversationId,
+    userId,
+    currentUserName,
+    otherUserId,
+    handleCallConnected,
+    handleCallEnded,
+  );
 
   const {
     isCalling: isVideoCalling,
@@ -262,20 +297,111 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     leaveCall: leaveVideoCall,
     toggleMute: toggleVideoMute,
     toggleCamera: toggleVideoCamera,
-  } = useVideoCall(conversationId, userId, currentUserName, handleVideoCallConnected, handleVideoCallEnded);
+  } = useVideoCall(
+    conversationId,
+    userId,
+    currentUserName,
+    otherUserId,
+    handleVideoCallConnected,
+    handleVideoCallEnded,
+  );
 
   const hasInitiatedAutoCall = useRef(false);
+  const hasHandledAcceptCall = useRef(false);
 
   useEffect(() => {
-    if (shouldStartCall && startCall && !isCalling && !isConnecting && !hasInitiatedAutoCall.current) {
-      console.log("🚀 Automatically initiating call from query param!");
+    if (
+      shouldStartCall &&
+      startCall &&
+      !isCalling &&
+      !isConnecting &&
+      !hasInitiatedAutoCall.current
+    ) {
+      console.log("🚀 Automatically initiating voice call from query param!");
       hasInitiatedAutoCall.current = true;
       startCall();
 
-      // Clean up the URL query parameter using Next.js router to clear searchParams state
       router.replace(window.location.pathname, { scroll: false });
     }
   }, [shouldStartCall, startCall, isCalling, isConnecting, router]);
+
+  useEffect(() => {
+    if (
+      shouldStartVideoCall &&
+      startVideoCall &&
+      !isVideoCalling &&
+      !isVideoConnecting &&
+      !hasInitiatedAutoCall.current
+    ) {
+      console.log("🚀 Automatically initiating video call from query param!");
+      hasInitiatedAutoCall.current = true;
+      startVideoCall();
+
+      router.replace(window.location.pathname, { scroll: false });
+    }
+  }, [
+    shouldStartVideoCall,
+    startVideoCall,
+    isVideoCalling,
+    isVideoConnecting,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (shouldAcceptCall && !hasHandledAcceptCall.current) {
+      hasHandledAcceptCall.current = true;
+      const respondOptions = {
+        asResponder: true,
+        peerId: pendingRespond?.peerId,
+        callId: pendingRespond?.callId,
+      };
+      setPendingRespond(null);
+      router.replace(window.location.pathname, { scroll: false });
+
+      if (acceptCallType === "video") {
+        startVideoCall(respondOptions);
+      } else {
+        startCall(respondOptions);
+      }
+    }
+  }, [
+    shouldAcceptCall,
+    acceptCallType,
+    pendingRespond,
+    startCall,
+    startVideoCall,
+    setPendingRespond,
+    router,
+  ]);
+
+  useEffect(() => {
+    if (
+      pendingRespond &&
+      pendingRespond.callType &&
+      !shouldAcceptCall &&
+      !hasHandledAcceptCall.current
+    ) {
+      hasHandledAcceptCall.current = true;
+      const options = {
+        asResponder: true,
+        peerId: pendingRespond.peerId,
+        callId: pendingRespond.callId,
+      };
+      setPendingRespond(null);
+
+      if (pendingRespond.callType === "video") {
+        startVideoCall(options);
+      } else {
+        startCall(options);
+      }
+    }
+  }, [
+    pendingRespond,
+    shouldAcceptCall,
+    startCall,
+    startVideoCall,
+    setPendingRespond,
+  ]);
 
   // Display name dan avatar dari API backend (sudah di-compute dengan benar di backend)
   // Untuk 1-on-1 chat: display_name = nama user lawan (bukan sender dari message)
@@ -502,10 +628,10 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button id="header-phone-button" variant="ghost" size="icon" onClick={startCall}>
+          <Button id="header-phone-button" variant="ghost" size="icon" onClick={() => startCall()}>
             <Phone className="h-5 w-5" />
           </Button>
-          <Button id="header-video-button" variant="ghost" size="icon" onClick={startVideoCall}>
+          <Button id="header-video-button" variant="ghost" size="icon" onClick={() => startVideoCall()}>
             <Video className="h-5 w-5" />
           </Button>
 

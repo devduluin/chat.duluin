@@ -12,6 +12,12 @@ import Swal from "sweetalert2";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
 import { getSentPlaintext, remapSentPlaintext, cacheSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 import { resolveMessageForDisplay } from "@/lib/e2ee/message-preview";
+import {
+  handleCallSignalingEvent,
+  isCallSignalingEvent,
+  acceptCall,
+} from "@/lib/callSignaling";
+import { useCallStore, type IncomingCall } from "@/store/useCallStore";
 
 // Type definitions for conversation structure
 interface RecentConversation {
@@ -156,10 +162,14 @@ export function useGlobalMessageSocket(userId: string) {
     const isSystem = msg.message_type === "system" || msg.is_system_message;
     const content = typeof msg.content === "string" ? msg.content : "";
     const isCall = content.startsWith("📞 Panggilan suara aktif");
-    const isCallEnd = content.startsWith("📞 Suara panggilan berakhir") || content.startsWith("📞 Panggilan suara berakhir");
+    const isVideoCall = content.startsWith("📹 Panggilan video aktif");
+    const isCallEnd =
+      content.startsWith("📞 Suara panggilan berakhir") ||
+      content.startsWith("📞 Panggilan suara berakhir") ||
+      content.startsWith("📹 Video panggilan berakhir");
 
     // 1. Play synthesized sounds
-    if (isCall) {
+    if (isCall || isVideoCall) {
       playIncomingCallSound();
     } else if (!isCallEnd) {
       playNotificationSound();
@@ -193,6 +203,9 @@ export function useGlobalMessageSocket(userId: string) {
     if (isCall) {
       notificationTitle = `📞 Panggilan Suara Masuk`;
       notificationBody = `Panggilan suara aktif dari ${senderName}. Klik untuk bergabung!`;
+    } else if (isVideoCall) {
+      notificationTitle = `📹 Panggilan Video Masuk`;
+      notificationBody = `Panggilan video aktif dari ${senderName}. Klik untuk bergabung!`;
     } else if (isSystem) {
       notificationTitle = `Notifikasi Grup`;
       if (content.startsWith("member_added:")) {
@@ -219,10 +232,22 @@ export function useGlobalMessageSocket(userId: string) {
           label: "Gabung",
           onClick: () => {
             window.location.href = `/conversation/${msg.conversation_id}?start_call=true`;
-          }
+          },
         },
         duration: 15000,
-        position: "top-center"
+        position: "top-center",
+      });
+    } else if (isVideoCall) {
+      toast.info(notificationTitle, {
+        description: notificationBody,
+        action: {
+          label: "Gabung",
+          onClick: () => {
+            window.location.href = `/conversation/${msg.conversation_id}?start_video_call=true`;
+          },
+        },
+        duration: 15000,
+        position: "top-center",
       });
     } else {
       toast(notificationTitle, {
@@ -470,6 +495,48 @@ export function useGlobalMessageSocket(userId: string) {
                icon: 'error'
              });
              return;
+          }
+
+          // Handle call signaling events (voice/video/VoIP)
+          if (isCallSignalingEvent(response.message)) {
+            const showIncomingCallToast = (call: IncomingCall) => {
+              const callLabel =
+                call.callType === "video" ? "Panggilan Video" : "Panggilan Suara";
+              toast.info(`${callLabel} Masuk`, {
+                description: "Klik Terima untuk menjawab panggilan.",
+                action: {
+                  label: "Terima",
+                  onClick: () => {
+                    acceptCall(call.callerId, call.callId);
+                    useCallStore.getState().setPendingRespond({
+                      callType: call.callType,
+                      peerId: call.callerId,
+                      callId: call.callId,
+                    });
+                    useCallStore.getState().clearIncomingCall();
+                    window.location.href = `/conversation/${call.conversationId}?accept_call=true&call_type=${call.callType}`;
+                  },
+                },
+                duration: 20000,
+                position: "top-center",
+              });
+            };
+
+            handleCallSignalingEvent(response.message, response.data, {
+              playIncomingRing: playIncomingCallSound,
+              onIncomingCall: showIncomingCallToast,
+            });
+
+            if (response.message === "call_accept") {
+              toast.success("Panggilan diterima!");
+            } else if (response.message === "call_reject") {
+              toast.info("Panggilan ditolak.");
+            } else if (response.message === "call_busy") {
+              toast.info("Pengguna sedang dalam panggilan lain.");
+            } else if (response.message === "call_end") {
+              isRingActive.current = false;
+            }
+            return;
           }
 
           // Handle Message Reaction Event

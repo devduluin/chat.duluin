@@ -29,6 +29,7 @@ import {
   Loader2,
   RefreshCw,
   Phone,
+  Video,
   User,
   UserPlus,
   Mail,
@@ -97,6 +98,9 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
       message.content?.startsWith("📞 Panggilan suara aktif") ||
       message.content?.startsWith("📞 Suara panggilan berakhir") ||
       message.content?.startsWith("📞 Panggilan suara berakhir");
+    const isVideoCallMessage =
+      message.content?.startsWith("📹 Panggilan video aktif") ||
+      message.content?.startsWith("📹 Video panggilan berakhir");
     const [reactions, setReactions] = useState<Reaction[]>(message.reactions || []);
     const [showReactors, setShowReactors] = useState(false);
     const [openDeleteModal, setOpenDeleteModal] = useState(false);
@@ -801,6 +805,46 @@ export const MessageBubble = forwardRef<HTMLDivElement, MessageBubbleProps>(
                         <div className="flex items-center space-x-3 p-1 text-gray-500 dark:text-gray-400 font-semibold">
                           <Phone className="h-4 w-4 text-gray-400 dark:text-gray-500" />
                           <span className="text-sm">Suara Panggilan Berakhir</span>
+                        </div>
+                      ) : message.content.startsWith("📹 Panggilan video aktif") ? (
+                        <div className="flex flex-col space-y-3 p-1">
+                          <div className="flex items-center space-x-3 text-blue-600 dark:text-blue-400 font-semibold">
+                            <div className="relative flex h-3 w-3">
+                              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-400 opacity-75"></span>
+                              <span className="relative inline-flex rounded-full h-3 w-3 bg-blue-500"></span>
+                            </div>
+                            <span className="text-sm">Panggilan Video Aktif</span>
+                          </div>
+                          <p className="text-sm text-gray-600 dark:text-gray-300 break-words whitespace-pre-wrap">
+                            {message.content}
+                          </p>
+                          {!isCurrentUser && (
+                            <button
+                              onPointerDown={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                              }}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                const btn = document.getElementById("header-video-button");
+                                if (btn) {
+                                  btn.click();
+                                } else {
+                                  toast.error("Tidak dapat menemukan tombol video di header.");
+                                }
+                              }}
+                              className="w-full mt-1 flex items-center justify-center space-x-2 py-2 px-4 rounded-xl bg-blue-500 hover:bg-blue-600 active:bg-blue-700 text-white font-medium text-sm transition-all duration-200 shadow-md shadow-blue-500/20 hover:shadow-blue-500/35 hover:-translate-y-0.5"
+                            >
+                              <Video className="h-4 w-4 fill-current animate-pulse" />
+                              <span>Gabung Panggilan Video</span>
+                            </button>
+                          )}
+                        </div>
+                      ) : message.content.startsWith("📹 Video panggilan berakhir") ? (
+                        <div className="flex items-center space-x-3 p-1 text-gray-500 dark:text-gray-400 font-semibold">
+                          <Video className="h-4 w-4 text-gray-400 dark:text-gray-500" />
+                          <span className="text-sm">Video Panggilan Berakhir</span>
                         </div>
                       ) : message.content.includes("KARTU KONTAK") ? (
                         <div className="flex flex-col space-y-3 p-1">
