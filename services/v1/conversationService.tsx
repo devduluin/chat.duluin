@@ -43,15 +43,36 @@ export async function updateConversation(
 
 export async function getConversationById(
   conversationId: string,
-  userId: string
+  userId: string,
+  options?: { limit?: number },
 ): Promise<any | null> {
   try {
     const response = await api.get(`/conversations/${conversationId}`, {
-      params: { user_id: userId },
+      params: { user_id: userId, limit: options?.limit ?? 100 },
     });
     return response.data;
   } catch (error: any) {
     console.error("Failed to fetch conversation:", error);
+    return error?.response?.data;
+  }
+}
+
+export async function getConversationMessages(
+  conversationId: string,
+  userId: string,
+  options: { beforeId: string; limit?: number },
+): Promise<any | null> {
+  try {
+    const response = await api.get(`/conversations/${conversationId}/messages`, {
+      params: {
+        user_id: userId,
+        before_id: options.beforeId,
+        limit: options.limit ?? 100,
+      },
+    });
+    return response.data;
+  } catch (error: any) {
+    console.error("Failed to fetch older messages:", error);
     return error?.response?.data;
   }
 }

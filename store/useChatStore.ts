@@ -3,15 +3,26 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { cacheSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 
+interface MessagePaginationState {
+  hasMore: boolean;
+  oldestMessageId: string | null;
+}
+
 interface ChatStore {
   messages: Record<string, Message[]>;
   conversations: Record<string, Conversation>;
   members: Record<string, Member[]>;
+  messagePagination: Record<string, MessagePaginationState>;
   typingUsers: Record<string, Record<string, string>>; // conversationId -> { userId: userName }
   _version: number; // Version counter to force updates
   addMessage: (conversationId: string, msg: Message) => void;
   addOrUpdateMessage: (conversationId: string, msg: Message) => void;
   setMessages: (conversationId: string, msgs: Message[]) => void;
+  prependMessages: (conversationId: string, olderMsgs: Message[]) => void;
+  setMessagePagination: (
+    conversationId: string,
+    pagination: MessagePaginationState,
+  ) => void;
   setConversation: (conversationId: string, conversation: Conversation) => void;
   updateConversation: (
     conversationId: string,
@@ -71,8 +82,9 @@ export const useChatStore = create<ChatStore>()(
       messages: {},
       conversations: {},
       members: {},
+      messagePagination: {},
       typingUsers: {},
-      _version: 1,
+      _version: 2,
       addMessage: (conversationId, msg) => {
         const convMsgs = get().messages[conversationId] || [];
 
@@ -157,6 +169,37 @@ export const useChatStore = create<ChatStore>()(
           messages: {
             ...get().messages,
             [conversationId]: msgs,
+          },
+        });
+      },
+
+      prependMessages: (conversationId, olderMsgs) => {
+        const currentState = get();
+        const existing = currentState.messages[conversationId] || [];
+        const seen = new Set(existing.map((m) => m.id));
+        const uniqueOlder = olderMsgs.filter((m) => m.id && !seen.has(m.id));
+        if (uniqueOlder.length === 0) return;
+
+        const merged = [...uniqueOlder, ...existing].sort((a, b) => {
+          const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+          const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+          return aTime - bTime;
+        });
+
+        set({
+          messages: {
+            ...currentState.messages,
+            [conversationId]: merged,
+          },
+          _version: currentState._version + 1,
+        });
+      },
+
+      setMessagePagination: (conversationId, pagination) => {
+        set({
+          messagePagination: {
+            ...get().messagePagination,
+            [conversationId]: pagination,
           },
         });
       },
@@ -411,6 +454,8 @@ export const useChatStore = create<ChatStore>()(
           currentState.members;
         const { [conversationId]: _conv, ...restConversations } =
           currentState.conversations;
+        const { [conversationId]: _pagination, ...restPagination } =
+          currentState.messagePagination;
         const { [conversationId]: _typing, ...restTyping } =
           currentState.typingUsers;
 
@@ -418,6 +463,7 @@ export const useChatStore = create<ChatStore>()(
           messages: restMessages,
           members: restMembers,
           conversations: restConversations,
+          messagePagination: restPagination,
           typingUsers: restTyping,
           _version: currentState._version + 1,
         });
@@ -429,17 +475,17 @@ export const useChatStore = create<ChatStore>()(
         messages: state.messages,
         conversations: state.conversations,
         members: state.members,
+        messagePagination: state.messagePagination,
         _version: state._version,
       }),
-      version: 1, // Increment version for migration
+      version: 2,
       migrate: (persistedState: any, version: number) => {
-        if (version === 0) {
-          // Migration from version 0 to 1
-          // Ensure typingUsers exists
+        if (version < 2) {
           return {
             ...persistedState,
+            messagePagination: persistedState.messagePagination || {},
             typingUsers: persistedState.typingUsers || {},
-            _version: 1,
+            _version: 2,
           };
         }
         return persistedState as ChatStore;

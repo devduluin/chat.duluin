@@ -116,8 +116,15 @@ export function MessageList({
   onScrollToMessageReady?: (fn: (messageId: string) => void) => void;
   isGroupConversation?: boolean;
 }) {
-  const { messages, loading } = useMessages(conversationId, userId);
+  const {
+    messages,
+    loading,
+    loadingOlder,
+    hasMore,
+    loadOlderMessages,
+  } = useMessages(conversationId, userId);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
   const messageRefs = useRef<Map<string, HTMLDivElement>>(new Map());
   const [isClient, setIsClient] = useState(false);
 
@@ -125,6 +132,10 @@ export function MessageList({
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  useEffect(() => {
+    lastMessageIdRef.current = null;
+  }, [conversationId]);
 
   const scrollToMessage = useCallback((id: string) => {
     const ref = messageRefs.current.get(id);
@@ -153,9 +164,54 @@ export function MessageList({
     [],
   );
 
+  const handleLoadOlder = useCallback(async () => {
+    const container = scrollContainerRef.current;
+    if (!container) {
+      await loadOlderMessages();
+      return;
+    }
+
+    const previousScrollHeight = container.scrollHeight;
+    const previousScrollTop = container.scrollTop;
+
+    await loadOlderMessages();
+
+    requestAnimationFrame(() => {
+      const nextContainer = scrollContainerRef.current;
+      if (!nextContainer) return;
+      nextContainer.scrollTop =
+        nextContainer.scrollHeight - previousScrollHeight + previousScrollTop;
+    });
+  }, [loadOlderMessages]);
+
+  const isNearBottom = useCallback(() => {
+    const container = scrollContainerRef.current;
+    if (!container) return true;
+    const threshold = 120;
+    return (
+      container.scrollHeight - container.scrollTop - container.clientHeight <
+      threshold
+    );
+  }, []);
+
+  const lastMessageIdRef = useRef<string | null>(null);
+
   useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+    const lastMessage = messages[messages.length - 1];
+    const lastId = lastMessage?.id ?? null;
+    const prevLastId = lastMessageIdRef.current;
+
+    if (!lastId) return;
+
+    const isInitialLoad = prevLastId === null;
+    const isNewMessageAtBottom = lastId !== prevLastId && isNearBottom();
+
+    if (isInitialLoad || isNewMessageAtBottom) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+
+    lastMessageIdRef.current = lastId;
+  }, [messages, isNearBottom]);
 
   // Create a stable reference for messages map
   const messagesMap = useRef(new Map<string, Message>());
@@ -186,8 +242,20 @@ export function MessageList({
   }
 
   return (
-    <div className="flex-1 p-4 overflow-y-auto">
+    <div ref={scrollContainerRef} className="flex-1 p-4 overflow-y-auto">
       <div className="space-y-4">
+        {hasMore && (
+          <div className="flex justify-center py-2">
+            <button
+              type="button"
+              onClick={handleLoadOlder}
+              disabled={loadingOlder}
+              className="rounded-full border border-gray-200 bg-white px-4 py-2 text-sm text-gray-600 shadow-sm transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              {loadingOlder ? "Memuat..." : "Muat chat lainnya"}
+            </button>
+          </div>
+        )}
         {(() => {
           const uniqueMessages: Message[] = [];
           const seenIds = new Set<string>();
