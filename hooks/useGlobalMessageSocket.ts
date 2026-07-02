@@ -523,6 +523,7 @@ export function useGlobalMessageSocket(userId: string) {
             };
 
             handleCallSignalingEvent(response.message, response.data, {
+              currentUserId: userId,
               playIncomingRing: playIncomingCallSound,
               onIncomingCall: showIncomingCallToast,
             });

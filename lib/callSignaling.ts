@@ -25,12 +25,29 @@ export function initiateCall(
   callType: CallType,
   conversationId: string,
 ): boolean {
-  return sendCallSignaling({
+  const canStart = useCallStore.getState().tryBeginOutgoingCall({
+    receiverId,
+    callType,
+    conversationId,
+  });
+
+  if (!canStart) {
+    return false;
+  }
+
+  const sent = sendCallSignaling({
     type: "call_initiate",
     receiver_id: receiverId,
     call_type: callType,
     conversation_id: conversationId,
   });
+
+  if (!sent) {
+    useCallStore.getState().clearOutgoingCall();
+    return false;
+  }
+
+  return true;
 }
 
 export function acceptCall(receiverId: string, callId: string): boolean {
@@ -69,10 +86,50 @@ export function isCallSignalingEvent(eventType: string): boolean {
   return CALL_EVENTS.has(eventType);
 }
 
+function resolveCallType(value: unknown): CallType {
+  return value === "video" ? "video" : "voice";
+}
+
+function matchesActiveCall(
+  eventType: string,
+  data: Record<string, unknown>,
+): boolean {
+  const store = useCallStore.getState();
+  const outgoing = store.outgoingCall;
+  const incoming = store.incomingCall;
+  const senderId = data.sender_id ? String(data.sender_id) : "";
+  const conversationId = data.conversation_id
+    ? String(data.conversation_id)
+    : undefined;
+
+  if (eventType === "call_busy") {
+    return !!outgoing;
+  }
+
+  if (!outgoing && !incoming) {
+    return false;
+  }
+
+  if (eventType === "call_end" || eventType === "call_reject") {
+    const matchesOutgoing =
+      !!outgoing &&
+      (!conversationId || outgoing.conversationId === conversationId) &&
+      (!senderId || outgoing.receiverId === senderId);
+    const matchesIncoming =
+      !!incoming &&
+      (!conversationId || incoming.conversationId === conversationId) &&
+      (!senderId || incoming.callerId === senderId);
+    return matchesOutgoing || matchesIncoming;
+  }
+
+  return !!(outgoing || incoming);
+}
+
 export function handleCallSignalingEvent(
   eventType: string,
   data: Record<string, unknown> | null | undefined,
   options?: {
+    currentUserId?: string;
     onIncomingCall?: (call: IncomingCall) => void;
     playIncomingRing?: () => void;
   },
@@ -86,9 +143,17 @@ export function handleCallSignalingEvent(
       const callerId = String(data.sender_id || "");
       const conversationId = String(data.conversation_id || "");
       const callId = String(data.call_id || "");
-      const callType: CallType =
-        data.call_type === "video" ? "video" : "voice";
+      const callType = resolveCallType(data.call_type);
+
       if (!callerId || !conversationId) return;
+      if (options?.currentUserId && callerId === options.currentUserId) {
+        console.warn("Ignoring self-echoed call_initiate event");
+        return;
+      }
+      if (store.outgoingCall?.conversationId === conversationId) {
+        console.warn("Ignoring call_initiate while already calling this chat");
+        return;
+      }
 
       const incoming: IncomingCall = {
         callId,
@@ -104,20 +169,46 @@ export function handleCallSignalingEvent(
       break;
     }
     case "call_accept": {
+      const conversationId = data.conversation_id
+        ? String(data.conversation_id)
+        : store.outgoingCall?.conversationId;
+      const callType = resolveCallType(
+        data.call_type || store.outgoingCall?.callType,
+      );
       const callId = data.call_id ? String(data.call_id) : undefined;
+
+      if (!store.outgoingCall) break;
+
       if (callId) store.setOutgoingCallId(callId);
       store.markOutgoingAnswered();
       break;
     }
     case "call_reject":
     case "call_busy":
-      store.clearOutgoingCall();
-      store.signalEndCall();
-      break;
-    case "call_end":
+    case "call_end": {
+      if (!matchesActiveCall(eventType, data)) {
+        console.warn(`Ignoring unrelated ${eventType} event`, data);
+        break;
+      }
+
+      const conversationId =
+        (data.conversation_id ? String(data.conversation_id) : undefined) ||
+        store.outgoingCall?.conversationId ||
+        store.incomingCall?.conversationId;
+      const callType = resolveCallType(
+        data.call_type ||
+          store.outgoingCall?.callType ||
+          store.incomingCall?.callType,
+      );
+
       store.clearIncomingCall();
       store.clearOutgoingCall();
-      store.signalEndCall();
+      store.signalEndCall({
+        conversationId,
+        callType,
+        reason: eventType,
+      });
       break;
+    }
   }
 }

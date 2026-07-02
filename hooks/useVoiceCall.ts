@@ -124,6 +124,9 @@ export const useVoiceCall = (
   const peerIdRef = useRef<string | null>(null);
   const callIdRef = useRef<string | null>(null);
   const shouldSignalEndRef = useRef(true);
+  const isCleaningUpRef = useRef(false);
+  const hasLeftRef = useRef(false);
+  const isStartingRef = useRef(false);
   const endCallSignal = useCallStore((s) => s.endCallSignal);
   const outgoingCall = useCallStore((s) => s.outgoingCall);
 
@@ -137,11 +140,13 @@ export const useVoiceCall = (
   const cleanupLiveKit = useCallback(() => {
     const room = roomRef.current;
     if (room) {
+      isCleaningUpRef.current = true;
       roomRef.current = null;
       try {
         room.disconnect();
       } catch (err) {
         console.error("Error disconnecting room:", err);
+        isCleaningUpRef.current = false;
       }
     }
 
@@ -172,12 +177,16 @@ export const useVoiceCall = (
     }
     peerIdRef.current = null;
     callIdRef.current = null;
+    isStartingRef.current = false;
     useCallStore.getState().clearOutgoingCall();
     useCallStore.getState().clearIncomingCall();
   }, []);
 
   const leaveCall = useCallback(
     async (options?: { skipSignaling?: boolean }) => {
+      if (hasLeftRef.current) return;
+      hasLeftRef.current = true;
+
       if (shouldSignalEndRef.current && !options?.skipSignaling) {
         sendSignalingEnd();
       }
@@ -192,16 +201,27 @@ export const useVoiceCall = (
   );
 
   useEffect(() => {
-    if (endCallSignal > 0) {
-      shouldSignalEndRef.current = false;
-      leaveCall({ skipSignaling: true });
-      useCallStore.getState().resetEndCallSignal();
-    }
-  }, [endCallSignal, leaveCall]);
+    if (endCallSignal.id <= 0) return;
+
+    const matchesType = !endCallSignal.callType || endCallSignal.callType === "voice";
+    const matchesConversation =
+      !endCallSignal.conversationId ||
+      endCallSignal.conversationId === conversationId;
+
+    if (!matchesType || !matchesConversation) return;
+    if (!isCalling && !isConnecting) return;
+
+    console.warn("Ending voice call due to signal:", endCallSignal.reason);
+    shouldSignalEndRef.current = false;
+    leaveCall({ skipSignaling: true });
+    useCallStore.getState().resetEndCallSignal();
+  }, [endCallSignal, leaveCall, isCalling, isConnecting, conversationId]);
 
   const startCall = useCallback(
     async (options?: StartCallOptions) => {
-      if (isCalling || isConnecting) return;
+      if (isStartingRef.current || isCalling || isConnecting) return;
+      isStartingRef.current = true;
+      hasLeftRef.current = false;
       setIsConnecting(true);
       ringtonePlayerRef.current?.start();
 
@@ -209,13 +229,14 @@ export const useVoiceCall = (
 
       try {
         if (!asResponder && receiverId) {
-          initiateCall(receiverId, "voice", conversationId);
-          useCallStore.getState().setOutgoingCall({
-            receiverId,
-            callType: "voice",
-            conversationId,
-            answered: false,
-          });
+          const initiated = initiateCall(receiverId, "voice", conversationId);
+          if (!initiated) {
+            toast.info("Panggilan sudah dimulai.");
+            setIsConnecting(false);
+            isStartingRef.current = false;
+            ringtonePlayerRef.current?.stop();
+            return;
+          }
           peerIdRef.current = receiverId;
         } else if (asResponder && options?.peerId) {
           peerIdRef.current = options.peerId;
@@ -300,6 +321,9 @@ export const useVoiceCall = (
         });
 
         room.on(RoomEvent.Disconnected, () => {
+          const wasCleaningUp = isCleaningUpRef.current;
+          isCleaningUpRef.current = false;
+          if (wasCleaningUp) return;
           shouldSignalEndRef.current = false;
           leaveCall({ skipSignaling: true });
         });
@@ -331,7 +355,10 @@ export const useVoiceCall = (
           error?.response?.data?.message || "Failed to connect to voice call",
         );
         setIsConnecting(false);
-        sendSignalingEnd();
+        isStartingRef.current = false;
+        if (peerIdRef.current) {
+          sendSignalingEnd();
+        }
         cleanupLiveKit();
       }
     },

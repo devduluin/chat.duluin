@@ -306,46 +306,41 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
     handleVideoCallEnded,
   );
 
-  const hasInitiatedAutoCall = useRef(false);
+  const hasInitiatedAutoVoiceCall = useRef(false);
+  const hasInitiatedAutoVideoCall = useRef(false);
   const hasHandledAcceptCall = useRef(false);
+  const isAnyCallActive =
+    isCalling || isConnecting || isVideoCalling || isVideoConnecting;
 
   useEffect(() => {
     if (
       shouldStartCall &&
       startCall &&
-      !isCalling &&
-      !isConnecting &&
-      !hasInitiatedAutoCall.current
+      !isAnyCallActive &&
+      !hasInitiatedAutoVoiceCall.current
     ) {
       console.log("🚀 Automatically initiating voice call from query param!");
-      hasInitiatedAutoCall.current = true;
+      hasInitiatedAutoVoiceCall.current = true;
       startCall();
 
       router.replace(window.location.pathname, { scroll: false });
     }
-  }, [shouldStartCall, startCall, isCalling, isConnecting, router]);
+  }, [shouldStartCall, startCall, isAnyCallActive, router]);
 
   useEffect(() => {
     if (
       shouldStartVideoCall &&
       startVideoCall &&
-      !isVideoCalling &&
-      !isVideoConnecting &&
-      !hasInitiatedAutoCall.current
+      !isAnyCallActive &&
+      !hasInitiatedAutoVideoCall.current
     ) {
       console.log("🚀 Automatically initiating video call from query param!");
-      hasInitiatedAutoCall.current = true;
+      hasInitiatedAutoVideoCall.current = true;
       startVideoCall();
 
       router.replace(window.location.pathname, { scroll: false });
     }
-  }, [
-    shouldStartVideoCall,
-    startVideoCall,
-    isVideoCalling,
-    isVideoConnecting,
-    router,
-  ]);
+  }, [shouldStartVideoCall, startVideoCall, isAnyCallActive, router]);
 
   useEffect(() => {
     if (shouldAcceptCall && !hasHandledAcceptCall.current) {
@@ -628,10 +623,28 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
         </div>
 
         <div className="flex items-center space-x-2">
-          <Button id="header-phone-button" variant="ghost" size="icon" onClick={() => startCall()}>
+          <Button
+            id="header-phone-button"
+            variant="ghost"
+            size="icon"
+            disabled={isAnyCallActive}
+            onClick={() => {
+              if (isAnyCallActive) return;
+              startCall();
+            }}
+          >
             <Phone className="h-5 w-5" />
           </Button>
-          <Button id="header-video-button" variant="ghost" size="icon" onClick={() => startVideoCall()}>
+          <Button
+            id="header-video-button"
+            variant="ghost"
+            size="icon"
+            disabled={isAnyCallActive}
+            onClick={() => {
+              if (isAnyCallActive) return;
+              startVideoCall();
+            }}
+          >
             <Video className="h-5 w-5" />
           </Button>
 
