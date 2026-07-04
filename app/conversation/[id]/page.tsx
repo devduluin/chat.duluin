@@ -115,7 +115,8 @@ export default function ConversationPage() {
       const msg = messages[i];
       const messageType =
         (msg as any)?.message_type || (msg as any)?.MessageType || "";
-      const isTextMessage = messageType === "text";
+      const isTextMessage =
+        messageType === "text" || messageType === "e2ee_text";
       if (isTextMessage && msg?.sender_id && msg.sender_id !== userId) {
         lastInboundMessage = msg;
         break;

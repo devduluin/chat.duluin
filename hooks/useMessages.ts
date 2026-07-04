@@ -12,6 +12,10 @@ import {
   removeStaleOptimisticE2EEMessages,
 } from "@/lib/e2ee/message-dedup";
 import {
+  archiveGetByConversation,
+  mergeArchiveWithServer,
+} from "@/lib/message-archive";
+import {
   getConversationById,
   getConversationMessages,
 } from "@/services/v1/conversationService";
@@ -23,6 +27,7 @@ async function decryptMessages(
   apiMessages: Message[],
   conversationId: string,
   userId: string,
+  archivedMessages: Message[] = [],
 ): Promise<Message[]> {
   const existingMessages =
     useChatStore.getState().messages[conversationId] || [];
@@ -30,7 +35,9 @@ async function decryptMessages(
   return dedupeMessagesById(
     await Promise.all(
       apiMessages.map((msg) => {
-        const existingMsg = existingMessages.find((m) => m.id === msg.id);
+        const existingMsg =
+          existingMessages.find((m) => m.id === msg.id) ||
+          archivedMessages.find((m) => m.id === msg.id);
         const isSelf = msg.sender_id === userId;
         return processIncomingE2EEMessage(msg, userId, {
           senderPlaintext: isSelf ? existingMsg?.content : undefined,
@@ -139,24 +146,34 @@ export function useMessages(conversationId: string, userId: string) {
         const displayAvatar = json?.data?.display_avatar;
         const isUserMember = json?.data?.is_user_member;
 
+        const archivedMessages = await archiveGetByConversation(conversationId);
+
+        const conversationPayload = {
+          ...apiConversation,
+          display_name: displayName,
+          display_avatar: displayAvatar,
+          is_user_member: isUserMember,
+        } as Conversation;
+
         if (
           Array.isArray(apiMessages) &&
           apiMessages.every((msg) => typeof msg.id === "string")
         ) {
-          const decryptedMessages = await decryptMessages(
+          const decryptedServer = await decryptMessages(
             apiMessages,
             conversationId,
             finalUserId,
+            archivedMessages,
+          );
+
+          const decryptedMessages = mergeArchiveWithServer(
+            archivedMessages,
+            decryptedServer,
           );
 
           setMessages(conversationId, decryptedMessages);
           setMessagePagination(conversationId, parsePagination(json.data));
-          setConversation(conversationId, {
-            ...apiConversation,
-            display_name: displayName,
-            display_avatar: displayAvatar,
-            is_user_member: isUserMember,
-          } as Conversation);
+          setConversation(conversationId, conversationPayload);
           setMembers(conversationId, apiMembers);
 
           decryptedMessages.forEach((msg) => {
@@ -164,6 +181,16 @@ export function useMessages(conversationId: string, userId: string) {
               updateMessageReadStatus(msg.id, conversationId, new Date());
             }
           });
+        } else if (Array.isArray(apiMessages) && apiMessages.length === 0) {
+          if (archivedMessages.length > 0) {
+            setMessages(conversationId, archivedMessages);
+          }
+          setMessagePagination(conversationId, {
+            hasMore: false,
+            oldestMessageId: null,
+          });
+          setConversation(conversationId, conversationPayload);
+          setMembers(conversationId, apiMembers);
         } else {
           console.warn("Invalid message format:", apiMessages);
         }
@@ -214,6 +241,8 @@ export function useMessages(conversationId: string, userId: string) {
     setLoadingOlder(true);
 
     try {
+      const archivedMessages = await archiveGetByConversation(conversationId);
+
       const json = await getConversationMessages(conversationId, finalUserId, {
         beforeId: oldestMessageId,
         limit: MESSAGE_PAGE_SIZE,
@@ -237,6 +266,7 @@ export function useMessages(conversationId: string, userId: string) {
         apiMessages,
         conversationId,
         finalUserId,
+        archivedMessages,
       );
 
       prependMessages(conversationId, decryptedMessages);

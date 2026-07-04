@@ -1,4 +1,5 @@
 import { getConversationById } from "@/services/v1/conversationService";
+import { persistInboundRelayMessage } from "@/lib/message-archive";
 import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
 import {
   getSentPlaintext,
@@ -75,6 +76,7 @@ export async function handleIncomingMessage(
         : { ...msg, status: "sent" as const };
 
     ctx.addOrUpdateMessage(msg.conversation_id, updatedMessage);
+    await persistInboundRelayMessage(updatedMessage, ctx.userId);
   } else {
     // New message, check if there's an optimistic message to replace
     const optimisticMessage = convMsgs
@@ -121,6 +123,10 @@ export async function handleIncomingMessage(
           optimisticMessage.id,
           mergedMessage,
         );
+      await persistInboundRelayMessage(
+        { ...mergedMessage, status: "sent" as const },
+        ctx.userId,
+      );
     } else {
       // Add as new message
       console.log("➕ Adding NEW message from GlobalWebSocket:", {
@@ -147,10 +153,12 @@ export async function handleIncomingMessage(
         });
       }
 
-      ctx.addOrUpdateMessage(msg.conversation_id, {
+      const messageToStore = {
         ...finalMsg,
         status: "sent" as const,
-      });
+      };
+      ctx.addOrUpdateMessage(msg.conversation_id, messageToStore);
+      await persistInboundRelayMessage(messageToStore, ctx.userId);
     }
   }
 

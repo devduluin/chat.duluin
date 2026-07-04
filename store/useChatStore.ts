@@ -2,6 +2,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { cacheSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
+import { archiveUpsertMessage, isRelayTrackableMessage } from "@/lib/message-archive";
 
 interface MessagePaginationState {
   hasMore: boolean;
@@ -147,10 +148,9 @@ export const useChatStore = create<ChatStore>()(
             _version: currentState._version + 1,
           });
 
-          console.log(
-            "✅ State updated with version:",
-            currentState._version + 1,
-          );
+          if (isRelayTrackableMessage(msg)) {
+            void archiveUpsertMessage({ ...msg, conversation_id: conversationId });
+          }
         } else {
           // Message doesn't exist - add it
           console.log("➕ Adding new message:", msg.id);
@@ -161,6 +161,9 @@ export const useChatStore = create<ChatStore>()(
             },
             _version: currentState._version + 1,
           });
+          if (isRelayTrackableMessage(msg)) {
+            void archiveUpsertMessage({ ...msg, conversation_id: conversationId });
+          }
         }
       },
 
