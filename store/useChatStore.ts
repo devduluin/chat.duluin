@@ -2,7 +2,13 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { cacheSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
-import { archiveUpsertMessage, isRelayTrackableMessage } from "@/lib/message-archive";
+import {
+  archiveDeleteByConversation,
+  archiveDeleteMessage,
+  archiveUpsertMessage,
+  archiveUpsertMessages,
+  isRelayTrackableMessage,
+} from "@/lib/message-archive";
 
 interface MessagePaginationState {
   hasMore: boolean;
@@ -102,6 +108,9 @@ export const useChatStore = create<ChatStore>()(
             [conversationId]: [...convMsgs, msg],
           },
         });
+        if (isRelayTrackableMessage(msg)) {
+          void archiveUpsertMessage({ ...msg, conversation_id: conversationId });
+        }
       },
 
       addOrUpdateMessage: (conversationId, msg) => {
@@ -174,6 +183,9 @@ export const useChatStore = create<ChatStore>()(
             [conversationId]: msgs,
           },
         });
+        void archiveUpsertMessages(
+          msgs.map((m) => ({ ...m, conversation_id: conversationId })),
+        );
       },
 
       prependMessages: (conversationId, olderMsgs) => {
@@ -196,6 +208,9 @@ export const useChatStore = create<ChatStore>()(
           },
           _version: currentState._version + 1,
         });
+        void archiveUpsertMessages(
+          uniqueOlder.map((m) => ({ ...m, conversation_id: conversationId })),
+        );
       },
 
       setMessagePagination: (conversationId, pagination) => {
@@ -382,6 +397,13 @@ export const useChatStore = create<ChatStore>()(
           },
           _version: currentState._version + 1,
         });
+        void archiveDeleteMessage(optimisticId);
+        if (isRelayTrackableMessage(mergedMessage)) {
+          void archiveUpsertMessage({
+            ...mergedMessage,
+            conversation_id: conversationId,
+          });
+        }
       },
 
       removeMessage: (conversationId, messageId) => {
@@ -407,6 +429,7 @@ export const useChatStore = create<ChatStore>()(
           },
           _version: currentState._version + 1,
         });
+        void archiveDeleteMessage(messageId);
       },
 
       updateMessageReaction: (conversationId, messageId, reaction) => {
@@ -470,6 +493,7 @@ export const useChatStore = create<ChatStore>()(
           typingUsers: restTyping,
           _version: currentState._version + 1,
         });
+        void archiveDeleteByConversation(conversationId);
       },
     }),
     {

@@ -76,7 +76,6 @@ export async function handleIncomingMessage(
         : { ...msg, status: "sent" as const };
 
     ctx.addOrUpdateMessage(msg.conversation_id, updatedMessage);
-    await persistInboundRelayMessage(updatedMessage, ctx.userId);
   } else {
     // New message, check if there's an optimistic message to replace
     const optimisticMessage = convMsgs

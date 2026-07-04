@@ -81,6 +81,73 @@ export async function archiveUpsertMessage(msg: Message): Promise<void> {
   }
 }
 
+export async function archiveUpsertMessages(msgs: Message[]): Promise<void> {
+  const trackable = msgs.filter(
+    (m) =>
+      m?.id &&
+      m.conversation_id &&
+      isRelayTrackableMessage(m) &&
+      !isAIConversation(m.conversation_id),
+  );
+  if (trackable.length === 0) return;
+
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      for (const msg of trackable) {
+        store.put(msg);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (e) {
+    console.warn("message-archive batch upsert failed:", e);
+  }
+}
+
+export async function archiveDeleteMessage(messageId: string): Promise<void> {
+  if (!messageId) return;
+  try {
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      tx.objectStore(STORE).delete(messageId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (e) {
+    console.warn("message-archive delete failed:", e);
+  }
+}
+
+export async function archiveDeleteByConversation(
+  conversationId: string,
+): Promise<void> {
+  if (!conversationId) return;
+  try {
+    const existing = await archiveGetByConversation(conversationId);
+    if (existing.length === 0) return;
+
+    const db = await openDB();
+    await new Promise<void>((resolve, reject) => {
+      const tx = db.transaction(STORE, "readwrite");
+      const store = tx.objectStore(STORE);
+      for (const msg of existing) {
+        if (msg.id) store.delete(msg.id);
+      }
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  } catch (e) {
+    console.warn("message-archive clear conversation failed:", e);
+  }
+}
+
 export async function archiveGetByConversation(
   conversationId: string,
 ): Promise<Message[]> {
