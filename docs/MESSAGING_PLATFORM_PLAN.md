@@ -59,6 +59,14 @@ Spec backend: lihat `duluin-chat-be/docs/MESSAGING_PLATFORM_PLAN.md`.
 - [ ] AI Assistant: tidak masuk archive, tidak kirim delivered
 - [ ] Pesan pasca-purge server: masih tampil dari IndexedDB
 - [ ] Incoming call overlay tidak ganggu message handler
+- [ ] Clear/delete chat: IndexedDB ikut terhapus
+
+## Gap fixes (2026-07-05)
+
+- [x] Archive pesan dari REST (`setMessages`, `prependMessages`)
+- [x] Archive pada optimistic send (`addMessage`, `replaceOptimisticMessage`)
+- [x] `archiveDeleteByConversation` saat clear chat
+- [x] Delivered ack hanya pada pesan baru (bukan update)
 
 ---
 
