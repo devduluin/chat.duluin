@@ -76,7 +76,9 @@ export const useConversations = (userId: string, filter?: any) => {
           "from",
           res.data.recent_conversations?.length
         );
-        await ensureDeviceRegistered(userId);
+        await ensureDeviceRegistered(userId).catch((error) => {
+          console.warn("E2EE device init skipped for conversation list:", error);
+        });
         const resolvedConversations = await resolveConversationLastMessages(
           filteredConversations,
           userId,
