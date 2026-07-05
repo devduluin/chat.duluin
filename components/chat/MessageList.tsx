@@ -2,6 +2,7 @@
 "use client";
 
 import { MessageBubble } from "./MessageBubble";
+import { isEphemeralRelayMessage } from "@/lib/ws/handlers/chat/utils";
 import { useMessages } from "@/hooks/useMessages";
 import { useEffect, useRef, useCallback, useState } from "react";
 import { UserPlus, UserMinus, Info, Shield, ShieldOff } from "lucide-react";
@@ -260,7 +261,7 @@ export function MessageList({
           const uniqueMessages: Message[] = [];
           const seenIds = new Set<string>();
           messages.forEach((msg) => {
-            if (msg && msg.id && !seenIds.has(msg.id)) {
+            if (msg && msg.id && !seenIds.has(msg.id) && !isEphemeralRelayMessage(msg)) {
               seenIds.add(msg.id);
               uniqueMessages.push(msg);
             }

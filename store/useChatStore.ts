@@ -9,6 +9,7 @@ import {
   archiveUpsertMessages,
   isRelayTrackableMessage,
 } from "@/lib/message-archive";
+import { isEphemeralRelayMessage } from "@/lib/ws/handlers/chat/utils";
 
 interface MessagePaginationState {
   hasMore: boolean;
@@ -81,6 +82,9 @@ interface ChatStore {
     },
   ) => void;
   clearConversationData: (conversationId: string) => void;
+  e2eeActivationBanner: Record<string, boolean>;
+  showE2eeActivationBanner: (conversationId: string) => void;
+  dismissE2eeActivationBanner: (conversationId: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -91,8 +95,23 @@ export const useChatStore = create<ChatStore>()(
       members: {},
       messagePagination: {},
       typingUsers: {},
+      e2eeActivationBanner: {},
       _version: 2,
+      showE2eeActivationBanner: (conversationId) => {
+        set({
+          e2eeActivationBanner: {
+            ...get().e2eeActivationBanner,
+            [conversationId]: true,
+          },
+        });
+      },
+      dismissE2eeActivationBanner: (conversationId) => {
+        const next = { ...get().e2eeActivationBanner };
+        delete next[conversationId];
+        set({ e2eeActivationBanner: next });
+      },
       addMessage: (conversationId, msg) => {
+        if (isEphemeralRelayMessage(msg)) return;
         const convMsgs = get().messages[conversationId] || [];
 
         // Check if message already exists by ID to prevent duplicates
@@ -114,6 +133,7 @@ export const useChatStore = create<ChatStore>()(
       },
 
       addOrUpdateMessage: (conversationId, msg) => {
+        if (isEphemeralRelayMessage(msg)) return;
         const currentState = get();
         const convMsgs = currentState.messages[conversationId] || [];
 
@@ -177,14 +197,15 @@ export const useChatStore = create<ChatStore>()(
       },
 
       setMessages: (conversationId, msgs) => {
+        const visibleMsgs = msgs.filter((m) => !isEphemeralRelayMessage(m));
         set({
           messages: {
             ...get().messages,
-            [conversationId]: msgs,
+            [conversationId]: visibleMsgs,
           },
         });
         void archiveUpsertMessages(
-          msgs.map((m) => ({ ...m, conversation_id: conversationId })),
+          visibleMsgs.map((m) => ({ ...m, conversation_id: conversationId })),
         );
       },
 
@@ -192,7 +213,9 @@ export const useChatStore = create<ChatStore>()(
         const currentState = get();
         const existing = currentState.messages[conversationId] || [];
         const seen = new Set(existing.map((m) => m.id));
-        const uniqueOlder = olderMsgs.filter((m) => m.id && !seen.has(m.id));
+        const uniqueOlder = olderMsgs.filter(
+          (m) => m.id && !seen.has(m.id) && !isEphemeralRelayMessage(m),
+        );
         if (uniqueOlder.length === 0) return;
 
         const merged = [...uniqueOlder, ...existing].sort((a, b) => {
@@ -380,9 +403,9 @@ export const useChatStore = create<ChatStore>()(
           cacheSentPlaintext(realMessage.id, optimisticMessage.content);
         }
 
-        // Remove optimistic message and add real message, then sort by timestamp
+        // Remove optimistic bubble and any prior copy of the server message id.
         const updatedMessages = convMsgs
-          .filter((m) => m.id !== optimisticId)
+          .filter((m) => m.id !== optimisticId && m.id !== realMessage.id)
           .concat(mergedMessage)
           .sort(
             (a, b) =>

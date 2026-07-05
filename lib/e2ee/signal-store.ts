@@ -105,4 +105,40 @@ export class LocalSignalStore implements StorageType {
   setIdentityKeyPair(keyPair: KeyPairType) {
     this.set("identityKey", serializeKeyPair(keyPair));
   }
+
+  /** Registration id used in an existing outbound/inbound session with a peer. */
+  findSessionRegistrationIdForPeer(peerUserId: string): number | null {
+    const all = this.findAllSessionRegistrationIdsForPeer(peerUserId);
+    return all.length > 0 ? all[all.length - 1] : null;
+  }
+
+  findAllSessionRegistrationIdsForPeer(peerUserId: string): number[] {
+    if (typeof window === "undefined") return [];
+
+    const sessionKeyPrefix = `${this.prefix}session_${peerUserId}.`;
+    const registrationIds: number[] = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (!key?.startsWith(sessionKeyPrefix)) continue;
+      const registrationId = Number.parseInt(
+        key.slice(sessionKeyPrefix.length),
+        10,
+      );
+      if (!Number.isNaN(registrationId)) {
+        registrationIds.push(registrationId);
+      }
+    }
+
+    return registrationIds.sort((a, b) => a - b);
+  }
+
+  /** Latest sender_registration_id seen from this peer's inbound messages. */
+  getLastInboundRegistrationId(peerUserId: string): number | null {
+    return this.get<number>(`peerReg_${peerUserId}`);
+  }
+
+  setLastInboundRegistrationId(peerUserId: string, registrationId: number): void {
+    this.set(`peerReg_${peerUserId}`, registrationId);
+  }
 }

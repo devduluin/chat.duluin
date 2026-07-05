@@ -5,6 +5,7 @@ import { handleNewGroup } from "./handleNewGroup";
 import { handleNewConversation } from "./handleNewConversation";
 import { handleMessageDeleted } from "./handleMessageDeleted";
 import { handleMessageRead } from "./handleMessageRead";
+import { handleMessageDelivered } from "./handleMessageDelivered";
 import { handleTyping } from "./handleTyping";
 import { handleGroupUpdate } from "./handleGroupUpdate";
 import { handleGroupMembership } from "./groupMembership";
@@ -21,6 +22,7 @@ const syncHandlers: SyncChatHandler[] = [
   handleNewConversation,
   handleMessageDeleted,
   handleMessageRead,
+  handleMessageDelivered,
   handleTyping,
   handleGroupUpdate,
   handleGroupMembership,

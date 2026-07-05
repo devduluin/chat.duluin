@@ -50,15 +50,19 @@ export function ConversationItem({
     let cancelled = false;
     resolveMessageForDisplay(lastMessage, userId, {
       existingPlaintext: initial,
-    }).then((resolved) => {
-      if (cancelled) return;
-      setPreviewContent(resolved.content);
-      if (resolved.content !== lastMessage.content) {
-        useConversationsStore
-          .getState()
-          .setMessage(conversation.id, resolved, userId);
-      }
-    });
+    })
+      .then((resolved) => {
+        if (cancelled) return;
+        setPreviewContent(resolved.content);
+        if (resolved.content !== lastMessage.content) {
+          useConversationsStore
+            .getState()
+            .setMessage(conversation.id, resolved, userId);
+        }
+      })
+      .catch((error) => {
+        console.warn("Failed to resolve E2EE preview:", error);
+      });
 
     return () => {
       cancelled = true;

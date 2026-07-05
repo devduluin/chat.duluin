@@ -32,20 +32,26 @@ async function decryptMessages(
   const existingMessages =
     useChatStore.getState().messages[conversationId] || [];
 
-  return dedupeMessagesById(
-    await Promise.all(
-      apiMessages.map((msg) => {
-        const existingMsg =
-          existingMessages.find((m) => m.id === msg.id) ||
-          archivedMessages.find((m) => m.id === msg.id);
-        const isSelf = msg.sender_id === userId;
-        return processIncomingE2EEMessage(msg, userId, {
-          senderPlaintext: isSelf ? existingMsg?.content : undefined,
-          existingPlaintext: !isSelf ? existingMsg?.content : undefined,
-        });
-      }),
-    ),
-  );
+  const sorted = [...apiMessages].sort((a, b) => {
+    const aTime = a.created_at ? new Date(a.created_at).getTime() : 0;
+    const bTime = b.created_at ? new Date(b.created_at).getTime() : 0;
+    return aTime - bTime;
+  });
+
+  const results: Message[] = [];
+  for (const msg of sorted) {
+    const existingMsg =
+      existingMessages.find((m) => m.id === msg.id) ||
+      archivedMessages.find((m) => m.id === msg.id);
+    const isSelf = msg.sender_id === userId;
+    const decrypted = await processIncomingE2EEMessage(msg, userId, {
+      senderPlaintext: isSelf ? existingMsg?.content : undefined,
+      existingPlaintext: !isSelf ? existingMsg?.content : undefined,
+    });
+    results.push(decrypted);
+  }
+
+  return dedupeMessagesById(results);
 }
 
 function parsePagination(data: any) {

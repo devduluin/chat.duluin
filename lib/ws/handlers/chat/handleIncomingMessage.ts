@@ -1,6 +1,5 @@
 import { getConversationById } from "@/services/v1/conversationService";
 import { persistInboundRelayMessage } from "@/lib/message-archive";
-import { processIncomingE2EEMessage } from "@/lib/e2ee/message-crypto";
 import {
   getSentPlaintext,
   remapSentPlaintext,
@@ -11,6 +10,7 @@ import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import type { RecentConversation, WsHandlerContext } from "../../types";
 import { AI_BOT_USER_ID, isAIAssistantConversation } from "./constants";
+import { findOutboundOptimisticMessage } from "./utils";
 
 export async function handleIncomingMessage(
   msg: Message,
@@ -77,22 +77,11 @@ export async function handleIncomingMessage(
 
     ctx.addOrUpdateMessage(msg.conversation_id, updatedMessage);
   } else {
-    // New message, check if there's an optimistic message to replace
-    const optimisticMessage = convMsgs
-      .filter(
-        (m) =>
-          m.sender_id === msg.sender_id &&
-          m.conversation_id === msg.conversation_id &&
-          m.id !== msg.id &&
-          (m.status === "pending" ||
-            m.status === "sending" ||
-            (!m.status && messageType === "e2ee_text")),
-      )
-      .sort(
-        (a, b) =>
-          new Date(b.created_at || 0).getTime() -
-          new Date(a.created_at || 0).getTime(),
-      )[0];
+    const optimisticMessage = findOutboundOptimisticMessage(
+      convMsgs,
+      msg,
+      ctx.userId,
+    );
 
     if (optimisticMessage) {
       // Replace optimistic message with real message
@@ -127,7 +116,7 @@ export async function handleIncomingMessage(
         ctx.userId,
       );
     } else {
-      // Add as new message
+      // Add as new message (already decrypted in preprocessE2ee when e2ee_text)
       console.log("➕ Adding NEW message from GlobalWebSocket:", {
         id: msg.id,
         conversationId: msg.conversation_id,
@@ -135,25 +124,8 @@ export async function handleIncomingMessage(
         sender: msg.sender?.first_name,
       });
 
-      let finalMsg = msg;
-      if (messageType === "e2ee_text") {
-        const existingMsg = convMsgs.find((m) => m.id === msg.id);
-        finalMsg = await processIncomingE2EEMessage(msg, ctx.userId, {
-          senderPlaintext:
-            msg.sender_id === ctx.userId
-              ? getSentPlaintext(msg.id) ??
-                existingMsg?.content ??
-                undefined
-              : undefined,
-          existingPlaintext:
-            msg.sender_id !== ctx.userId
-              ? existingMsg?.content
-              : undefined,
-        });
-      }
-
       const messageToStore = {
-        ...finalMsg,
+        ...msg,
         status: "sent" as const,
       };
       ctx.addOrUpdateMessage(msg.conversation_id, messageToStore);

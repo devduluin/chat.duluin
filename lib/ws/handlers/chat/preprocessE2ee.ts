@@ -19,7 +19,10 @@ export async function preprocessE2eeMessage(
         m.conversation_id === msg.conversation_id &&
         m.message_type === "e2ee_text" &&
         m.id !== msg.id &&
-        (m.status === "pending" || m.status === "sending" || !m.status),
+        (m.status === "pending" ||
+          m.status === "sending" ||
+          m.status === undefined ||
+          m.status === null),
     )
     .sort(
       (a, b) =>

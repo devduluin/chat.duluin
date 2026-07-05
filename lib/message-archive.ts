@@ -192,7 +192,9 @@ export function mergeArchiveWithServer(
       content:
         prev.content &&
         !prev.content.startsWith("🔒") &&
-        (!m.content || m.content.startsWith("🔒"))
+        !prev.content.startsWith("Error:") &&
+        prev.content !== "Bad MAC" &&
+        (!m.content || m.content.startsWith("🔒") || m.content.startsWith("Error:") || m.content === "Bad MAC")
           ? prev.content
           : m.content || prev.content,
     });

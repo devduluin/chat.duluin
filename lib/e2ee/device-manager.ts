@@ -3,7 +3,7 @@ import type { KeyPairType } from "@privacyresearch/libsignal-protocol-typescript
 import { v4 as uuidv4 } from "uuid";
 import { arrayBufferToBase64 } from "./buffer-utils";
 import { LocalSignalStore } from "./signal-store";
-import { registerDevice, listDevices } from "@/services/v1/e2eeService";
+import { registerDevice, listDevices, getUserKeyBundles } from "@/services/v1/e2eeService";
 
 const DEVICE_ID_KEY = "e2ee_device_id";
 
@@ -91,6 +91,22 @@ async function uploadDeviceRegistration(
   return deviceId;
 }
 
+async function syncLocalRegistrationIdFromServer(
+  userId: string,
+  deviceId: string,
+  store: LocalSignalStore,
+): Promise<void> {
+  try {
+    const bundles = await getUserKeyBundles(userId, deviceId);
+    const serverRegistrationId = bundles[0]?.registration_id;
+    if (serverRegistrationId != null) {
+      store.setRegistrationId(serverRegistrationId);
+    }
+  } catch (error) {
+    console.warn("Failed to sync local registration id from server:", error);
+  }
+}
+
 async function reconcileLostDeviceId(
   userId: string,
   store: LocalSignalStore,
@@ -101,6 +117,7 @@ async function reconcileLostDeviceId(
 
   if (matched) {
     storeDeviceId(userId, matched.id);
+    await syncLocalRegistrationIdFromServer(userId, matched.id, store);
     return matched.id;
   }
 
@@ -111,12 +128,17 @@ async function reconcileLostDeviceId(
 
 export async function ensureDeviceRegistered(userId: string): Promise<string> {
   const store = new LocalSignalStore(userId);
-  const existingDeviceId = getStoredDeviceId(userId);
   const identityKeyPair = await store.getIdentityKeyPair();
+  const devices = (await listDevices(userId)) as ServerDevice[];
+  const canonical = pickServerDevice(devices);
 
-  if (existingDeviceId && identityKeyPair) {
-    return existingDeviceId;
+  if (canonical && identityKeyPair) {
+    storeDeviceId(userId, canonical.id);
+    await syncLocalRegistrationIdFromServer(userId, canonical.id, store);
+    return canonical.id;
   }
+
+  const existingDeviceId = getStoredDeviceId(userId);
 
   if (identityKeyPair && !existingDeviceId) {
     return reconcileLostDeviceId(userId, store, identityKeyPair);

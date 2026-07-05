@@ -21,7 +21,10 @@ export function remapSentPlaintext(oldMessageId: string, newMessageId: string) {
 export function isEncryptedPlaceholder(content: string): boolean {
   return (
     content === "🔒 Encrypted message" ||
-    content === "🔒 Unable to decrypt this message"
+    content === "🔒 Unable to decrypt this message" ||
+    content === "Bad MAC" ||
+    content === "Error: Bad MAC" ||
+    content.startsWith("Error: Bad")
   );
 }
 

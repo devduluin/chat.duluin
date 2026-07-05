@@ -16,6 +16,7 @@ import { useChatStore } from "@/store/useChatStore";
 import Cookies from "js-cookie";
 import { usePinnedMessages } from "@/hooks/usePinnedMessages";
 import { PinnedMessagesBar } from "@/components/chat/PinnedMessagesBar";
+import { E2EEActivationBanner } from "@/components/chat/E2EEActivationBanner";
 
 const EMPTY_MESSAGES: Message[] = [];
 
@@ -174,6 +175,7 @@ export default function ConversationPage() {
       </div>
       <div className="flex-1 flex flex-col h-screen w-full">
         <ChatHeader conversationId={conversationId} userId={userId} />
+        <E2EEActivationBanner conversationId={conversationId} />
         {pinnedMessages.length > 0 && (
           <PinnedMessagesBar
             pinnedMessages={pinnedMessages}

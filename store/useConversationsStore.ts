@@ -142,6 +142,7 @@ export const useConversationsStore = createWithEqualityFn<ConversationsState>()(
                 normalizedMessageType !== "system" &&
                 normalizedMessageType !== "message_deleted" &&
                 normalizedMessageType !== "message_read" &&
+                normalizedMessageType !== "message_delivered" &&
                 normalizedMessageType !== "typing_started" &&
                 normalizedMessageType !== "typing_stopped";
               const canCompareSender = !!currentUserId;

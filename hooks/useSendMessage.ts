@@ -11,6 +11,10 @@ import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
 import { recipientHasRegisteredDevices } from "@/services/v1/e2eeService";
 import { cacheSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
 import type { SecurityMode } from "@/lib/e2ee/types";
+import {
+  activateConversationE2EE,
+  isDirectMessageEligibleForAutoE2EE,
+} from "@/lib/e2ee/activate-conversation-e2ee";
 
 interface SendMessageParams {
   conversationId: string;
@@ -92,7 +96,36 @@ export const useSendMessage = () => {
         }
       }
 
-      const mode = securityMode || resolveSecurityMode(conversationId);
+      let mode = securityMode || resolveSecurityMode(conversationId);
+
+      if (
+        mode === "plain" &&
+        isDirectMessageEligibleForAutoE2EE(conversationId)
+      ) {
+        const activation = await activateConversationE2EE(
+          conversationId,
+          senderId,
+        );
+        if (!activation.ok) {
+          toast.error(
+            activation.error ||
+              "Gagal mengaktifkan enkripsi. Coba lagi dalam beberapa saat.",
+          );
+          return { success: false };
+        }
+
+        if (!activation.readiness?.can_send_encrypted) {
+          toast.error(
+            "Kontak belum siap menerima pesan terenkripsi. Minta mereka membuka aplikasi chat terlebih dahulu.",
+            { duration: 6000 },
+          );
+          return { success: false };
+        }
+
+        mode = "e2ee";
+        useChatStore.getState().showE2eeActivationBanner(conversationId);
+      }
+
       const messageId = uuidv4();
       const now = new Date();
 
@@ -135,7 +168,7 @@ export const useSendMessage = () => {
         sender_id: senderId,
         content,
         message_type: mode === "e2ee" ? "e2ee_text" : "text",
-        status: isOnline ? undefined : "pending",
+        status: isOnline ? "sending" : "pending",
         created_at: now.toISOString(),
         updated_at: now.toISOString(),
         read_at: null,

@@ -35,9 +35,7 @@ import { VoiceCallOverlay } from "./VoiceCallOverlay";
 import { useVideoCall } from "@/hooks/useVideoCall";
 import { VideoCallOverlay } from "./VideoCallOverlay";
 import Cookies from "js-cookie";
-import { enableConversationE2EE } from "@/services/v1/e2eeService";
-import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
-import type { EnableE2EEResponse } from "@/lib/e2ee/types";
+import { activateConversationE2EE } from "@/lib/e2ee/activate-conversation-e2ee";
 import { Lock } from "lucide-react";
 import { useCallStore } from "@/store/useCallStore";
 
@@ -109,39 +107,23 @@ export function ChatHeader({ conversationId, userId }: ChatHeaderProps) {
   }, [isDirectConversation, sidebarConv, members, userId]);
 
   const handleEnableE2EE = async () => {
-    try {
-      await ensureDeviceRegistered(userId);
-      const response = await enableConversationE2EE(conversationId, userId);
-      if (response?.status) {
-        const payload = response.data as EnableE2EEResponse | undefined;
-        const conversation = payload?.conversation;
-        const readiness = payload?.e2ee_readiness;
+    const result = await activateConversationE2EE(conversationId, userId);
+    if (result.ok) {
+      const readiness = result.readiness;
+      useChatStore.getState().showE2eeActivationBanner(conversationId);
 
-        updateConversation(conversationId, {
-          security_mode: "e2ee",
-        } as any);
-        useChatStore.getState().setConversation(conversationId, {
-          ...(useChatStore.getState().conversations[conversationId] || {}),
-          ...(conversation || {}),
-          security_mode: "e2ee",
-        } as any);
-
-        if (readiness?.can_send_encrypted) {
-          toast.success("Obrolan terenkripsi aktif. Pesan Anda sekarang dilindungi end-to-end.");
-        } else if (readiness && !readiness.recipient_device_ready) {
-          toast.success(
-            "Obrolan terenkripsi aktif. Kontak akan bisa menerima pesan setelah membuka aplikasi chat.",
-            { duration: 6000 },
-          );
-        } else {
-          toast.success("Obrolan terenkripsi aktif");
-        }
+      if (readiness?.can_send_encrypted) {
+        toast.success("Obrolan terenkripsi aktif. Pesan Anda sekarang dilindungi end-to-end.");
+      } else if (readiness && !readiness.recipient_device_ready) {
+        toast.success(
+          "Obrolan terenkripsi aktif. Kontak akan bisa menerima pesan setelah membuka aplikasi chat.",
+          { duration: 6000 },
+        );
       } else {
-        toast.error(response?.message || "Gagal mengaktifkan obrolan terenkripsi");
+        toast.success("Obrolan terenkripsi aktif");
       }
-    } catch (error) {
-      console.error(error);
-      toast.error("Gagal mengaktifkan obrolan terenkripsi. Muat ulang halaman lalu coba lagi.");
+    } else {
+      toast.error(result.error || "Gagal mengaktifkan obrolan terenkripsi");
     }
   };
 
