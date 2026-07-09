@@ -111,6 +111,13 @@ function matchesActiveCall(
   }
 
   if (eventType === "call_end" || eventType === "call_reject") {
+    const callId = data.call_id ? String(data.call_id) : "";
+    if (callId) {
+      if (outgoing?.callId === callId || incoming?.callId === callId) {
+        return true;
+      }
+    }
+
     const matchesOutgoing =
       !!outgoing &&
       (!conversationId || outgoing.conversationId === conversationId) &&
