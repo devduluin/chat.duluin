@@ -1,6 +1,5 @@
 import type { WsHandlerContext, WsResponse } from "../../types";
 import { normalizeMessageType } from "./utils";
-import { preprocessE2eeMessage } from "./preprocessE2ee";
 import { handleNewGroup } from "./handleNewGroup";
 import { handleNewConversation } from "./handleNewConversation";
 import { handleMessageDeleted } from "./handleMessageDeleted";
@@ -49,7 +48,6 @@ export async function handleChatWsMessage(
   });
 
   const messageType = normalizeMessageType(msg);
-  msg = await preprocessE2eeMessage(msg, messageType, ctx.userId);
 
   for (const handler of syncHandlers) {
     if (handler(msg, messageType, ctx)) {

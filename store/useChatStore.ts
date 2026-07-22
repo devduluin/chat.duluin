@@ -1,14 +1,6 @@
 // store/useChatStore.ts
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { cacheSentPlaintext, remapSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
-import {
-  archiveDeleteByConversation,
-  archiveDeleteMessage,
-  archiveUpsertMessage,
-  archiveUpsertMessages,
-  isRelayTrackableMessage,
-} from "@/lib/message-archive";
 import { isEphemeralRelayMessage } from "@/lib/ws/handlers/chat/utils";
 
 interface MessagePaginationState {
@@ -82,9 +74,6 @@ interface ChatStore {
     },
   ) => void;
   clearConversationData: (conversationId: string) => void;
-  e2eeActivationBanner: Record<string, boolean>;
-  showE2eeActivationBanner: (conversationId: string) => void;
-  dismissE2eeActivationBanner: (conversationId: string) => void;
 }
 
 export const useChatStore = create<ChatStore>()(
@@ -95,21 +84,7 @@ export const useChatStore = create<ChatStore>()(
       members: {},
       messagePagination: {},
       typingUsers: {},
-      e2eeActivationBanner: {},
       _version: 2,
-      showE2eeActivationBanner: (conversationId) => {
-        set({
-          e2eeActivationBanner: {
-            ...get().e2eeActivationBanner,
-            [conversationId]: true,
-          },
-        });
-      },
-      dismissE2eeActivationBanner: (conversationId) => {
-        const next = { ...get().e2eeActivationBanner };
-        delete next[conversationId];
-        set({ e2eeActivationBanner: next });
-      },
       addMessage: (conversationId, msg) => {
         if (isEphemeralRelayMessage(msg)) return;
         const convMsgs = get().messages[conversationId] || [];
@@ -127,9 +102,6 @@ export const useChatStore = create<ChatStore>()(
             [conversationId]: [...convMsgs, msg],
           },
         });
-        if (isRelayTrackableMessage(msg)) {
-          void archiveUpsertMessage({ ...msg, conversation_id: conversationId });
-        }
       },
 
       addOrUpdateMessage: (conversationId, msg) => {
@@ -176,10 +148,6 @@ export const useChatStore = create<ChatStore>()(
             },
             _version: currentState._version + 1,
           });
-
-          if (isRelayTrackableMessage(msg)) {
-            void archiveUpsertMessage({ ...msg, conversation_id: conversationId });
-          }
         } else {
           // Message doesn't exist - add it
           console.log("➕ Adding new message:", msg.id);
@@ -190,9 +158,6 @@ export const useChatStore = create<ChatStore>()(
             },
             _version: currentState._version + 1,
           });
-          if (isRelayTrackableMessage(msg)) {
-            void archiveUpsertMessage({ ...msg, conversation_id: conversationId });
-          }
         }
       },
 
@@ -204,9 +169,6 @@ export const useChatStore = create<ChatStore>()(
             [conversationId]: visibleMsgs,
           },
         });
-        void archiveUpsertMessages(
-          visibleMsgs.map((m) => ({ ...m, conversation_id: conversationId })),
-        );
       },
 
       prependMessages: (conversationId, olderMsgs) => {
@@ -231,9 +193,6 @@ export const useChatStore = create<ChatStore>()(
           },
           _version: currentState._version + 1,
         });
-        void archiveUpsertMessages(
-          uniqueOlder.map((m) => ({ ...m, conversation_id: conversationId })),
-        );
       },
 
       setMessagePagination: (conversationId, pagination) => {
@@ -381,7 +340,6 @@ export const useChatStore = create<ChatStore>()(
       replaceOptimisticMessage: (conversationId, optimisticId, realMessage) => {
         const currentState = get();
         const convMsgs = currentState.messages[conversationId] || [];
-        const optimisticMessage = convMsgs.find((m) => m.id === optimisticId);
 
         console.log("🔄 Replacing optimistic message:", {
           optimisticId,
@@ -389,19 +347,7 @@ export const useChatStore = create<ChatStore>()(
           conversationId,
         });
 
-        let mergedMessage = { ...realMessage, status: "sent" as const };
-        if (
-          realMessage.message_type === "e2ee_text" &&
-          optimisticMessage?.content &&
-          !optimisticMessage.content.startsWith("🔒")
-        ) {
-          mergedMessage = {
-            ...mergedMessage,
-            content: optimisticMessage.content,
-          };
-          remapSentPlaintext(optimisticId, realMessage.id);
-          cacheSentPlaintext(realMessage.id, optimisticMessage.content);
-        }
+        const mergedMessage = { ...realMessage, status: "sent" as const };
 
         // Remove optimistic bubble and any prior copy of the server message id.
         const updatedMessages = convMsgs
@@ -420,13 +366,6 @@ export const useChatStore = create<ChatStore>()(
           },
           _version: currentState._version + 1,
         });
-        void archiveDeleteMessage(optimisticId);
-        if (isRelayTrackableMessage(mergedMessage)) {
-          void archiveUpsertMessage({
-            ...mergedMessage,
-            conversation_id: conversationId,
-          });
-        }
       },
 
       removeMessage: (conversationId, messageId) => {
@@ -452,7 +391,6 @@ export const useChatStore = create<ChatStore>()(
           },
           _version: currentState._version + 1,
         });
-        void archiveDeleteMessage(messageId);
       },
 
       updateMessageReaction: (conversationId, messageId, reaction) => {
@@ -516,7 +454,6 @@ export const useChatStore = create<ChatStore>()(
           typingUsers: restTyping,
           _version: currentState._version + 1,
         });
-        void archiveDeleteByConversation(conversationId);
       },
     }),
     {

@@ -1,15 +1,8 @@
 import { getConversationById } from "@/services/v1/conversationService";
-import { persistInboundRelayMessage } from "@/lib/message-archive";
-import {
-  getSentPlaintext,
-  remapSentPlaintext,
-  cacheSentPlaintext,
-} from "@/lib/e2ee/sent-plaintext-cache";
-import { resolveMessageForDisplay } from "@/lib/e2ee/message-preview";
 import { useChatStore } from "@/store/useChatStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import type { RecentConversation, WsHandlerContext } from "../../types";
-import { AI_BOT_USER_ID, isAIAssistantConversation } from "./constants";
+import { isAIAssistantConversation } from "./constants";
 import { findOutboundOptimisticMessage } from "./utils";
 
 export async function handleIncomingMessage(
@@ -17,8 +10,6 @@ export async function handleIncomingMessage(
   messageType: string,
   ctx: WsHandlerContext,
 ): Promise<void> {
-
-
   // Check if user is still a member of this conversation (for removed users)
   const chatStoreConversation =
     useChatStore.getState().conversations[msg.conversation_id];
@@ -54,28 +45,11 @@ export async function handleIncomingMessage(
   const existingMessage = convMsgs.find((m) => m.id === msg.id);
 
   if (existingMessage) {
-    // Message already exists, just update it
     console.log("🔄 Message already exists, updating:", msg.id);
-
-    let preservedContent = existingMessage.content;
-    if (
-      messageType === "e2ee_text" &&
-      msg.sender_id === ctx.userId &&
-      (!preservedContent || preservedContent.startsWith("🔒"))
-    ) {
-      preservedContent =
-        getSentPlaintext(msg.id) || preservedContent;
-    }
-
-    const updatedMessage =
-      messageType === "e2ee_text" &&
-      msg.sender_id === ctx.userId &&
-      preservedContent &&
-      !preservedContent.startsWith("🔒")
-        ? { ...msg, content: preservedContent, status: "sent" as const }
-        : { ...msg, status: "sent" as const };
-
-    ctx.addOrUpdateMessage(msg.conversation_id, updatedMessage);
+    ctx.addOrUpdateMessage(msg.conversation_id, {
+      ...msg,
+      status: "sent" as const,
+    });
   } else {
     const optimisticMessage = findOutboundOptimisticMessage(
       convMsgs,
@@ -84,7 +58,6 @@ export async function handleIncomingMessage(
     );
 
     if (optimisticMessage) {
-      // Replace optimistic message with real message
       console.log(
         "🔄 Found optimistic message to replace:",
         optimisticMessage.id,
@@ -92,31 +65,14 @@ export async function handleIncomingMessage(
         msg.id,
       );
 
-      const mergedMessage =
-        messageType === "e2ee_text" && msg.sender_id === ctx.userId
-          ? { ...msg, content: optimisticMessage.content }
-          : msg;
-
-      if (messageType === "e2ee_text" && msg.sender_id === ctx.userId) {
-        remapSentPlaintext(optimisticMessage.id, msg.id);
-        if (optimisticMessage.content) {
-          cacheSentPlaintext(msg.id, optimisticMessage.content);
-        }
-      }
-
       useChatStore
         .getState()
         .replaceOptimisticMessage(
           msg.conversation_id,
           optimisticMessage.id,
-          mergedMessage,
+          msg,
         );
-      await persistInboundRelayMessage(
-        { ...mergedMessage, status: "sent" as const },
-        ctx.userId,
-      );
     } else {
-      // Add as new message (already decrypted in preprocessE2ee when e2ee_text)
       console.log("➕ Adding NEW message from GlobalWebSocket:", {
         id: msg.id,
         conversationId: msg.conversation_id,
@@ -124,12 +80,10 @@ export async function handleIncomingMessage(
         sender: msg.sender?.first_name,
       });
 
-      const messageToStore = {
+      ctx.addOrUpdateMessage(msg.conversation_id, {
         ...msg,
         status: "sent" as const,
-      };
-      ctx.addOrUpdateMessage(msg.conversation_id, messageToStore);
-      await persistInboundRelayMessage(messageToStore, ctx.userId);
+      });
     }
   }
 
@@ -223,11 +177,6 @@ export async function handleIncomingMessage(
               "✅ New conversation added to list:",
               msg.conversation_id,
             );
-
-            // Show toast notification for new conversation
-            /* toast.success("New conversation", {
-              description: `${msg.sender.first_name} ${msg.sender.last_name} started a conversation`,
-            }); */
           }
         })
         .catch((error) => {
@@ -273,11 +222,7 @@ export async function handleIncomingMessage(
     }
 
     // Conversation exists, update last message and unread count
-    const sidebarMessage =
-      messageType === "e2ee_text"
-        ? await resolveMessageForDisplay(msg, ctx.userId)
-        : msg;
-    ctx.setLastMessage(msg.conversation_id, sidebarMessage, ctx.userId);
+    ctx.setLastMessage(msg.conversation_id, msg, ctx.userId);
 
     // Trigger notification for incoming messages from others
     ctx.triggerNotification(msg);

@@ -1,6 +1,4 @@
 import type { RefValue } from "../../types";
-import { getSentPlaintext } from "@/lib/e2ee/sent-plaintext-cache";
-import { looksLikeCiphertext } from "@/lib/e2ee/sent-plaintext-cache";
 
 export function isUnconfirmedOutboundMessage(msg: Message): boolean {
   return (
@@ -29,13 +27,7 @@ export function findOutboundOptimisticMessage(
 
   if (candidates.length === 0) return undefined;
 
-  const sentPlaintext = getSentPlaintext(msg.id);
-  if (sentPlaintext) {
-    const byPlaintext = candidates.find((m) => m.content === sentPlaintext);
-    if (byPlaintext) return byPlaintext;
-  }
-
-  if (msg.content && !looksLikeCiphertext(msg.content)) {
+  if (msg.content) {
     const byContent = candidates.find((m) => m.content === msg.content);
     if (byContent) return byContent;
   }

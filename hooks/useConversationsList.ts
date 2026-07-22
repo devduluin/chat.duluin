@@ -1,14 +1,8 @@
-// hooks/useConversationsList.ts
-import { useCallback, useEffect, useRef } from "react";
+import { useCallback } from "react";
 import { getConversations } from "@services/v1/conversationService";
 import { useLoadingOverlayStore } from "@/store/useLoadingOverlayStore";
 import { useConversationsStore } from "@/store/useConversationsStore";
 import { shallow } from "zustand/shallow";
-import { ensureDeviceRegistered } from "@/lib/e2ee/device-manager";
-import {
-  resolveConversationLastMessages,
-} from "@/lib/e2ee/message-preview";
-import { looksLikeCiphertext } from "@/lib/e2ee/sent-plaintext-cache";
 
 export const useConversations = (userId: string, filter?: any) => {
   const { conversations, setConversation, setMessage, clearData } =
@@ -23,7 +17,6 @@ export const useConversations = (userId: string, filter?: any) => {
     );
 
   const { loadingOverlay, setLoadingOverlay } = useLoadingOverlayStore();
-  const hydratedPreviewRef = useRef(false);
 
   const fetchConversations = useCallback(async () => {
     if (!userId) return;
@@ -76,14 +69,7 @@ export const useConversations = (userId: string, filter?: any) => {
           "from",
           res.data.recent_conversations?.length
         );
-        await ensureDeviceRegistered(userId).catch((error) => {
-          console.warn("E2EE device init skipped for conversation list:", error);
-        });
-        const resolvedConversations = await resolveConversationLastMessages(
-          filteredConversations,
-          userId,
-        );
-        setConversation(resolvedConversations);
+        setConversation(filteredConversations);
       } else {
         console.warn(
           "Invalid response format, keeping cached conversations:",
@@ -103,50 +89,6 @@ export const useConversations = (userId: string, filter?: any) => {
       setLoadingOverlay(false);
     }
   }, [userId, filter, setLoadingOverlay, setConversation]); // Remove 'conversations' from deps to prevent loop
-
-  // Decrypt E2EE last-message previews restored from localStorage before API refetch.
-  useEffect(() => {
-    if (!userId || !conversations.length || hydratedPreviewRef.current) return;
-
-    const needsResolve = conversations.some(
-      (item: RecentConversation) =>
-        item.LastMessage?.message_type === "e2ee_text" &&
-        looksLikeCiphertext(item.LastMessage.content || ""),
-    );
-    if (!needsResolve) {
-      hydratedPreviewRef.current = true;
-      return;
-    }
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await ensureDeviceRegistered(userId);
-        const resolved = await resolveConversationLastMessages(
-          conversations,
-          userId,
-        );
-        if (cancelled) return;
-
-        const changed = resolved.some(
-          (item: RecentConversation, index: number) =>
-            item.LastMessage?.content !==
-            conversations[index]?.LastMessage?.content,
-        );
-        if (changed) {
-          setConversation(resolved);
-        }
-      } finally {
-        if (!cancelled) {
-          hydratedPreviewRef.current = true;
-        }
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, conversations, setConversation]);
 
   return {
     conversations,

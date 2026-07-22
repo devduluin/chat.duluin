@@ -26,7 +26,6 @@ interface Conversation {
   avatar_url: string;
   is_group: boolean;
   is_cross_tenant: boolean;
-  security_mode?: "plain" | "e2ee";
   created_by: string;
   created_at: string;
   updated_at: string;
@@ -46,7 +45,6 @@ interface ConversationDetails {
   avatar_url: string;
   is_group: boolean;
   is_cross_tenant: boolean;
-  security_mode?: "plain" | "e2ee";
   created_by: string;
   created_at: string;
   updated_at: string;

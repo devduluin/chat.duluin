@@ -182,7 +182,6 @@ export function ConversationList({ userId, searchQuery = "" }: { userId: string;
               key={item.Conversation.id}
               conversation={conversationWithDisplay}
               lastMessage={item.LastMessage}
-              userId={userId}
             />
           );
         })}
