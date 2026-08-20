@@ -23,11 +23,11 @@ jobs:
       - name: Add server to known hosts
         run: |
           mkdir -p ~/.ssh
-          ssh-keyscan -H 76.13.17.180 >> ~/.ssh/known_hosts
+          ssh-keyscan -H 187.124.138.11 >> ~/.ssh/known_hosts
 
       - name: Deploy to server
         env:
-          SERVER_IP: 76.13.17.180
+          SERVER_IP: 187.124.138.11
           SERVER_USER: ${{ secrets.SERVER_USER }}
           DEPLOY_PATH: /home/apps/workspaceChatFrontend
         run: |
@@ -72,4 +72,4 @@ jobs:
       - name: Verify deployment
         run: |
           echo "Deployment completed successfully!"
-          echo "Application should be accessible at http://76.13.17.180:8085"
+          echo "Application should be accessible at http://187.124.138.11:8085"
